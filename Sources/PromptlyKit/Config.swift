@@ -13,7 +13,7 @@ struct Config: Decodable {
 
     static func loadConfig() throws -> Config {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
-            let configURL = homeDir.appendingPathComponent(".config/pllm/config.json")
+            let configURL = homeDir.appendingPathComponent(".config/promptly/config.json")
 
             do {
                 let data = try Data(contentsOf: configURL)
