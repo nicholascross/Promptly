@@ -5,7 +5,7 @@ import PackageDescription
 
 let package = Package(
     name: "Promptly",
-    platforms: [.macOS(.v15)],
+    platforms: [.macOS(.v14)],
     products: [
         .executable(name: "promptly", targets: ["Promptly"]),
         .library(
