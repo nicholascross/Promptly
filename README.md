@@ -11,7 +11,7 @@ This tool is built using Swift and leverages several dependencies including the 
 
 ## Requirements
 
-- macOS 10.15 or later
+- macOS 14 or later
 - Swift 6.0 or later
 - Xcode or Swift Package Manager
 
