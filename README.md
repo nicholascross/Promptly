@@ -30,9 +30,9 @@ To install Promptly, follow these steps:
    swift build -c release
    ```
 
-3. (Optional) Copy the executable to your PATH:
+3. Copy the executable to your PATH:
    ```bash
-   cp .build/release/Promptly /usr/local/bin/promptly
+   cp .build/release/Promptly ~/bin/promptly
    ```
 
 ## Usage
