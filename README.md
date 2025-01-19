@@ -1,13 +1,12 @@
 # Promptly Project
 
-Promptly is a command-line tool that enables you to interact with OpenAI's API securely by storing your API token in your system's Keychain.
-
-This tool is built using Swift and leverages several dependencies including the [ArgumentParser](https://github.com/apple/swift-argument-parser) for parsing command-line arguments, and [MacPaw/OpenAI](https://github.com/MacPaw/OpenAI.git) for handling API interactions.
+Promptly is a versatile command-line tool designed to interact with OpenAI's API and OpenWebUI, ensuring secure API token management by storing your token in your system's Keychain. This tool is crafted using Swift and incorporates dependencies such as [ArgumentParser](https://github.com/apple/swift-argument-parser) for parsing command-line arguments, and [MacPaw/OpenAI](https://github.com/MacPaw/OpenAI.git) for API interactions.
 
 ## Features
 
-- **Secure API Token Storage**: Store your OpenAI API token securely in the system's Keychain.
-- **Command-line Interaction**: Pass a context string directly through the command line to interact with OpenAI's API.
+- **Secure API Token Storage**: Safely store your OpenAI or OpenWebUI API token in the system's Keychain.
+- **Flexible API Interaction**: Choose to interact with either OpenAI's API or the OpenWebUI based on your configuration.
+- **Command-line Interface**: Directly pass context strings through the command line to interact with the chosen API.
 
 ## Requirements
 
@@ -17,7 +16,7 @@ This tool is built using Swift and leverages several dependencies including the 
 
 ## Installation
 
-To install Promptly, follow these steps:
+To install Promptly, execute the following steps:
 
 1. Clone the repository:
    ```bash
@@ -39,7 +38,7 @@ To install Promptly, follow these steps:
 
 ### Setting Up Your API Token
 
-Before using the tool to make API requests, you need to store your OpenAI API token. Run the following command and follow the prompts:
+Before utilizing the tool to make API requests, you must store your API token. Execute the following command and adhere to the prompts:
 
 ```bash
 promptly --setup-token
@@ -47,7 +46,7 @@ promptly --setup-token
 
 ### Making API Requests
 
-Once your API token is set up, you can make requests by passing a context string as an argument:
+After setting up your API token, you can initiate requests by passing a context string as an argument:
 
 ```bash
 echo "some output to send the llm" | promptly "Your context about what to do with the input"
@@ -55,7 +54,7 @@ echo "some output to send the llm" | promptly "Your context about what to do wit
 
 ### Help
 
-For more information on available commands and their usage, use the help option:
+For additional information on available commands and their usage, refer to the help option:
 
 ```bash
 promptly --help
@@ -67,12 +66,12 @@ To contribute to Promptly, you can follow these steps:
 
 1. Fork the repository and clone your fork.
 2. Create a new branch for your feature or fix.
-3. Make changes and write tests as necessary.
+3. Make modifications and write tests as necessary.
 4. Push your changes and create a pull request against the main Promptly repository.
 
 ## Security
 
-Promptly uses the system's Keychain to securely store the OpenAI API token. Always ensure your system is secure and follow best practices for security.
+Promptly employs the system's Keychain to securely store the OpenAI API token. Always ensure your system is secure and follow best practices for security.
 
 ## License
 
