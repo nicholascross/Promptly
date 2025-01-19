@@ -22,11 +22,15 @@ let package = Package(
             name: "Promptly",
             dependencies: [
                 "PromptlyKit",
-                "OpenAI",
                 .product(name: "ArgumentParser", package: "swift-argument-parser")
             ]
         ),
-        .target(name: "PromptlyKit")
+        .target(
+            name: "PromptlyKit",
+            dependencies: [
+                "OpenAI"
+            ]
+        )
     ],
     swiftLanguageModes: [.v6]
 )
