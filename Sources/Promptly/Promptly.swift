@@ -6,11 +6,9 @@ import Security
 @main
 struct Promptly: AsyncParsableCommand {
 
-    /// Flag to trigger setup mode for storing an API token in the Keychain.
-    @Flag(name: .long, help: "Run a setup to store your OpenAI API token in the Keychain.")
+    @Flag(name: .long, help: "Run a setup to store your OpenAI/Open WebUI API token in the Keychain.")
     var setupToken = false
 
-    /// The context string passed to the system prompt.
     @Argument(help: "A context string to pass to the system prompt.")
     var contextArgument: String?
 
@@ -23,9 +21,17 @@ struct Promptly: AsyncParsableCommand {
         }
 
         guard let contextArgument = contextArgument else {
-            throw ValidationError("Usage: promptly <context-string>\n")
+            throw ValidationError("Usage: promptly <context-string>\\n")
         }
 
-        try await prompter.runChat(contextArgument: contextArgument)
+        // Load config; pick which service to call
+        let config = try Config.loadConfig()
+        if config.useOpenWebUI == true {
+            // Use our new Open WebUI endpoint
+            try await prompter.runChatOpenWebUIStream(contextArgument: contextArgument)
+        } else {
+            // Default to OpenAI
+            try await prompter.runChatOpenAI(contextArgument: contextArgument)
+        }
     }
 }
