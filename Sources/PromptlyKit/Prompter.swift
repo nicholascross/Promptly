@@ -14,7 +14,7 @@ public struct Prompter {
         }
 
         do {
-            try Keychain().setGenericPassword(account: "openai_token", service: "LLMAssistantService", password: token)
+            try Keychain().setGenericPassword(account: "openai_token", service: "Promptly", password: token)
             print("Token stored in Keychain successfully!")
         } catch {
             print("Failed to store token: \(error.localizedDescription)")
