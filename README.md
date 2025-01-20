@@ -33,6 +33,35 @@ To install Promptly, execute the following steps:
    ```bash
    cp .build/release/Promptly ~/bin/promptly
    ```
+## Configuration
+
+1.	Create the Config File
+
+```bash
+mkdir -p ~/.config/promptly
+touch ~/.config/promptly/config.json
+```
+
+2.	Example Configuration
+ 
+```json
+{
+  "useOpenWebUI": true,
+  "openWebUIHost": "webui.example.com",
+  "openWebUIPort": 5678,
+  "openWebUIModel": "gpt-3.5-turbo"
+}
+```
+3.	Parameter Overview
+ 
+- organizationId: Your organization ID for OpenAI.
+- host (default: api.openai.com): API host address.
+- port (default: 443): API port number.
+- model (default: gpt4_turbo): Model identifier for OpenAI.
+- useOpenWebUI (default: false): Enables OpenWebUI if set to true.
+- openWebUIHost: Host address for OpenWebUI.
+- openWebUIPort: Port number for OpenWebUI.
+- openWebUIModel: Model identifier for OpenWebUI.
 
 ## Usage
 
