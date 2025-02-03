@@ -3,7 +3,11 @@ import OpenAI
 
 public struct Prompter {
 
-    public init() {}
+    var config: Config
+
+    public init(config: Config) {
+        self.config = config
+    }
 
     /// Prompts the user for a token and stores it in the Keychain.
     public func setupTokenAction() async throws {
@@ -36,12 +40,12 @@ public struct Prompter {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         let userInput = String(data: inputData, encoding: .utf8) ?? ""
 
-        let config = try Config.loadConfig()
-
-        guard let token = try Keychain().genericPassword(
+        let token = try Keychain().genericPassword(
             account: "openai_token",
             service: "Promptly"
-        ) else {
+        ) ?? ""
+        if token.isEmpty && config.usesToken != false {
+            // Only throw an error if a token is required and it is either not found in the keychain or is empty.
             throw PrompterError.tokenNotSpecified
         }
 
@@ -50,6 +54,7 @@ public struct Prompter {
             organizationIdentifier: config.organizationId,
             host: config.host ?? "api.openai.com",
             port: config.port ?? 443,
+            scheme: config.scheme ?? "https",
             timeoutInterval: 60.0
         )
         let openAI = OpenAI(configuration: openAIConfig)
@@ -75,8 +80,6 @@ public struct Prompter {
     public func runChatOpenWebUIStream(contextArgument: String) async throws {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         let userInput = String(data: inputData, encoding: .utf8) ?? ""
-
-        let config = try Config.loadConfig()
 
         guard let token = try Keychain().genericPassword(
             account: "openwebui_token",
