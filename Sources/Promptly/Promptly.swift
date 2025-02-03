@@ -12,8 +12,12 @@ struct Promptly: AsyncParsableCommand {
     @Argument(help: "A context string to pass to the system prompt.")
     var contextArgument: String?
 
+    @Argument(help: "Override the default configuration path of ~/.config/promptly/config.json.")
+    var configFile: String = "~/.config/promptly/config.json"
+
     mutating func run() async throws {
-        let prompter = Prompter()
+        let config = try Config.loadConfig(file: configFile)
+        let prompter = Prompter(config: config)
 
         if setupToken {
             try await prompter.setupTokenAction()
@@ -24,8 +28,7 @@ struct Promptly: AsyncParsableCommand {
             throw ValidationError("Usage: promptly <context-string>\\n")
         }
 
-        // Load config; pick which service to call
-        let config = try Config.loadConfig()
+        // Pick which service to call
         if config.useOpenWebUI == true {
             // Use our new Open WebUI endpoint
             try await prompter.runChatOpenWebUIStream(contextArgument: contextArgument)

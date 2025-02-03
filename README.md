@@ -4,7 +4,7 @@ Promptly is a versatile command-line tool designed to interact with OpenAI's API
 
 ## Features
 
-- **Secure API Token Storage**: Safely store your OpenAI or OpenWebUI API token in the system's Keychain.
+- **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) or OpenWebUI API token in the system's Keychain.
 - **Flexible API Interaction**: Choose to interact with either OpenAI's API or the OpenWebUI based on your configuration.
 - **Command-line Interface**: Directly pass context strings through the command line to interact with the chosen API.
 
@@ -57,6 +57,8 @@ touch ~/.config/promptly/config.json
 - organizationId: Your organization ID for OpenAI.
 - host (default: api.openai.com): API host address.
 - port (default: 443): API port number.
+- scheme (default: https): API scheme, 'http' or 'https'.
+- usesToken (default: true): Allow an empty token if false.
 - model (default: gpt4_turbo): Model identifier for OpenAI.
 - useOpenWebUI (default: false): Enables OpenWebUI if set to true.
 - openWebUIHost: Host address for OpenWebUI.
@@ -64,6 +66,24 @@ touch ~/.config/promptly/config.json
 - openWebUIModel: Model identifier for OpenWebUI.
 
 ## Usage
+
+### Using llama.cpp via the OpenAI api
+
+Launch the llama server (example without using an API token):
+```bash
+llama-server -hf bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF
+```
+
+Config:
+
+```json
+{
+  "host": "localhost",
+  "port": 8080,
+  "scheme": "http",
+  "usesToken": false
+}
+```
 
 ### Setting Up Your API Token
 
