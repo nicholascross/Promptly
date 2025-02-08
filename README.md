@@ -9,7 +9,7 @@ git diff --staged | promptly "Explain the changes in this diff" | pbcopy
 
 ## Features
 
-- **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) or OpenWebUI API token in the system's Keychain.
+- **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) in the system's Keychain.
 - **Flexible API Interaction**: Choose to interact with OpenAI's API or compatible APIs such as OpenWebUI based on your configuration.
 - **Command-line Interface**: Directly pass context strings through the command line to interact with the chosen API.
 
