@@ -1,11 +1,16 @@
 # Promptly Project
 
-Promptly is a versatile command-line tool designed to interact with OpenAI's API and OpenWebUI, ensuring secure API token management by storing your token in your system's Keychain. This tool is crafted using Swift and incorporates dependencies such as [ArgumentParser](https://github.com/apple/swift-argument-parser) for parsing command-line arguments, and [MacPaw/OpenAI](https://github.com/MacPaw/OpenAI.git) for API interactions.
+Promptly is a versatile command-line tool designed to interact with OpenAI's API for completions this includes compatible APIs such as Ollama, OpenWebUI and llama-cpp.
+
+```bash
+# Piping content to an llm and piping the output backout to another
+git diff --staged | promptly "Explain the changes in this diff" | pbcopy
+```
 
 ## Features
 
 - **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) or OpenWebUI API token in the system's Keychain.
-- **Flexible API Interaction**: Choose to interact with either OpenAI's API or the OpenWebUI based on your configuration.
+- **Flexible API Interaction**: Choose to interact with OpenAI's API or compatible APIs such as OpenWebUI based on your configuration.
 - **Command-line Interface**: Directly pass context strings through the command line to interact with the chosen API.
 
 ## Requirements
@@ -46,28 +51,24 @@ touch ~/.config/promptly/config.json
  
 ```json
 {
-  "useOpenWebUI": true,
-  "openWebUIHost": "webui.example.com",
-  "openWebUIPort": 5678,
-  "openWebUIModel": "gpt-3.5-turbo"
+  "scheme": "http",
+  "host": "webui.example.com",
+  "port": 5678,
+  "model": "gpt-3.5-turbo"
 }
 ```
+
 3.	Parameter Overview
  
-- organizationId: Your organization ID for OpenAI.
+- model: Model identifier.
 - host (default: api.openai.com): API host address.
 - port (default: 443): API port number.
 - scheme (default: https): API scheme, 'http' or 'https'.
-- usesToken (default: true): Allow an empty token if false.
-- model (default: gpt4_turbo): Model identifier for OpenAI.
-- useOpenWebUI (default: false): Enables OpenWebUI if set to true.
-- openWebUIHost: Host address for OpenWebUI.
-- openWebUIPort: Port number for OpenWebUI.
-- openWebUIModel: Model identifier for OpenWebUI.
+- path (default: v1/chat/completions) completions API path.
+- organizationId (optional): Your organization ID for OpenAI.
+- rawOutput (default: false): When true the raw response stream is output
 
-## Usage
-
-### Using llama.cpp via the OpenAI api
+#### Using llama.cpp
 
 Launch the llama server (example without using an API token):
 ```bash
@@ -81,7 +82,45 @@ Config:
   "host": "localhost",
   "port": 8080,
   "scheme": "http",
-  "usesToken": false
+}
+```
+
+#### Using Ollama
+
+Config:
+
+```json
+{
+  "model": "qwen2.5-coder:7b",
+  "scheme":"http",
+  "port":11434,
+  "host":"localhost",
+  "tokenName": "ollama"
+}
+```
+
+Note: token is required despite the fact it is not used. 🤷‍♂️ 
+
+#### Using OpenAI
+
+Config:
+
+```json
+{
+  "organizationId": "org-123",
+  "model": "gpt-4o-mini",
+  "tokenName": "openai"
+}
+```
+
+#### Using OpenWebUI
+
+Config:
+
+```json
+{
+  "path": "api/chat/completions",
+  "tokenName": "openwebui"
 }
 ```
 
@@ -129,9 +168,3 @@ Promptly is released under the MIT License. See the LICENSE file for more detail
 ## Acknowledgements
 
 This project has utilized generative AI tools in various aspects of its development, including coding assistance, testing and documentation enhancement. The use of these tools has contributed to the efficiency and effectiveness of the development process.
-
-This README was largely generated with promptly.
-
-```bash
-cat Sources/Promptly/Promptly.swift | ./.build/release/promptly "Create a readme for this project"
-```

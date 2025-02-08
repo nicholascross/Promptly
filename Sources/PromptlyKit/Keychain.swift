@@ -2,7 +2,9 @@ import Foundation
 import Security
 
 public struct Keychain {
-    func genericPassword(account: String, service: String) throws -> String? {
+    public init() {}
+
+    public func genericPassword(account: String, service: String) throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
                       kSecAttrAccount as String: account,
@@ -29,7 +31,7 @@ public struct Keychain {
         return password
     }
 
-    func setGenericPassword(account: String, service: String, password: String) throws {
+    public func setGenericPassword(account: String, service: String, password: String) throws {
         let passwordData = password.data(using: .utf8)
 
         let query: [String: Any] = [

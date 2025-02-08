@@ -14,7 +14,6 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/MacPaw/OpenAI.git", branch: "main"),
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0")
     ],
     targets: [
@@ -27,9 +26,7 @@ let package = Package(
         ),
         .target(
             name: "PromptlyKit",
-            dependencies: [
-                "OpenAI"
-            ]
+            dependencies: []
         )
     ],
     swiftLanguageModes: [.v6]
