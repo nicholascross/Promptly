@@ -3,7 +3,7 @@
 Promptly is a versatile command-line tool designed to interact with OpenAI's API for completions this includes compatible APIs such as Ollama, OpenWebUI and llama-cpp.
 
 ```bash
-# Piping content to an llm and piping the output backout to another
+# Piping content to an llm and piping the output backout to another command
 git diff --staged | promptly "Explain the changes in this diff" | pbcopy
 ```
 
