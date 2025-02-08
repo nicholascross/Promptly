@@ -34,8 +34,6 @@ public struct Prompter {
 
         let request = try makeRequest(url: url, userInput: userInput, contextArgument: contextArgument)
 
-        print(request)
-
         let (resultStream, response) = try await URLSession.shared.bytes(for: request)
         
         try await handleResult(resultStream, response)
