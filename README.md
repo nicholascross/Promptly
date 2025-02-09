@@ -1,22 +1,24 @@
 # Promptly Project
 
-Promptly is a versatile command-line tool designed to interact with OpenAI's API for completions this includes compatible APIs such as Ollama, OpenWebUI and llama-cpp.
+Promptly is a versatile command-line tool designed to interact with OpenAI's API for completions, as well as compatible APIs such as Ollama, OpenWebUI, and llama-cpp.
+
+## Examples
 
 ```bash
-# Piping content to an llm and piping the output backout to another command
+# Piping content to an LLM and piping the output back to another command
 git diff --staged | promptly "Write a commit message that explains the changes in this diff" | pbcopy
 ```
 
 ```bash
 # Update project readme for staged changes
-(cat README.md; echo; git diff --staged) | promptly "Update the readme for the following changes. When making any modifications to examples ensure they are relevant to real world use cases.  Do not use language that is out of place in a readme. Output the full readme and nothing else." > README.md
+(cat README.md; echo; git diff --staged) | promptly "Update the readme for the following changes. When making any modifications to examples, ensure they are relevant to real-world use cases." > README.md
 ```
 
 ## Features
 
 - **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) in the system's Keychain.
 - **Flexible API Interaction**: Choose to interact with OpenAI's API or compatible APIs such as OpenWebUI based on your configuration.
-- **Command-line Interface**: Directly pass context strings through the command line to interact with the chosen API.
+- **Command-Line Interface**: Directly pass context strings through the command line to interact with the chosen API.
 
 ## Requirements
 
@@ -43,73 +45,66 @@ To install Promptly, execute the following steps:
    ```bash
    cp .build/release/Promptly ~/bin/promptly
    ```
+
 ## Configuration
 
-1.	Create the Config File
+1. Create the Config File
+   ```bash
+   mkdir -p ~/.config/promptly
+   touch ~/.config/promptly/config.json
+   ```
 
-```bash
-mkdir -p ~/.config/promptly
-touch ~/.config/promptly/config.json
-```
+2. Example Configuration
+   ```json
+   {
+     "scheme": "http",
+     "host": "webui.example.com",
+     "port": 5678,
+     "model": "gpt-3.5-turbo"
+   }
+   ```
 
-2.	Example Configuration
- 
-```json
-{
-  "scheme": "http",
-  "host": "webui.example.com",
-  "port": 5678,
-  "model": "gpt-3.5-turbo"
-}
-```
+3. Parameter Overview
+   - model: Model identifier.
+   - host (default: api.openai.com): API host address.
+   - port (default: 443): API port number.
+   - scheme (default: https): API scheme, 'http' or 'https'.
+   - path (default: v1/chat/completions): completions API path.
+   - organizationId (optional): Your organization ID for OpenAI.
+   - rawOutput (default: false): When true, the raw response stream is output.
 
-3.	Parameter Overview
- 
-- model: Model identifier.
-- host (default: api.openai.com): API host address.
-- port (default: 443): API port number.
-- scheme (default: https): API scheme, 'http' or 'https'.
-- path (default: v1/chat/completions) completions API path.
-- organizationId (optional): Your organization ID for OpenAI.
-- rawOutput (default: false): When true the raw response stream is output
+### Using llama.cpp
 
-#### Using llama.cpp
-
-Launch the llama server (example without using an API token):
+Launch the llama server:
 ```bash
 llama-server -hf bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF
 ```
 
 Config:
-
 ```json
 {
   "host": "localhost",
   "port": 8080,
-  "scheme": "http",
+  "scheme": "http"
 }
 ```
 
-#### Using Ollama
+### Using Ollama
 
 Config:
-
 ```json
 {
   "model": "qwen2.5-coder:7b",
-  "scheme":"http",
-  "port":11434,
-  "host":"localhost",
+  "scheme": "http",
+  "port": 11434,
+  "host": "localhost",
   "tokenName": "ollama"
 }
 ```
 
-Note: token is required despite the fact it is not used. 🤷‍♂️ 
-
-#### Using OpenAI
+### Using OpenAI
 
 Config:
-
 ```json
 {
   "organizationId": "org-123",
@@ -118,10 +113,9 @@ Config:
 }
 ```
 
-#### Using OpenWebUI
+### Using OpenWebUI
 
 Config:
-
 ```json
 {
   "path": "api/chat/completions",
@@ -132,7 +126,6 @@ Config:
 ### Setting Up Your API Token
 
 Before utilizing the tool to make API requests, you must store your API token. Execute the following command and adhere to the prompts:
-
 ```bash
 promptly --setup-token
 ```
@@ -140,15 +133,13 @@ promptly --setup-token
 ### Making API Requests
 
 After setting up your API token, you can initiate requests by passing a context string as an argument:
-
 ```bash
-echo "some output to send the llm" | promptly "Your context about what to do with the input"
+echo "some output to send the LLM" | promptly "Your context about what to do with the input"
 ```
 
 ### Help
 
 For additional information on available commands and their usage, refer to the help option:
-
 ```bash
 promptly --help
 ```
@@ -172,4 +163,4 @@ Promptly is released under the MIT License. See the LICENSE file for more detail
 
 ## Acknowledgements
 
-This project has utilized generative AI tools in various aspects of its development, including coding assistance, testing and documentation enhancement. The use of these tools has contributed to the efficiency and effectiveness of the development process.
+This project has utilized generative AI tools in various aspects of its development, including coding assistance, testing, and documentation enhancement. The use of these tools has contributed to the efficiency and effectiveness of the development process.
