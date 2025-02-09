@@ -29,7 +29,7 @@ git diff --staged | promptly "Write a concise commit message that explains the f
 
 Tip: You can pipe the output directly into your clipboard (e.g., using pbcopy on macOS) to easily paste it into your commit message.
 
-Update README with Changes
+## Update README with Changes
 
 Automatically update your README by incorporating recent changes:
 
@@ -37,7 +37,7 @@ Automatically update your README by incorporating recent changes:
 (cat README.md; echo; git diff --staged) | promptly "Update the README with the above changes, ensuring all examples remain relevant and the overall document is cohesive. Output the full README and nothing else." > README.md
 ```
 
-Generate Release Notes
+## Generate Release Notes
 
 Summarize recent commits to create release notes:
 
@@ -47,7 +47,7 @@ git log --pretty=format:"%h %s" -n 10 | promptly "Generate release notes summari
 
 Tip: Adjust the number of commits (here -n 10) to match your release cycle.
 
-Pull Request Description Generator
+## Pull Request Description Generator
 
 Create a detailed pull request description using commit logs and diffs:
 
@@ -63,7 +63,7 @@ Create a detailed pull request description using commit logs and diffs:
 ) | promptly "Based on the information above, generate a comprehensive pull request description that covers the motivation behind the changes, a summary of what was modified, and instructions on how to test the updates."
 ```
 
-Bug Report Summarization
+## Bug Report Summarization
 
 Turn verbose error logs into a clear and concise bug report:
 
@@ -71,7 +71,7 @@ Turn verbose error logs into a clear and concise bug report:
 cat error.log | promptly "Summarize the error log above into a concise bug report that includes a description of the issue, potential causes, and steps to reproduce the problem."
 ```
 
-Code Review Assistant
+## Code Review Assistant
 
 Receive a review summary and actionable suggestions based on code differences:
 
@@ -81,7 +81,7 @@ git diff --staged | promptly "Provide a detailed code review for the changes abo
 
 Tip: This can help catch issues early in your pull request workflow.
 
-Test Case Suggestions
+## Test Case Suggestions
 
 Generate potential test cases for a given specification or module:
 
@@ -89,7 +89,7 @@ Generate potential test cases for a given specification or module:
 cat module_requirements.txt | promptly "Based on the requirements listed above, suggest a series of test cases including edge cases and error handling scenarios."
 ```
 
-Error Log Analysis
+## Error Log Analysis
 
 Analyze an error log to receive troubleshooting steps and potential fixes:
 
@@ -97,7 +97,7 @@ Analyze an error log to receive troubleshooting steps and potential fixes:
 cat system_error.log | promptly "Analyze the error log above and propose a list of troubleshooting steps along with possible solutions."
 ```
 
-Refactoring Suggestions
+## Refactoring Suggestions
 
 Get recommendations on how to refactor a block of code for clarity and maintainability:
 
@@ -105,7 +105,7 @@ Get recommendations on how to refactor a block of code for clarity and maintaina
 cat code_snippet.txt | promptly "Review the code snippet above and suggest refactoring improvements that enhance clarity, efficiency, and maintainability."
 ```
 
-Generate Technical Specification
+## Generate Technical Specification
 
 Create an outline for a technical specification document based on provided requirements:
 
@@ -113,7 +113,7 @@ Create an outline for a technical specification document based on provided requi
 cat requirements.txt | promptly "Based on the requirements above, generate an outline for a technical specification document that covers the system architecture, major components, and their interactions."
 ```
 
-Auto-generate Code Comments
+## Auto-generate Code Comments
 
 Automatically insert meaningful comments into code to improve documentation:
 
@@ -121,7 +121,7 @@ Automatically insert meaningful comments into code to improve documentation:
 cat code_without_comments.txt | promptly "Analyze the code above and insert helpful comments that explain its functionality and logic."
 ```
 
-Identify Potential Bugs
+## Identify Potential Bugs
 
 Examine code for potential issues and provide suggestions for fixes:
 
