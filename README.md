@@ -4,11 +4,12 @@ Promptly is a versatile command-line tool designed to interact with OpenAI's API
 
 ```bash
 # Piping content to an llm and piping the output backout to another command
-git diff --staged | promptly "Explain the changes in this diff" | pbcopy
+git diff --staged | promptly "Write a commit message that explains the changes in this diff" | pbcopy
 ```
 
 ```bash
-(cat README.md; echo; git diff) | promptly "Update the readme for the following changes. When making any modifications to examples ensure they are relevant to real world use cases.  Do not use language that is out of place in a readme. Output the full readme and nothing else." > README.md
+# Update project readme for staged changes
+(cat README.md; echo; git diff --staged) | promptly "Update the readme for the following changes. When making any modifications to examples ensure they are relevant to real world use cases.  Do not use language that is out of place in a readme. Output the full readme and nothing else." > README.md
 ```
 
 ## Features
