@@ -139,6 +139,19 @@ After setting up your API token, you can initiate requests by passing a context 
 echo "some output to send the LLM" | promptly "Your context about what to do with the input"
 ```
 
+### Role based messages
+
+You can use the `--message` option to send a predefined series of messages to the chat interface. Note that when using `--message`, standard input and context arguments are ignored.
+
+```bash
+promptly --message "system:Respond as a pirate." --message "assistant:Ahoy" --message "user:Can you tell me a story?"
+```
+
+In this example:
+- The `system` message sets the context of the conversation.
+- The `assistant` message is meant to guide the interaction.
+- The `user` message is the inquiry from the user about the project.
+
 ### Help
 
 For additional information on available commands and their usage, refer to the help option:
