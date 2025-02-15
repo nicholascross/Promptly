@@ -1,8 +1,6 @@
 import Foundation
 
 public struct Config: Codable {
-    public let rawOutput: Bool
-
     public let host: String
     public let port: Int
     public let scheme: String
@@ -19,8 +17,7 @@ public struct Config: Codable {
         scheme: String = "https",
         path: String = "v1/chat/completions",
         model: String? = nil,
-        tokenName: String? = nil,
-        rawOutput: Bool = false
+        tokenName: String? = nil
     ) {
         self.organizationId = organizationId
         self.host = host
@@ -29,7 +26,6 @@ public struct Config: Codable {
         self.path = path
         self.model = model
         self.tokenName = tokenName
-        self.rawOutput = rawOutput
     }
     
     public init(from decoder: any Decoder) throws {
@@ -41,7 +37,6 @@ public struct Config: Codable {
         path = try container.decodeIfPresent(String.self, forKey: .path) ?? "v1/chat/completions"
         model = try container.decodeIfPresent(String.self, forKey: .model)
         tokenName = try container.decodeIfPresent(String.self, forKey: .tokenName)
-        rawOutput = try container.decodeIfPresent(Bool.self, forKey: .rawOutput) ?? false
     }
 
     public static func loadConfig(url: URL) throws -> Config {

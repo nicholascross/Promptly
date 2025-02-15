@@ -14,6 +14,9 @@ struct Promptly: AsyncParsableCommand {
     @Flag(name: .customLong("setup-token"), help: "Setup a new token.")
     var setupToken: Bool = false
 
+    @Flag(name: .customLong("raw-output"), help: "Output raw responses.")
+    var rawOutput: Bool = false
+
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: NSString(string: configFile).expandingTildeInPath).standardizedFileURL
         guard FileManager.default.fileExists(atPath: configURL.path) else {
@@ -31,7 +34,7 @@ struct Promptly: AsyncParsableCommand {
             throw ValidationError("Usage: promptly <context-string>\\n")
         }
 
-        let prompter = try Prompter(config: config)
+        let prompter = try Prompter(config: config, rawOutput: rawOutput)
         try await prompter.runChatStream(contextArgument: contextArgument)
     }
 }

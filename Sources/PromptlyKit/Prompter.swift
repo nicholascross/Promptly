@@ -8,7 +8,7 @@ public struct Prompter {
     private let organizationId: String?
     private let rawOutput: Bool
 
-    public init(config: Config) throws {
+    public init(config: Config, rawOutput: Bool) throws {
         let token = try config.tokenName.map {
             try Keychain().genericPassword(
                 account: $0,
@@ -25,7 +25,7 @@ public struct Prompter {
         self.token = token
         self.model = config.model
         self.organizationId = config.organizationId
-        self.rawOutput = config.rawOutput
+        self.rawOutput = rawOutput
     }
 
     public func runChatStream(contextArgument: String) async throws {
