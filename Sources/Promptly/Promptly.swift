@@ -32,15 +32,15 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let config = try Config.loadConfig(url: configURL)
-
-        guard let contextArgument = contextArgument else {
-            throw ValidationError("Usage: promptly <context-string>\\n")
-        }
-
         let prompter = try Prompter(config: config, rawOutput: rawOutput)
+
         guard messages.isEmpty else {
             try await prompter.runChatStream(messages: messages.rawMessages)
             return
+        }
+
+        guard let contextArgument = contextArgument else {
+            throw ValidationError("Usage: promptly <context-string>\\n")
         }
         try await prompter.runChatStream(contextArgument: contextArgument)
     }
