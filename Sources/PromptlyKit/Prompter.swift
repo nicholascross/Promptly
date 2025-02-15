@@ -1,5 +1,7 @@
 import Foundation
 
+public typealias RawMessage = [[String: String]]
+
 public struct Prompter {
 
     private let url: URL
@@ -32,14 +34,21 @@ public struct Prompter {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         let userInput = String(data: inputData, encoding: .utf8) ?? ""
 
-        let request = try makeRequest(url: url, userInput: userInput, contextArgument: contextArgument)
+        let messages = [
+            ["role": "system", "content": contextArgument],
+            ["role": "user", "content": userInput]
+        ]
 
+        try await runChatStream(messages: messages)
+    }
+
+    public func runChatStream(messages: RawMessage) async throws {
+        let request = try makeRequest(url: url, messages: messages)
         let (resultStream, response) = try await URLSession.shared.bytes(for: request)
-        
         try await handleResult(resultStream, response)
     }
 
-    private func makeRequest(url: URL, userInput: String, contextArgument: String) throws -> URLRequest {
+    private func makeRequest(url: URL, messages: RawMessage) throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -55,10 +64,7 @@ public struct Prompter {
 
         var body: [String: Any] = [
             "stream": true,
-            "messages": [
-                ["role": "system", "content": contextArgument],
-                ["role": "user", "content": userInput]
-            ]
+            "messages": messages
             //TODO: might need session_id and or chat_id and or id
         ]
 

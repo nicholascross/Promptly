@@ -17,6 +17,9 @@ struct Promptly: AsyncParsableCommand {
     @Flag(name: .customLong("raw-output"), help: "Output raw responses.")
     var rawOutput: Bool = false
 
+    @Option(name: .customLong("message"), help: "A message to send to the chat.")
+    private var messages: [Message] = []
+
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: NSString(string: configFile).expandingTildeInPath).standardizedFileURL
         guard FileManager.default.fileExists(atPath: configURL.path) else {
@@ -35,6 +38,43 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let prompter = try Prompter(config: config, rawOutput: rawOutput)
+        guard messages.isEmpty else {
+            try await prompter.runChatStream(messages: messages.rawMessages)
+            return
+        }
         try await prompter.runChatStream(contextArgument: contextArgument)
+    }
+}
+
+private enum Message: ExpressibleByArgument {
+    case user(String)
+    case system(String)
+    case assistant(String)
+
+    init?(argument: String) {
+        if argument.hasPrefix("user:") {
+            self = .user(argument.dropFirst(5).description)
+        } else if argument.hasPrefix("system:") {
+            self = .system(argument.dropFirst(7).description)
+        } else if argument.hasPrefix("assistant:") {
+            self = .assistant(argument.dropFirst(10).description)
+        } else {
+            return nil
+        }
+    }
+}
+
+private extension [Message] {
+    var rawMessages: [[String: String]] {
+        map { message in
+            switch message {
+            case .user(let content):
+                return ["role": "user", "content": content]
+            case .system(let content):
+                return ["role": "system", "content": content]
+            case .assistant(let content):
+                return ["role": "assistant", "content": content]
+            }
+        }
     }
 }
