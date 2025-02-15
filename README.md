@@ -150,7 +150,7 @@ promptly --message "system:Respond as a pirate." --message "assistant:Ahoy" --me
 In this example:
 - The `system` message sets the context of the conversation.
 - The `assistant` message is meant to guide the interaction.
-- The `user` message is the inquiry from the user about the project.
+- The `user` message is the inquiry from the user.
 
 ### Help
 
