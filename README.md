@@ -139,6 +139,18 @@ After setting up your API token, you can initiate requests by passing a context 
 echo "some output to send the LLM" | promptly "Your context about what to do with the input"
 ```
 
+### Canned prompts
+
+You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.
+
+Create canned prompts as text files in the `~/.config/promptly/canned/` directory. 
+
+You can invoke a canned prompt for `example.txt` as follows:
+
+```bash
+echo "something" | promptly --canned "example"
+```
+
 ### Role based messages
 
 You can use the `--message` option to send a predefined series of messages to the chat interface. Note that when using `--message`, standard input and context arguments are ignored.
