@@ -65,7 +65,7 @@ To install Promptly, execute the following steps:
    touch ~/.config/promptly/config.json
    ```
 
-2. E91uxample Configuration
+2. Example Configuration
    ```json
    {
      "scheme": "http",
@@ -179,15 +179,6 @@ For additional information on available commands and their usage, refer to the h
 ```bash
 promptly --help
 ```
-
-## Development
-
-To contribute to Promptly, you can follow these steps:
-
-1. Fork the repository and clone your fork.
-2. Create a new branch for your feature or fix.
-3. Make modifications and write tests as necessary.
-4. Push your changes and create a pull request against the main Promptly repository.
 
 ## Security
 
