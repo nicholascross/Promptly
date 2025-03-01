@@ -1,0 +1,77 @@
+name: Update Homebrew Formula
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  update-homebrew:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the Promptly repository
+        uses: actions/checkout@v4
+
+      - name: Get the latest release tag
+        id: get_tag
+        run: echo "LATEST_TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
+
+      - name: Generate SHA256 checksum
+        run: |
+          TARBALL_URL="https://github.com/nicholascross/Promptly/archive/refs/tags/${{ env.LATEST_TAG }}.tar.gz"
+          curl -L -o promptly.tar.gz "$TARBALL_URL"
+          echo "SHA256=$(shasum -a 256 promptly.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
+          rm promptly.tar.gz
+
+      - name: Clone the Homebrew tap repository
+        run: |
+          git clone https://github.com/nicholascross/homebrew-promptly.git homebrew-tap
+          cd homebrew-tap
+          echo "Homebrew tap cloned successfully"
+
+      - name: Update Homebrew formula
+        run: |
+          FORMULA_PATH="homebrew-tap/Formula/promptly.rb"
+          cat > "$FORMULA_PATH" <<EOF
+          class Promptly < Formula
+            desc "A command-line tool for working with prompts"
+            homepage "https://github.com/nicholascross/Promptly"
+            url "https://github.com/nicholascross/Promptly/archive/refs/tags/${{ env.LATEST_TAG }}.tar.gz"
+            sha256 "${{ env.SHA256 }}"
+            version "${{ env.LATEST_TAG }}"
+            depends_on "swift" => :build
+
+            def install
+              system "swift", "build", "-c", "release"
+              bin.install ".build/release/promptly"
+            end
+
+            test do
+              system "#{bin}/promptly", "--version"
+            end
+          end
+          EOF
+          echo "Homebrew formula updated"
+
+      - name: Setup SSH for pushing to homebrew tap
+        env:
+          HOMEBREW_DEPLOY_KEY: ${{ secrets.HOMEBREW_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$HOMEBREW_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Clone the Homebrew tap repository
+        run: |
+          git clone git@github.com:nicholascross/homebrew-promptly.git homebrew-tap
+          cd homebrew-tap
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push changes to Homebrew tap
+        run: |
+          cd homebrew-tap
+          git add Formula/promptly.rb
+          git commit -m "Update Promptly formula to version ${{ env.LATEST_TAG }}"
+          git push origin main
