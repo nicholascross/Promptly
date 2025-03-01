@@ -29,6 +29,9 @@ jobs:
           cd homebrew-tap
           echo "Homebrew tap cloned successfully"
 
+      - name: Ensure Formula directory exists
+        run: mkdir -p homebrew-tap/Formula
+
       - name: Update Homebrew formula
         run: |
           FORMULA_PATH="homebrew-tap/Formula/promptly.rb"
