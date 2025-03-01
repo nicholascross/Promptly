@@ -30,6 +30,15 @@ For more detailed examples and usage, check out the [Cookbook](Docs/cookbook.md)
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew tap nicholascross/promptly
+brew install promptly
+```
+
+### Manuel
+
 To install Promptly, execute the following steps:
 
 1. Clone the repository:
@@ -56,7 +65,7 @@ To install Promptly, execute the following steps:
    touch ~/.config/promptly/config.json
    ```
 
-2. Example Configuration
+2. E91uxample Configuration
    ```json
    {
      "scheme": "http",
