@@ -37,7 +37,7 @@ brew tap nicholascross/promptly
 brew install promptly
 ```
 
-### Manuel
+### Manual
 
 To install Promptly, execute the following steps:
 
