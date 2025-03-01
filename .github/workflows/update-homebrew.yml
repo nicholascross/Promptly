@@ -55,8 +55,7 @@ jobs:
             depends_on "swift" => :build
 
             def install
-              ENV["SWIFTPM_DISABLE_SANDBOX"] = "1"
-              system "swift", "build", "-c", "release"
+              system "swift", "build", "-c", "release", "--disable-sandbox"
               bin.install ".build/release/promptly"
             end
 
