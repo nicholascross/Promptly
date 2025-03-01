@@ -60,7 +60,7 @@ jobs:
             end
 
             test do
-              system "#{bin}/promptly", "--version"
+              system "#{bin}/promptly", "--help"
             end
           end
           EOF
