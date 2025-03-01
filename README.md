@@ -60,6 +60,8 @@ To install Promptly, execute the following steps:
 ## Configuration
 - See [Configuration](Docs/configuration.md)
 
+## Usage
+
 ### Setting Up Your API Token
 
 Before utilizing the tool to make API requests, you must store your API token. Execute the following command and adhere to the prompts:
@@ -98,13 +100,6 @@ In this example:
 - The `system` message sets the context of the conversation.
 - The `assistant` message is meant to guide the interaction.
 - The `user` message is the inquiry from the user.
-
-### Help
-
-For additional information on available commands and their usage, refer to the help option:
-```bash
-promptly --help
-```
 
 ## Security
 
