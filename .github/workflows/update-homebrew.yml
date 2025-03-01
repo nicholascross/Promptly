@@ -23,12 +23,6 @@ jobs:
           echo "SHA256=$(shasum -a 256 promptly.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
           rm promptly.tar.gz
 
-      - name: Clone the Homebrew tap repository
-        run: |
-          git clone https://github.com/nicholascross/homebrew-promptly.git homebrew-tap
-          cd homebrew-tap
-          echo "Homebrew tap cloned successfully"
-
       - name: Ensure Formula directory exists
         run: mkdir -p homebrew-tap/Formula
 
