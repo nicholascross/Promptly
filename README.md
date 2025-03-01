@@ -101,10 +101,6 @@ In this example:
 - The `assistant` message is meant to guide the interaction.
 - The `user` message is the inquiry from the user.
 
-## Security
-
-Promptly employs the system's Keychain to securely store the OpenAI API token. Always ensure your system is secure and follow best practices for security.
-
 ## License
 
 Promptly is released under the MIT License. See the LICENSE file for more details.
