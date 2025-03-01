@@ -23,6 +23,15 @@ jobs:
           echo "SHA256=$(shasum -a 256 promptly.tar.gz | awk '{print $1}')" >> $GITHUB_ENV
           rm promptly.tar.gz
 
+      - name: Setup SSH for pushing to homebrew tap
+        env:
+          HOMEBREW_DEPLOY_KEY: ${{ secrets.HOMEBREW_DEPLOY_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$HOMEBREW_DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
       - name: Clone the Homebrew tap repository
         run: |
           git clone git@github.com:nicholascross/homebrew-promptly.git homebrew-tap
@@ -56,15 +65,6 @@ jobs:
           end
           EOF
           echo "Homebrew formula updated"
-
-      - name: Setup SSH for pushing to homebrew tap
-        env:
-          HOMEBREW_DEPLOY_KEY: ${{ secrets.HOMEBREW_DEPLOY_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$HOMEBREW_DEPLOY_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Commit and push changes to Homebrew tap
         run: |
