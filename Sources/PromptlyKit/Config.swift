@@ -27,7 +27,7 @@ public struct Config: Codable {
         self.model = model
         self.tokenName = tokenName
     }
-    
+
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         organizationId = try container.decodeIfPresent(String.self, forKey: .organizationId)

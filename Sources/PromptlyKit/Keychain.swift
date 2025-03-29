@@ -7,23 +7,24 @@ public struct Keychain {
     public func genericPassword(account: String, service: String) throws -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
-                      kSecAttrAccount as String: account,
-                      kSecAttrService as String: service,
-                      kSecMatchLimit as String: kSecMatchLimitOne,
-                      kSecReturnData as String: kCFBooleanTrue as Any,
-                      kSecReturnAttributes as String: kCFBooleanTrue as Any
+            kSecAttrAccount as String: account,
+            kSecAttrService as String: service,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecReturnData as String: kCFBooleanTrue as Any,
+            kSecReturnAttributes as String: kCFBooleanTrue as Any
         ]
 
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
 
-        if status != errSecSuccess && status != errSecItemNotFound {
+        if status != errSecSuccess, status != errSecItemNotFound {
             throw KeychainError(status: status)
         }
 
-        guard let existingItem = item as? [String: Any],
-        let passwordData = existingItem[kSecValueData as String] as? Data,
-        let password = String(data: passwordData, encoding: .utf8)
+        guard
+            let existingItem = item as? [String: Any],
+            let passwordData = existingItem[kSecValueData as String] as? Data,
+            let password = String(data: passwordData, encoding: .utf8)
         else {
             return nil
         }
@@ -35,10 +36,10 @@ public struct Keychain {
         let passwordData = password.data(using: .utf8)
 
         let query: [String: Any] = [
-        kSecClass as String: kSecClassGenericPassword,
-                  kSecAttrAccount as String: account,
-                  kSecAttrService as String: service,
-                  kSecReturnAttributes as String: kCFBooleanTrue as Any
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: account,
+            kSecAttrService as String: service,
+            kSecReturnAttributes as String: kCFBooleanTrue as Any
         ]
 
         var item: CFTypeRef?
@@ -55,7 +56,10 @@ public struct Keychain {
                 kSecValueData as String: passwordData!
             ]
 
-            let updateStatus = SecItemUpdate(updateQuery as CFDictionary, updateAttributes as CFDictionary)
+            let updateStatus = SecItemUpdate(
+                updateQuery as CFDictionary,
+                updateAttributes as CFDictionary
+            )
             if updateStatus != errSecSuccess {
                 throw KeychainError(status: updateStatus)
             }

@@ -46,5 +46,4 @@ extension Config {
         let data = try JSONEncoder().encode(updatedConfig)
         try data.write(to: configURL)
     }
-
 }

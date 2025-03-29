@@ -4,7 +4,6 @@ struct ChatResponse: Decodable {
     let created: Int?
     let model: String?
     let choices: [Choice]
-
 }
 
 struct Choice: Decodable {

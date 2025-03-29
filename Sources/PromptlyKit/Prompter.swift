@@ -3,7 +3,6 @@ import Foundation
 public typealias RawMessage = [[String: String]]
 
 public struct Prompter {
-
     private let url: URL
     private let model: String?
     private let token: String?
@@ -25,12 +24,15 @@ public struct Prompter {
 
         self.url = url
         self.token = token
-        self.model = config.model
-        self.organizationId = config.organizationId
+        model = config.model
+        organizationId = config.organizationId
         self.rawOutput = rawOutput
     }
 
-    public func runChatStream(contextArgument: String, supplementaryContext: String? = nil) async throws {
+    public func runChatStream(
+        contextArgument: String,
+        supplementaryContext: String? = nil
+    ) async throws {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         let userInput = String(data: inputData, encoding: .utf8) ?? ""
 
@@ -66,7 +68,7 @@ public struct Prompter {
         var body: [String: Any] = [
             "stream": true,
             "messages": messages
-            //TODO: might need session_id and or chat_id and or id
+            // TODO: might need session_id and or chat_id and or id
         ]
 
         if let model = model {
@@ -77,9 +79,14 @@ public struct Prompter {
         return request
     }
 
-    private func handleResult(_ resultStream: URLSession.AsyncBytes, _ response: URLResponse) async throws {
-        guard let httpResponse = response as? HTTPURLResponse,
-              200...299 ~= httpResponse.statusCode else {
+    private func handleResult(
+        _ resultStream: URLSession.AsyncBytes,
+        _ response: URLResponse
+    ) async throws {
+        guard
+            let httpResponse = response as? HTTPURLResponse,
+            200 ... 299 ~= httpResponse.statusCode
+        else {
             print("Streaming request failed with response: \(response)")
             return
         }

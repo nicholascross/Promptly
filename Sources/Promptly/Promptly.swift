@@ -1,14 +1,16 @@
-import Foundation
 import ArgumentParser
+import Foundation
 import PromptlyKit
 
 @main
 struct Promptly: AsyncParsableCommand {
-
     @Argument(help: "A context string to pass to the system prompt.")
     var contextArgument: String?
 
-    @Option(name: .customShort("c"), help: "Override the default configuration path of ~/.config/promptly/config.json.")
+    @Option(
+        name: .customShort("c"),
+        help: "Override the default configuration path of ~/.config/promptly/config.json."
+    )
     var configFile: String = "~/.config/promptly/config.json"
 
     @Flag(name: .customLong("setup-token"), help: "Setup a new token.")
@@ -94,11 +96,11 @@ private extension [Message] {
     var rawMessages: [[String: String]] {
         map { message in
             switch message {
-            case .user(let content):
+            case let .user(content):
                 return ["role": "user", "content": content]
-            case .system(let content):
+            case let .system(content):
                 return ["role": "system", "content": content]
-            case .assistant(let content):
+            case let .assistant(content):
                 return ["role": "assistant", "content": content]
             }
         }
@@ -107,11 +109,11 @@ private extension [Message] {
 
 private extension String {
     var expandingTilde: String {
-        guard self.hasPrefix("~") else { return self }
-        return self.replacingOccurrences(
+        guard hasPrefix("~") else { return self }
+        return replacingOccurrences(
             of: "~",
             with: FileManager.default.homeDirectoryForCurrentUser.path,
-            range: self.startIndex..<self.index(after: self.startIndex)
+            range: startIndex ..< index(after: startIndex)
         )
     }
 }
