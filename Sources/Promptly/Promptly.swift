@@ -43,16 +43,22 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let prompt: String
+        let supplementaryContext: String?
         if let cannedContext = cannedContext {
             prompt = try loadCannedPrompt(name: cannedContext)
+            supplementaryContext = contextArgument
         } else {
             guard let contextArgument = contextArgument else {
                 throw ValidationError("Usage: promptly <context-string>\\n")
             }
             prompt = contextArgument
+            supplementaryContext = nil
         }
 
-        try await prompter.runChatStream(contextArgument: prompt)
+        try await prompter.runChatStream(
+            contextArgument: prompt,
+            supplementaryContext: supplementaryContext
+        )
     }
 
     private func loadCannedPrompt(name: String) throws -> String {

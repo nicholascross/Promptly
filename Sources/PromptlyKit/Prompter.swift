@@ -30,14 +30,15 @@ public struct Prompter {
         self.rawOutput = rawOutput
     }
 
-    public func runChatStream(contextArgument: String) async throws {
+    public func runChatStream(contextArgument: String, supplementaryContext: String? = nil) async throws {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         let userInput = String(data: inputData, encoding: .utf8) ?? ""
 
         let messages = [
             ["role": "system", "content": contextArgument],
+            supplementaryContext.map { ["role": "system", "content": $0] },
             ["role": "user", "content": userInput]
-        ]
+        ].compactMap { $0 }
 
         try await runChatStream(messages: messages)
     }
