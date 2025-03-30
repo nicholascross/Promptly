@@ -9,7 +9,7 @@ public struct Prompter {
     private let organizationId: String?
     private let rawOutput: Bool
 
-    public init(config: Config, rawOutput: Bool) throws {
+    public init(config: Config, rawOutput: Bool = false, modelOverride: String? = nil) throws {
         let token = try config.tokenName.map {
             try Keychain().genericPassword(
                 account: $0,
@@ -24,7 +24,7 @@ public struct Prompter {
 
         self.url = url
         self.token = token
-        model = config.model
+        model = modelOverride ?? config.model
         organizationId = config.organizationId
         self.rawOutput = rawOutput
     }

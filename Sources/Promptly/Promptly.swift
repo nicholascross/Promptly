@@ -25,6 +25,12 @@ struct Promptly: AsyncParsableCommand {
     @Option(name: [.customLong("canned"), .customShort("p")], help: "Use canned prompt as conext.")
     private var cannedContext: String?
 
+    @Option(
+        name: .customLong("model"),
+        help: "The model to use for the chat. If not specified defaults to configuration"
+    )
+    private var model: String?
+
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: configFile.expandingTilde).standardizedFileURL
         guard FileManager.default.fileExists(atPath: configURL.path) else {
@@ -37,7 +43,7 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let config = try Config.loadConfig(url: configURL)
-        let prompter = try Prompter(config: config, rawOutput: rawOutput)
+        let prompter = try Prompter(config: config, rawOutput: rawOutput, modelOverride: model)
 
         guard messages.isEmpty else {
             try await prompter.runChatStream(messages: messages.rawMessages)
