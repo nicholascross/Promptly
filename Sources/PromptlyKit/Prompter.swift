@@ -3,29 +3,18 @@ import Foundation
 public typealias RawMessage = [[String: String]]
 
 public struct Prompter {
-    private let url: URL
+    private let chatCompletionsURL: URL
     private let model: String?
     private let token: String?
     private let organizationId: String?
     private let rawOutput: Bool
 
     public init(config: Config, rawOutput: Bool = false, modelOverride: String? = nil) throws {
-        let token = try config.tokenName.map {
-            try Keychain().genericPassword(
-                account: $0,
-                service: "Promptly"
-            )
-        } ?? nil
+        self.chatCompletionsURL = config.chatCompletionsURL
+        self.token = config.token
 
-        let urlString = "\(config.scheme)://\(config.host):\(config.port)/\(config.path)"
-        guard let url = URL(string: urlString) else {
-            throw PrompterError.invalidConfiguration
-        }
-
-        self.url = url
-        self.token = token
-        model = modelOverride ?? config.model
-        organizationId = config.organizationId
+        self.model = modelOverride ?? config.model
+        self.organizationId = config.organizationId
         self.rawOutput = rawOutput
     }
 
@@ -46,7 +35,7 @@ public struct Prompter {
     }
 
     public func runChatStream(messages: RawMessage) async throws {
-        let request = try makeRequest(url: url, messages: messages)
+        let request = try makeRequest(url: chatCompletionsURL, messages: messages)
         let (resultStream, response) = try await URLSession.shared.bytes(for: request)
         try await handleResult(resultStream, response)
     }
