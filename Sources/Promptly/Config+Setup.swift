@@ -32,18 +32,24 @@ extension Config {
     }
 
     private static func updateConfig(tokenName: String, configURL: URL) throws {
-        let config = try Config.loadConfig(url: configURL)
+        let raw = try Data(contentsOf: configURL)
+        guard
+            var document = try JSONSerialization.jsonObject(with: raw, options: []) as? [String: Any],
+            let providerKey = document["provider"] as? String,
+            var providers = document["providers"] as? [String: Any],
+            var spec = providers[providerKey] as? [String: Any]
+        else {
+            throw PrompterError.invalidConfiguration
+        }
 
-        let updatedConfig = Config(
-            organizationId: config.organizationId,
-            host: config.host,
-            port: config.port,
-            scheme: config.scheme,
-            model: config.model,
-            tokenName: tokenName
+        spec["tokenName"] = tokenName
+        providers[providerKey] = spec
+        document["providers"] = providers
+
+        let updatedData = try JSONSerialization.data(
+            withJSONObject: document,
+            options: [.prettyPrinted]
         )
-
-        let data = try JSONEncoder().encode(updatedConfig)
-        try data.write(to: configURL)
+        try updatedData.write(to: configURL)
     }
 }
