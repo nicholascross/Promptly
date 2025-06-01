@@ -121,4 +121,5 @@ enum KeychainError: Error {
         }
     }
 }
+
 // swiftlint:enable cyclomatic_complexity

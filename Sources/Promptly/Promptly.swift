@@ -43,10 +43,15 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let config = try Config.loadConfig(url: configURL)
-        let prompter = try Prompter(config: config, rawOutput: rawOutput, modelOverride: model)
+        let prompter = try Prompter(
+            config: config,
+            rawOutput: rawOutput,
+            modelOverride: model,
+            tools: ToolFactory.makeTools()
+        )
 
         guard messages.isEmpty else {
-            try await prompter.runChatStream(messages: messages.rawMessages)
+            try await prompter.runChatStream(messages: messages.chatMessages)
             return
         }
 
@@ -64,8 +69,8 @@ struct Promptly: AsyncParsableCommand {
         }
 
         try await prompter.runChatStream(
-            contextArgument: prompt,
-            supplementaryContext: supplementaryContext
+            systemPrompt: prompt,
+            supplementarySystemPrompt: supplementaryContext
         )
     }
 
@@ -99,15 +104,15 @@ private enum Message: ExpressibleByArgument {
 }
 
 private extension [Message] {
-    var rawMessages: [[String: String]] {
+    var chatMessages: [ChatMessage] {
         map { message in
             switch message {
             case let .user(content):
-                return ["role": "user", "content": content]
+                return ChatMessage(role: .user, content: .text(content))
             case let .system(content):
-                return ["role": "system", "content": content]
+                return ChatMessage(role: .system, content: .text(content))
             case let .assistant(content):
-                return ["role": "assistant", "content": content]
+                return ChatMessage(role: .assistant, content: .text(content))
             }
         }
     }

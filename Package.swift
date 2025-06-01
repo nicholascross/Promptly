@@ -13,9 +13,7 @@ let package = Package(
             targets: ["PromptlyKit"]
         )
     ],
-    dependencies: [
-        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0")
-    ],
+    dependencies: [.package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0")],
     targets: [
         .executableTarget(
             name: "Promptly",

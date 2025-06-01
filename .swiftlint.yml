@@ -1,0 +1,23 @@
+# SwiftLint Configuration - consistent with SwiftFormat formatting rules.
+disabled_rules:
+  - opening_brace
+
+opt_in_rules:
+  - indentation_width
+
+excluded:
+  - .build
+
+indentation_width:
+  indentation_width: 4
+  include_comments: true
+  include_compiler_directives: true
+  include_multiline_strings: true
+
+line_length:
+  warning: 120
+  error: 200
+  ignores_urls: true
+
+trailing_comma:
+  severity: error

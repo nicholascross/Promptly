@@ -1,0 +1,10 @@
+# format options
+--indent 4
+--maxwidth 120
+--swiftversion 5
+--wraparguments before-first
+--wrapparameters before-first
+--wrapcollections before-first
+
+# rules
+--disable trailingCommas
