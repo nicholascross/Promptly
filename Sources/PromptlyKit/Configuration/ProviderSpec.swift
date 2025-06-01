@@ -17,7 +17,8 @@ struct ProviderSpec: Codable {
             let scheme = scheme,
             let host = host,
             let port = port,
-            let resolved = URL(string: "\(scheme)://\(host):\(port)/\(path ?? "v1/chat/completions")") {
+            let resolved = URL(string: "\(scheme)://\(host):\(port)/\(path ?? "v1/chat/completions")")
+        {
             return resolved
         } else {
             throw ConfigError.couldNotResolveURL(providerKey)
@@ -27,7 +28,8 @@ struct ProviderSpec: Codable {
     func resolveToken(providerKey: String) throws -> String {
         if
             let envKey = envKey,
-            let envToken = ProcessInfo.processInfo.environment[envKey] {
+            let envToken = ProcessInfo.processInfo.environment[envKey]
+        {
             return envToken
         } else if let tokenName = tokenName {
             do {

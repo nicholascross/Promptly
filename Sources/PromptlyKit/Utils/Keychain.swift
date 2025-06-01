@@ -52,9 +52,7 @@ public struct Keychain {
                 kSecAttrService as String: service
             ]
 
-            let updateAttributes: [String: Any] = [
-                kSecValueData as String: passwordData!
-            ]
+            let updateAttributes: [String: Any] = [kSecValueData as String: passwordData!]
 
             let updateStatus = SecItemUpdate(
                 updateQuery as CFDictionary,
