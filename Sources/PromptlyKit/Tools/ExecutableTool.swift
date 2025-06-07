@@ -7,7 +7,7 @@ public protocol ExecutableTool {
     /// A brief description of what the tool does.
     var description: String { get }
     /// The parameters schema as a JSONValue.
-    var parameters: JSONValue { get }
+    var parameters: JSONSchema { get }
     /// Execute the tool with the provided arguments (parsed into JSONValue). Returns a JSONValue result.
     func execute(arguments: JSONValue) async throws -> JSONValue
 }
