@@ -60,6 +60,8 @@ To install Promptly, execute the following steps:
 ## Configuration
 - See [Configuration](Docs/configuration.md)
 
+- **tools.json**: Optional JSON file (in your project root or in `~/.config/promptly/`) listing whitelisted shell commands and their parameter schemas.
+
 ## Usage
 
 ### Setting Up Your API Token
@@ -74,6 +76,14 @@ promptly --setup-token
 After setting up your API token, you can initiate requests by passing a context string as an argument:
 ```bash
 echo "some output to send the LLM" | promptly "Your context about what to do with the input"
+```
+
+### Raw Output
+
+If you need to see the raw JSON stream from the API (including function call metadata), add the `--raw-output` flag:
+
+```bash
+echo "some input" | promptly --raw-output "Your context about what to do with the input"
 ```
 
 ### Canned prompts

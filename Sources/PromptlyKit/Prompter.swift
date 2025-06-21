@@ -66,6 +66,9 @@ public struct Prompter {
 
         var replyPending = false
         repeat {
+            // looping only while performing tool calls
+            replyPending = false
+
             let request = try requestFactory.makeRequest(
                 messages: messages
             )
@@ -75,6 +78,7 @@ public struct Prompter {
                 let httpResponse = response as? HTTPURLResponse,
                 200 ... 299 ~= httpResponse.statusCode
             else {
+                try await streamRawOutput(from: stream)
                 throw PrompterError.invalidResponse(
                     statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1
                 )
@@ -149,8 +153,9 @@ public struct Prompter {
         } catch {
             messages.append(
                 ChatMessage(
-                    role: .assistant,
-                    content: .text("Error calling tool: \(error.localizedDescription)")
+                    role: .tool,
+                    content: .text("Error calling tool: \(error.localizedDescription)"),
+                    toolCallId: id
                 )
             )
         }

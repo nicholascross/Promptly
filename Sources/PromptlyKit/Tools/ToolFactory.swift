@@ -1,29 +1,78 @@
 import Foundation
 
-public enum ToolFactory {
-    public static func makeTools() -> [any ExecutableTool] {
-        [RandomNumberTool()]
+public struct ToolFactory {
+    private let fileManager: FileManagerProtocol
+
+    public init(fileManager: FileManagerProtocol = FileManager()) {
+        self.fileManager = fileManager
     }
-}
 
-private struct RandomNumberTool: ExecutableTool {
-    public let name = "randomNumber"
-    public let description = "Generates a random integer between a minimum and maximum value."
+    public func makeTools() throws -> [any ExecutableTool] {
+        let defaultTools = try loadShellCommandConfig(configURL: toolsConfigURL)
+        let localTools = try loadShellCommandConfig(configURL: localToolsConfigURL)
 
-    public let parameters: JSONSchema = .object(
-        requiredProperties: [
-            "min": .integer(minimum: nil, maximum: nil, description: "Minimum value (inclusive)"),
-            "max": .integer(minimum: nil, maximum: nil, description: "Maximum value (inclusive)")
-        ],
-        optionalProperties: [:],
-        description: "Parameters for generating a random number."
-    )
+        // Merge the default tools with local tools, giving precedence to local tools.
+        var tools = [any ExecutableTool]()
+        var toolNames = Set<String>()
+        for tool in localTools + defaultTools where !toolNames.contains(tool.name) {
+            tools.append(tool)
+            toolNames.insert(tool.name)
+        }
+        return tools
+    }
 
-    public func execute(arguments: JSONValue) async throws -> JSONValue {
-        let args = try arguments.decoded([String: Int].self)
-        let min = args["min"]!
-        let max = args["max"]!
-        let number = Int.random(in: min ... max)
-        return .object(["number": .number(Double(number))])
+    /// Load and instantiate shell command tools from a allow list config file in JSON format.
+    /// Expected format in `tools.json`:
+    /// {
+    ///   "shellCommands": [
+    ///     {
+    ///       "name": "ls",
+    ///       "description": "Recursively list a directory",
+    ///       "executable": "/bin/ls",
+    ///       "argumentTemplate": [["-R", "{{path}}"]],
+    ///       "parameters": { /* a valid JSONSchema */ }
+    ///     },
+    ///     ...
+    ///   ]
+    /// }
+    private func loadShellCommandConfig(configURL url: URL) throws -> [any ExecutableTool] {
+        guard fileManager.fileExists(atPath: url.path) else {
+            return []
+        }
+
+        let data = try Data(contentsOf: url)
+        let commandConfig = try JSONDecoder().decode(ShellCommandConfig.self, from: data)
+
+        return commandConfig.shellCommands.map { entry in
+            ShellCommandTool(
+                name: entry.name,
+                description: entry.description,
+                executable: entry.executable,
+                parameters: entry.parameters,
+                argumentTemplate: entry.argumentTemplate,
+                sandboxURL: sandboxURL,
+                fileManager: fileManager
+            )
+        }
+    }
+
+    private var localToolsConfigURL: URL {
+        URL(
+            fileURLWithPath: "tools.json",
+            relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        )
+        .standardizedFileURL
+    }
+
+    private var toolsConfigURL: URL {
+        URL(
+            fileURLWithPath: ".config/promptly/tools.json",
+            relativeTo: fileManager.homeDirectoryForCurrentUser
+        )
+        .standardizedFileURL
+    }
+
+    private var sandboxURL: URL {
+        URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
     }
 }

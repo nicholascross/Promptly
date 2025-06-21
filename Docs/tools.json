@@ -1,0 +1,257 @@
+{
+  "shellCommands": [
+    {
+      "name": "ls",
+      "description": "Recursively list a directory",
+      "executable": "/bin/ls",
+      "argumentTemplate": [["{(path)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory path to list" }
+        },
+        "required": ["path"],
+        "description": "Parameters for ls command"
+      }
+    },
+    {
+      "name": "tree",
+      "description": "Visual directory tree listing",
+      "executable": "tree",
+      "argumentTemplate": [["{(path)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory path to list" }
+        },
+        "required": ["path"],
+        "description": "Parameters for tree command"
+      }
+    },
+    {
+      "name": "find",
+      "description": "Locate files matching a name pattern",
+      "executable": "find",
+      "argumentTemplate": [["{(path)}", "-type", "f", "-name", "{{pattern}}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Root path to search in" },
+          "pattern": { "type": "string", "description": "Shell glob pattern for file names" }
+        },
+        "required": ["path", "pattern"],
+        "description": "Parameters for find command"
+      }
+    },
+    {
+      "name": "fd",
+      "description": "Locate files matching a pattern using fd",
+      "executable": "fd",
+      "argumentTemplate": [["{{pattern}}", "{(path)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Search pattern (regex-like)" },
+          "path": { "type": "string", "description": "Root path to search in" }
+        },
+        "required": ["pattern", "path"],
+        "description": "Parameters for fd command"
+      }
+    },
+    {
+      "name": "grep",
+      "description": "Search file contents for a pattern",
+      "executable": "grep",
+      "argumentTemplate": [["-R", "-n", "{{pattern}}", "{(path)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Pattern to search for" },
+          "path": { "type": "string", "description": "Root path to search in" }
+        },
+        "required": ["pattern", "path"],
+        "description": "Parameters for grep command"
+      }
+    },
+    {
+      "name": "rg",
+      "description": "Search file contents for a regex pattern",
+      "executable": "rg",
+      "argumentTemplate": [["-n", "{{pattern}}", "{(path)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regex pattern to search for" },
+          "path": { "type": "string", "description": "Path to search in" }
+        },
+        "required": ["pattern", "path"],
+        "description": "Parameters for ripgrep command"
+      }
+    },
+    {
+      "name": "sed",
+      "description": "Perform stream editing on a file",
+      "executable": "sed",
+      "argumentTemplate": [
+        ["-i", ""],
+        ["s/{{search}}/{{replace}}/g"],
+        ["{(file)}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": { "type": "string", "description": "Search regex" },
+          "replace": { "type": "string", "description": "Replacement string" },
+          "file": { "type": "string", "description": "File to edit in place" }
+        },
+        "required": ["search", "replace", "file"],
+        "description": "Parameters for sed command"
+      }
+    },
+    {
+      "name": "perl",
+      "description": "Perform in-place edits with Perl",
+      "executable": "perl",
+      "argumentTemplate": [
+        ["-pi", "-e"],
+        ["s/{{search}}/{{replace}}/g"],
+        ["{(file)}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "search": { "type": "string", "description": "Search regex" },
+          "replace": { "type": "string", "description": "Replacement string" },
+          "file": { "type": "string", "description": "File to edit in place" }
+        },
+        "required": ["search", "replace", "file"],
+        "description": "Parameters for perl command"
+      }
+    },
+    {
+      "name": "touch",
+      "description": "Create an empty file or update its timestamp",
+      "executable": "touch",
+      "argumentTemplate": [["{(file)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "description": "Path of the file to create or update" }
+        },
+        "required": ["file"],
+        "description": "Parameters for touch command"
+      }
+    },
+    {
+      "name": "mkdir",
+      "description": "Create directories",
+      "executable": "mkdir",
+      "argumentTemplate": [["-p", "{(dir)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "dir": { "type": "string", "description": "Directory path to create" }
+        },
+        "required": ["dir"],
+        "description": "Parameters for mkdir command"
+      }
+    },
+    {
+      "name": "rm",
+      "description": "Remove files or directories",
+      "executable": "rm",
+      "argumentTemplate": [["-f", "-r", "{(target)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "target": { "type": "string", "description": "File or directory to remove" }
+        },
+        "required": ["target"],
+        "description": "Parameters for rm command"
+      }
+    },
+    {
+      "name": "mv",
+      "description": "Move or rename files or directories",
+      "executable": "mv",
+      "argumentTemplate": [["{(source)}", "{(destination)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string", "description": "Source path" },
+          "destination": { "type": "string", "description": "Destination path" }
+        },
+        "required": ["source", "destination"],
+        "description": "Parameters for mv command"
+      }
+    },
+    {
+      "name": "cp",
+      "description": "Copy files or directories",
+      "executable": "cp",
+      "argumentTemplate": [["-r", "-p", "{(source)}", "{(destination)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "source": { "type": "string", "description": "Source path" },
+          "destination": { "type": "string", "description": "Destination path" }
+        },
+        "required": ["source", "destination"],
+        "description": "Parameters for cp command"
+      }
+    },
+    {
+      "name": "source-crawler",
+      "description": "Analyze Swift project structure with SourceCrawler.  This produces an output json file that must be read seperately.",
+      "executable": "source-crawler",
+      "argumentTemplate": [
+        ["--root-path", "{(rootPath)}"],
+        ["-t", "{{fileExtensions}}"],
+        ["--output-path", "{(outputPath)}"],
+        ["--excluded-paths", "{{excludedPaths}}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "rootPath": { "type": "string", "description": "Root path of the project" },
+          "fileExtensions": { "type": "string", "description": "Comma-separated list of file extensions to include" },
+          "outputPath": { "type": "string", "description": "Path for the JSON output file" },
+          "excludedPaths": { "type": "string", "description": "Comma-separated list of glob patterns to exclude" }
+        },
+        "required": [],
+        "description": "Parameters for source-crawler command"
+      }
+    },
+    {
+      "name": "here_document",
+      "description": "Create or overwrite a file with specified content via heredoc",
+      "executable": "bash",
+      "argumentTemplate": [
+        ["-c", "cat << 'EOF' > {(file)}\n{{content}}\nEOF"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "description": "File path to write content to" },
+          "content": { "type": "string", "description": "Content to write to the file" }
+        },
+        "required": ["file", "content"],
+        "description": "Parameters for here_document command"
+      }
+    },
+    {
+      "name": "cat",
+      "description": "Concatenate and display file contents",
+      "executable": "cat",
+      "argumentTemplate": [["{(file)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "description": "File path to read" }
+        },
+        "required": ["file"],
+        "description": "Parameters for cat command"
+      }
+    }
+  ]
+}

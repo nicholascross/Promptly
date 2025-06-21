@@ -1,6 +1,6 @@
 import Foundation
 
-public indirect enum JSONSchema: Codable {
+public indirect enum JSONSchema: Codable, Sendable {
     case object(
         requiredProperties: [String: JSONSchema],
         optionalProperties: [String: JSONSchema],
@@ -181,6 +181,15 @@ public indirect enum JSONSchema: Codable {
                 forKey: .type, in: container,
                 debugDescription: "Unsupported type: \(type)"
             )
+        }
+    }
+
+    func isRequiredProperty(_ name: String) -> Bool {
+        switch self {
+        case let .object(required, _, _):
+            return required.keys.contains(name)
+        default:
+            return false
         }
     }
 }

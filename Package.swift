@@ -13,13 +13,17 @@ let package = Package(
             targets: ["PromptlyKit"]
         )
     ],
-    dependencies: [.package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0")],
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
+        .package(url: "https://github.com/nicholascross/SwiftTokenizer", from: "0.0.1")
+    ],
     targets: [
         .executableTarget(
             name: "Promptly",
             dependencies: [
                 "PromptlyKit",
-                .product(name: "ArgumentParser", package: "swift-argument-parser")
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "SwiftTokenizer", package: "SwiftTokenizer")
             ]
         ),
         .target(
