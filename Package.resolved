@@ -1,5 +1,5 @@
 {
-  "originHash" : "b361bafff9614343cd9a0628ad1e4cf31820bb36c7e368f2852f4ee59d3de046",
+  "originHash" : "fa0698f76c577218a13337474a7a4dffbd1e645712851ebb214e68b5bcccab71",
   "pins" : [
     {
       "identity" : "swift-argument-parser",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "41982a3656a71c768319979febd796c6fd111d5c",
         "version" : "1.5.0"
+      }
+    },
+    {
+      "identity" : "swifttokenizer",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nicholascross/SwiftTokenizer",
+      "state" : {
+        "revision" : "c1cd35aa8591c0888088f72cbc5344d168b710aa",
+        "version" : "0.0.1"
       }
     }
   ],

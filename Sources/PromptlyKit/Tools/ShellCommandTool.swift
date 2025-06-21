@@ -1,0 +1,81 @@
+import Foundation
+import SwiftTokenizer
+
+struct ShellCommandTool: ExecutableTool, Sendable {
+    let name: String
+    let description: String
+    let executable: String
+    let parameters: JSONSchema
+
+    private let argumentTemplate: [[String]]
+    private let fileManager: any FileManagerProtocol
+    private let sandboxURL: URL
+
+    init(
+        name: String,
+        description: String,
+        executable: String,
+        parameters: JSONSchema,
+        argumentTemplate: [[String]],
+        sandboxURL: URL,
+        fileManager: FileManagerProtocol
+    ) {
+        self.name = name
+        self.description = description
+        self.executable = executable
+        self.parameters = parameters
+        self.argumentTemplate = argumentTemplate
+        self.sandboxURL = sandboxURL
+        self.fileManager = fileManager
+    }
+
+    func execute(arguments: JSONValue) async throws -> JSONValue {
+        let (exitCode, output) = try await ProcessRunner().run(
+            executable: executable,
+            arguments: deriveExecutableArguments(arguments: arguments),
+            currentDirectoryURL: fileManager.currentDirectoryURL
+        )
+
+        return .object([
+            "exitCode": .number(Double(exitCode)),
+            "output": .string(output)
+        ])
+    }
+
+    private func validateRequiredParameter(_ propertyName: String) throws {
+        guard case let .object(requiredProperties, _, _) = parameters else {
+            // Ignoring misconfiguration, this should not happen
+            // since parameters should be defined as an object schema.
+            return
+        }
+
+        if requiredProperties.keys.contains(propertyName) {
+            throw ShellCommandToolError.missingRequiredParameter(name: propertyName)
+        }
+    }
+
+    private func validateSandboxPath(_ path: String) throws {
+        let fullPath = sandboxURL.appendingPathComponent(path).standardizedFileURL
+        guard fullPath.path.hasPrefix(sandboxURL.path) else {
+            throw ShellCommandToolError.invalidSandboxPath(path: path)
+        }
+    }
+
+    private func deriveExecutableArguments(arguments: JSONValue) async throws -> [String] {
+        try await argumentTemplate
+            .asyncFlatMap { templateGroup in
+                do {
+                    return try await templateGroup.asyncMap { templateElement in
+                        let template = try ArgumentTemplate(string: templateElement)
+                        return try await template.resolveArguments(
+                            arguments: arguments,
+                            validateRequiredParameters: validateRequiredParameter,
+                            validateSandboxPath: validateSandboxPath
+                        )
+                    }.compactMap { $0 }
+                } catch ShellCommandToolError.missingOptionalParameter(_) {
+                    return [String]()
+                }
+            }
+    }
+}

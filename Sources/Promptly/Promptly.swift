@@ -2,6 +2,8 @@ import ArgumentParser
 import Foundation
 import PromptlyKit
 
+private let fileManager = FileManager()
+
 @main
 struct Promptly: AsyncParsableCommand {
     @Argument(help: "A context string to pass to the system prompt.")
@@ -33,7 +35,7 @@ struct Promptly: AsyncParsableCommand {
 
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: configFile.expandingTilde).standardizedFileURL
-        guard FileManager.default.fileExists(atPath: configURL.path) else {
+        guard fileManager.fileExists(atPath: configURL.path) else {
             throw PrompterError.missingConfiguration
         }
 
@@ -47,7 +49,7 @@ struct Promptly: AsyncParsableCommand {
             config: config,
             rawOutput: rawOutput,
             modelOverride: model,
-            tools: ToolFactory.makeTools()
+            tools: try ToolFactory().makeTools()
         )
 
         guard messages.isEmpty else {
@@ -77,7 +79,7 @@ struct Promptly: AsyncParsableCommand {
     private func loadCannedPrompt(name: String) throws -> String {
         let cannedURL = URL(fileURLWithPath: "~/.config/promptly/canned/\(name).txt".expandingTilde)
             .standardizedFileURL
-        guard FileManager.default.fileExists(atPath: cannedURL.path) else {
+        guard fileManager.fileExists(atPath: cannedURL.path) else {
             throw ValidationError("Canned prompt \(cannedURL) not found.")
         }
         let data = try Data(contentsOf: cannedURL)
@@ -123,7 +125,7 @@ private extension String {
         guard hasPrefix("~") else { return self }
         return replacingOccurrences(
             of: "~",
-            with: FileManager.default.homeDirectoryForCurrentUser.path,
+            with: fileManager.homeDirectoryForCurrentUser.path,
             range: startIndex ..< index(after: startIndex)
         )
     }

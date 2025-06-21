@@ -153,3 +153,25 @@ Example config:
   }
 }
 ```
+
+## Shell Commands Configuration
+
+Promptly can expose a curated set of shell-based tools defined in a JSON config file named `tools.json` located in your current working directory, or `~/.config/promptly/tools.json`.
+Each entry may include:
+
+- `name`: Unique identifier for the tool.
+- `description`: Human-readable description of the command's purpose.
+- `executable`: Path or name of the executable to invoke.
+- `argumentTemplate`: Array of arrays of strings, where each subarray represents a group of tokens (flags and/or placeholders) to include together. Within each subarray, placeholders of the form `{{paramName}}` or `{(paramName)}` will be replaced with provided parameter values; if any placeholder in a group is missing, the entire subarray is omitted, preventing partial flags without values. To enforce sandboxed paths, use `{(paramName)}` for parameters representing file or directory paths; these values will be validated to reside within the project sandbox.
+- `parameters`: A JSON Schema object describing the allowed parameters, their types, and required/optional status.
+
+Example layout of `tools.json`:
+```json
+{
+  "shellCommands": [
+    /* see tools.json example in the Docs folder for full details */
+  ]
+}
+```
+
+By default, Promptly will load `tools.json` if present and register each command under its given name. For any parameter placeholders prefixed with `{(...)}`, Promptly will attempt enforce that the provided path values remain within the project sandbox.
