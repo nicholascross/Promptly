@@ -28,7 +28,9 @@ let package = Package(
         ),
         .target(
             name: "PromptlyKit",
-            dependencies: []
+            dependencies: [
+                .product(name: "SwiftTokenizer", package: "SwiftTokenizer")
+            ]
         )
     ],
     swiftLanguageModes: [.v6]
