@@ -17,7 +17,7 @@ struct Promptly: AsyncParsableCommand {
 
     @Option(
         name: .customLong("tools"),
-        help: "Override the default shell command tools config basename (without .json). Defaults to \"tools\"."
+        help: "Override the default shell command tools config basename (without .json)."
     )
     var tools: String = "tools"
 
