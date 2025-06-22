@@ -21,6 +21,7 @@ For more detailed examples and usage, check out the [Cookbook](Docs/cookbook.md)
 - **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) in the system's Keychain.
 - **Flexible API Interaction**: Choose to interact with OpenAI's API or compatible APIs such as OpenWebUI based on your configuration.
 - **Command-Line Interface**: Directly pass context strings through the command line to interact with the chosen API.
+- **Supports tool usage**: Define an allow list of supported commandline tools with rudimentary sandboxing of path parameters.
 
 ## Requirements
 
@@ -58,9 +59,8 @@ To install Promptly, execute the following steps:
    ```
 
 ## Configuration
-- See [Configuration](Docs/configuration.md)
 
-- **tools.json**: Optional JSON file (in your project root or in `~/.config/promptly/`) listing whitelisted shell commands and their parameter schemas.
+- See [Configuration](Docs/configuration.md)
 
 ## Usage
 
@@ -76,14 +76,6 @@ promptly --setup-token
 After setting up your API token, you can initiate requests by passing a context string as an argument:
 ```bash
 echo "some output to send the LLM" | promptly "Your context about what to do with the input"
-```
-
-### Raw Output
-
-If you need to see the raw JSON stream from the API (including function call metadata), add the `--raw-output` flag:
-
-```bash
-echo "some input" | promptly --raw-output "Your context about what to do with the input"
 ```
 
 ### Canned prompts
