@@ -166,12 +166,3 @@ Each entry may include:
 - `parameters`: A JSON Schema object describing the allowed parameters, their types, and required/optional status.
 
 Example layout of [tools.json](tools.json):
-```json
-{
-  "shellCommands": [
-    /* see tools.json example in the Docs folder for full details */
-  ]
-}
-```
-
-By default, Promptly will load `tools.json` if present and register each command under its given name. For any parameter placeholders prefixed with `{(...)}`, Promptly will attempt enforce that the provided path values remain within the project sandbox.
