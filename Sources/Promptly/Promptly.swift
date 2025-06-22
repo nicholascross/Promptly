@@ -15,6 +15,12 @@ struct Promptly: AsyncParsableCommand {
     )
     var configFile: String = "~/.config/promptly/config.json"
 
+    @Option(
+        name: .customLong("tools"),
+        help: "Override the default shell command tools config basename (without .json). Defaults to \"tools\"."
+    )
+    var tools: String = "tools"
+
     @Flag(name: .customLong("setup-token"), help: "Setup a new token.")
     var setupToken: Bool = false
 
@@ -49,7 +55,7 @@ struct Promptly: AsyncParsableCommand {
             config: config,
             rawOutput: rawOutput,
             modelOverride: model,
-            tools: try ToolFactory().makeTools()
+            tools: try ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools()
         )
 
         guard messages.isEmpty else {

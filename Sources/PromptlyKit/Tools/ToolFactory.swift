@@ -2,9 +2,15 @@ import Foundation
 
 public struct ToolFactory {
     private let fileManager: FileManagerProtocol
+    private let toolsFileName: String
 
-    public init(fileManager: FileManagerProtocol = FileManager()) {
+    public init(fileManager: FileManagerProtocol = FileManager(), toolsFileName: String = "tools.json") {
         self.fileManager = fileManager
+        if toolsFileName.hasSuffix(".json") {
+            self.toolsFileName = toolsFileName
+        } else {
+            self.toolsFileName = "\(toolsFileName).json"
+        }
     }
 
     public func makeTools() throws -> [any ExecutableTool] {
@@ -22,7 +28,7 @@ public struct ToolFactory {
     }
 
     /// Load and instantiate shell command tools from a allow list config file in JSON format.
-    /// Expected format in `tools.json`:
+    /// Expected format in tools config file (default `tools.json`):
     /// {
     ///   "shellCommands": [
     ///     {
@@ -58,7 +64,7 @@ public struct ToolFactory {
 
     private var localToolsConfigURL: URL {
         URL(
-            fileURLWithPath: "tools.json",
+            fileURLWithPath: toolsFileName,
             relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
         )
         .standardizedFileURL
@@ -66,7 +72,7 @@ public struct ToolFactory {
 
     private var toolsConfigURL: URL {
         URL(
-            fileURLWithPath: ".config/promptly/tools.json",
+            fileURLWithPath: ".config/promptly/\(toolsFileName)",
             relativeTo: fileManager.homeDirectoryForCurrentUser
         )
         .standardizedFileURL

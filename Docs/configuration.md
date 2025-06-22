@@ -156,7 +156,7 @@ Example config:
 
 ## Shell Commands Configuration
 
-Promptly can expose a curated set of shell-based tools defined in a JSON config file named `tools.json` located in your current working directory, or `~/.config/promptly/tools.json`.
+Promptly can expose a curated set of shell-based tools defined in a JSON config file named `tools.json` located in your current working directory, or `~/.config/promptly/tools.json`. You can override the default tools config basename by passing the `--tools` option.
 Each entry may include:
 
 - `name`: Unique identifier for the tool.
