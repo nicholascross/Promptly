@@ -24,9 +24,6 @@ struct Promptly: AsyncParsableCommand {
     @Flag(name: .customLong("setup-token"), help: "Setup a new token.")
     var setupToken: Bool = false
 
-    @Flag(name: .customLong("raw-output"), help: "Output raw responses.")
-    var rawOutput: Bool = false
-
     @Option(name: .customLong("message"), help: "A message to send to the chat.")
     private var messages: [Message] = []
 
@@ -53,7 +50,6 @@ struct Promptly: AsyncParsableCommand {
         let config = try Config.loadConfig(url: configURL)
         let prompter = try Prompter(
             config: config,
-            rawOutput: rawOutput,
             modelOverride: model,
             tools: try ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools()
         )

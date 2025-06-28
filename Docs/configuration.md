@@ -79,7 +79,6 @@
      - envKey: Environment variable name to read the API token from. **(Mutually exclusive with tokenName)**
      - tokenName: Keychain account name for reading the API token. **(Mutually exclusive with envKey)**
    - organizationId (optional): Your organization ID for OpenAI-compatible APIs.
-   - rawOutput (default: false): When true, the raw response stream is output.
 
 ## Using llama.cpp
 
