@@ -1,11 +1,5 @@
 import SwiftTokenizer
 
-enum ArgumentTemplateToken {
-    case argument(String)
-    case path(String)
-    case other(String)
-}
-
 actor ArgumentTemplate {
     private let tokens: [ArgumentTemplateToken]
 

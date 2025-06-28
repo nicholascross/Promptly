@@ -1,17 +1,17 @@
 import Foundation
 import SwiftTokenizer
 
-struct ShellCommandTool: ExecutableTool, Sendable {
-    let name: String
-    let description: String
-    let executable: String
-    let parameters: JSONSchema
+public struct ShellCommandTool: ExecutableTool, Sendable {
+    public let name: String
+    public let description: String
+    public let executable: String
+    public let parameters: JSONSchema
 
     private let argumentTemplate: [[String]]
     private let fileManager: any FileManagerProtocol
     private let sandboxURL: URL
 
-    init(
+    public init(
         name: String,
         description: String,
         executable: String,
@@ -29,7 +29,7 @@ struct ShellCommandTool: ExecutableTool, Sendable {
         self.fileManager = fileManager
     }
 
-    func execute(arguments: JSONValue) async throws -> JSONValue {
+    public func execute(arguments: JSONValue) async throws -> JSONValue {
         let (exitCode, output) = try await ProcessRunner().run(
             executable: executable,
             arguments: deriveExecutableArguments(arguments: arguments),
