@@ -163,5 +163,7 @@ Each entry may include:
 - `executable`: Path or name of the executable to invoke.
 - `argumentTemplate`: Array of arrays of strings, where each subarray represents a group of tokens (flags and/or placeholders) to include together. Within each subarray, placeholders of the form `{{paramName}}` or `{(paramName)}` will be replaced with provided parameter values; if any placeholder in a group is missing, the entire subarray is omitted, preventing partial flags without values. To enforce sandboxed paths, use `{(paramName)}` for parameters representing file or directory paths; these values will be validated to reside within the project sandbox.
 - `parameters`: A JSON Schema object describing the allowed parameters, their types, and required/optional status.
+- `exclusiveArgumentTemplate`: Optional boolean. When true, argumentTemplate groups are treated as alternatives; Promptly will use only the first group whose placeholders can be fully resolved, ignoring others.
+  - **Note:** Order argumentTemplate groups from most specific to most general (e.g. chunked tail/head first, full-file fallback last).
 
 Example layout of [tools.json](tools.json):

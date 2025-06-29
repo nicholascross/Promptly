@@ -1,7 +1,7 @@
 {
   "shellCommands": [
     {
-      "name": "ls",
+      "name": "ListFiles",
       "description": "Recursively list a directory",
       "executable": "/bin/ls",
       "argumentTemplate": [["{(path)}"]],
@@ -15,7 +15,7 @@
       }
     },
     {
-      "name": "tree",
+      "name": "ShowFileTree",
       "description": "Visual directory tree listing",
       "executable": "tree",
       "argumentTemplate": [["{(path)}"]],
@@ -29,22 +29,7 @@
       }
     },
     {
-      "name": "find",
-      "description": "Locate files matching a name pattern",
-      "executable": "find",
-      "argumentTemplate": [["{(path)}", "-type", "f", "-name", "{{pattern}}"]],
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "path": { "type": "string", "description": "Root path to search in" },
-          "pattern": { "type": "string", "description": "Shell glob pattern for file names" }
-        },
-        "required": ["path", "pattern"],
-        "description": "Parameters for find command"
-      }
-    },
-    {
-      "name": "fd",
+      "name": "FindFiles",
       "description": "Locate files matching a pattern using fd",
       "executable": "fd",
       "argumentTemplate": [["{{pattern}}", "{(path)}"]],
@@ -59,7 +44,7 @@
       }
     },
     {
-      "name": "grep",
+      "name": "Grep",
       "description": "Search file contents for a pattern",
       "executable": "grep",
       "argumentTemplate": [["-R", "-n", "{{pattern}}", "{(path)}"]],
@@ -74,7 +59,7 @@
       }
     },
     {
-      "name": "rg",
+      "name": "RipGrep",
       "description": "Search file contents for a regex pattern",
       "executable": "rg",
       "argumentTemplate": [["-n", "{{pattern}}", "{(path)}"]],
@@ -89,7 +74,7 @@
       }
     },
     {
-      "name": "sed",
+      "name": "SearchAndReplace",
       "description": "Perform stream editing on a file",
       "executable": "sed",
       "argumentTemplate": [
@@ -109,27 +94,7 @@
       }
     },
     {
-      "name": "perl",
-      "description": "Perform in-place edits with Perl",
-      "executable": "perl",
-      "argumentTemplate": [
-        ["-pi", "-e"],
-        ["s/{{search}}/{{replace}}/g"],
-        ["{(file)}"]
-      ],
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "search": { "type": "string", "description": "Search regex" },
-          "replace": { "type": "string", "description": "Replacement string" },
-          "file": { "type": "string", "description": "File to edit in place" }
-        },
-        "required": ["search", "replace", "file"],
-        "description": "Parameters for perl command"
-      }
-    },
-    {
-      "name": "touch",
+      "name": "TouchFile",
       "description": "Create an empty file or update its timestamp",
       "executable": "touch",
       "argumentTemplate": [["{(file)}"]],
@@ -143,7 +108,7 @@
       }
     },
     {
-      "name": "mkdir",
+      "name": "MakeDirectory",
       "description": "Create directories",
       "executable": "mkdir",
       "argumentTemplate": [["-p", "{(dir)}"]],
@@ -157,7 +122,7 @@
       }
     },
     {
-      "name": "rm",
+      "name": "RemoveFiles",
       "description": "Remove files or directories",
       "executable": "rm",
       "argumentTemplate": [["-f", "-r", "{(target)}"]],
@@ -171,7 +136,7 @@
       }
     },
     {
-      "name": "mv",
+      "name": "MoveFiles",
       "description": "Move or rename files or directories",
       "executable": "mv",
       "argumentTemplate": [["{(source)}", "{(destination)}"]],
@@ -186,7 +151,7 @@
       }
     },
     {
-      "name": "cp",
+      "name": "CopyFiles",
       "description": "Copy files or directories",
       "executable": "cp",
       "argumentTemplate": [["-r", "-p", "{(source)}", "{(destination)}"]],
@@ -223,7 +188,7 @@
       }
     },
     {
-      "name": "here_document",
+      "name": "WriteToFile",
       "description": "Create or overwrite a file with specified content via heredoc",
       "executable": "bash",
       "argumentTemplate": [
@@ -240,17 +205,23 @@
       }
     },
     {
-      "name": "cat",
-      "description": "Concatenate and display file contents",
-      "executable": "cat",
-      "argumentTemplate": [["{(file)}"]],
+      "name": "ShowFileContents",
+      "description": "Display file contents from start of a specified line limitted by max number of lines to read",
+      "executable": "bash",
+      "argumentTemplate": [
+        ["-c", "tail -n +{{startLine}} {(file)} | head -n {{lineCount}}"],
+        ["-c", "cat \"{(file)}\""]
+      ],
+      "exclusiveArgumentTemplate": true,
       "parameters": {
         "type": "object",
         "properties": {
-          "file": { "type": "string", "description": "File path to read" }
+          "file": { "type": "string", "description": "File path to read" },
+          "startLine": { "type": "integer", "description": "Line number to start reading from (0-based)" },
+          "lineCount": { "type": "integer", "description": "Maximum number of lines to read" }
         },
         "required": ["file"],
-        "description": "Parameters for cat command"
+        "description": "Parameters for cat command, optionally limited by start line and line count"
       }
     }
   ]

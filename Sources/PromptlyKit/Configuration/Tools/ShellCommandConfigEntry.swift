@@ -8,5 +8,7 @@ struct ShellCommandConfigEntry: Decodable {
     /// Each subarray may include placeholders (e.g. "{{param}}" or "p{{path}}");
     /// if any placeholder in a group has no corresponding value, the entire group is omitted.
     let argumentTemplate: [[String]]
+    /// When true, only the first argumentTemplate group whose placeholders can be fully resolved is used.
+    let exclusiveArgumentTemplate: Bool?
     let parameters: JSONSchema
 }

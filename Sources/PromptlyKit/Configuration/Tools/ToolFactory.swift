@@ -56,6 +56,7 @@ public struct ToolFactory {
                 executable: entry.executable,
                 parameters: entry.parameters,
                 argumentTemplate: entry.argumentTemplate,
+                exclusiveArgumentTemplate: entry.exclusiveArgumentTemplate ?? false,
                 sandboxURL: sandboxURL,
                 fileManager: fileManager
             )

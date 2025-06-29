@@ -8,6 +8,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
     public let parameters: JSONSchema
 
     private let argumentTemplate: [[String]]
+    private let exclusiveArgumentTemplate: Bool
     private let fileManager: any FileManagerProtocol
     private let sandboxURL: URL
 
@@ -17,6 +18,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         executable: String,
         parameters: JSONSchema,
         argumentTemplate: [[String]],
+        exclusiveArgumentTemplate: Bool,
         sandboxURL: URL,
         fileManager: FileManagerProtocol
     ) {
@@ -25,11 +27,13 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         self.executable = executable
         self.parameters = parameters
         self.argumentTemplate = argumentTemplate
+        self.exclusiveArgumentTemplate = exclusiveArgumentTemplate
         self.sandboxURL = sandboxURL
         self.fileManager = fileManager
     }
 
     public func execute(arguments: JSONValue) async throws -> JSONValue {
+        print("Executing shell command: \(executable) with arguments: \(arguments)")
         let (exitCode, output) = try await ProcessRunner().run(
             executable: executable,
             arguments: deriveExecutableArguments(arguments: arguments),
@@ -62,8 +66,25 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
     }
 
     private func deriveExecutableArguments(arguments: JSONValue) async throws -> [String] {
-        try await argumentTemplate
-            .asyncFlatMap { templateGroup in
+        if exclusiveArgumentTemplate {
+            for templateGroup in argumentTemplate {
+                do {
+                    let groupArgs = try await templateGroup.asyncMap { templateElement in
+                        let template = try ArgumentTemplate(string: templateElement)
+                        return try await template.resolveArguments(
+                            arguments: arguments,
+                            validateRequiredParameters: validateRequiredParameter,
+                            validateSandboxPath: validateSandboxPath
+                        )
+                    }.compactMap { $0 }
+                    return groupArgs
+                } catch ShellCommandToolError.missingOptionalParameter(_) {
+                    continue
+                }
+            }
+            return []
+        } else {
+            return try await argumentTemplate.asyncFlatMap { templateGroup in
                 do {
                     return try await templateGroup.asyncMap { templateElement in
                         let template = try ArgumentTemplate(string: templateElement)
@@ -77,5 +98,6 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
                     return [String]()
                 }
             }
+        }
     }
 }
