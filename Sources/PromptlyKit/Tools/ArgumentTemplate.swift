@@ -27,7 +27,7 @@ actor ArgumentTemplate {
         validateRequiredParameters: (String) throws -> Void,
         validateSandboxPath: (String) throws -> Void
     ) throws -> String {
-        let rawArguments = try arguments.decoded([String: String].self)
+        let rawArguments = try arguments.decoded([String: JSONValue].self)
 
         return try tokens.compactMap { token in
             switch token {
@@ -36,14 +36,14 @@ actor ArgumentTemplate {
                     try validateRequiredParameters(argument)
                     throw ShellCommandToolError.missingOptionalParameter(name: argument)
                 }
-                return value
+                return value.description
             case let .path(path):
                 guard let value = rawArguments[path] else {
                     try validateRequiredParameters(path)
                     throw ShellCommandToolError.missingOptionalParameter(name: path)
                 }
-                try validateSandboxPath(value)
-                return value
+                try validateSandboxPath(value.description)
+                return value.description
             case let .other(other):
                 return other
             }
