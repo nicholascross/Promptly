@@ -206,11 +206,11 @@
     },
     {
       "name": "ShowFileContents",
-      "description": "Display file contents from start of a specified line limitted by max number of lines to read",
-      "executable": "bash",
+      "description": "Display file contents from a specified starting line, limited by line count",
+      "executable": "sed",
       "argumentTemplate": [
-        ["-c", "tail -n +{{startLine}} {(file)} | head -n {{lineCount}}"],
-        ["-c", "cat \"{(file)}\""]
+        ["-n", "$(({{startLine}}+1)),$(({{startLine}}+{{lineCount}}))p", "{(file)}"],
+        ["-e", "", "{(file)}"]
       ],
       "exclusiveArgumentTemplate": true,
       "parameters": {
@@ -221,7 +221,7 @@
           "lineCount": { "type": "integer", "description": "Maximum number of lines to read" }
         },
         "required": ["file"],
-        "description": "Parameters for cat command, optionally limited by start line and line count"
+        "description": "Parameters for sed command, optionally limited by start line and line count"
       }
     }
   ]
