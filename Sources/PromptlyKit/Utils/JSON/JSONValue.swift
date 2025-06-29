@@ -69,13 +69,13 @@ public enum JSONValue: Codable, Sendable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .string(let value):
-            return "\"\(value)\""
+            return value
         case .integer(let value):
-            return "\(value)"
+            return value.description
         case .number(let value):
-            return "\(value)"
+            return value.description
         case .bool(let value):
-            return "\(value)"
+            return value.description
         case .object(let value):
             let entries = value.map { "\($0): \($1)" }.joined(separator: ", ")
             return "{\(entries)}"
