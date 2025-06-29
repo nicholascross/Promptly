@@ -223,6 +223,21 @@
         "required": ["file"],
         "description": "Parameters for sed command, optionally limited by start line and line count"
       }
+    },
+    {
+      "name": "LineCount",
+      "description": "Check the total number of lines in a file",
+      "executable": "wc",
+      "argumentTemplate": [["-l", "{(file)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "file": { "type": "string", "description": "File path to check line count for" }
+        },
+        "required": ["file"],
+        "description": "Parameters for wc command"
+      }
     }
   ]
 }
+
