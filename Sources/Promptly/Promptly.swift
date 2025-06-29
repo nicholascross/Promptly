@@ -51,7 +51,9 @@ struct Promptly: AsyncParsableCommand {
         let prompter = try Prompter(
             config: config,
             modelOverride: model,
-            tools: try ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools()
+            tools:
+                [PromptTool()] +
+                (try ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools())
         )
 
         guard messages.isEmpty else {
