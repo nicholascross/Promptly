@@ -1,6 +1,9 @@
 import Foundation
 
 extension Collection where Element: Sendable {
+
+    // TODO: Should reassemble the results in the order of the original collection
+
     func asyncFlatMap<T: Sendable>(
         _ transform: @Sendable @escaping (Element) async throws -> [T]
     ) async rethrows -> [T] {
