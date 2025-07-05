@@ -46,12 +46,13 @@ struct ChatRequestFactory {
             ))
         }
 
+        // Only send tool_choice when tools are provided, else omit to satisfy API requirements
         let chatRequest = ChatRequest(
             model: model,
             messages: messages,
             stream: true,
             tools: toolSpecs,
-            toolChoice: toolChoice
+            toolChoice: toolSpecs != nil ? toolChoice : nil
         )
 
         request.httpBody = try encoder.encode(chatRequest)
