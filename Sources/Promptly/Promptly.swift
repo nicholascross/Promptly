@@ -21,6 +21,12 @@ struct Promptly: AsyncParsableCommand {
     )
     var tools: String = "tools"
 
+    @Option(
+        name: .customLong("filter-tools"),
+        help: "Filter available shell-command tools by name. Provide one or more substrings; only matching tools will be loaded."
+    )
+    var filterTools: [String] = []
+
     @Flag(name: .customLong("setup-token"), help: "Setup a new token.")
     var setupToken: Bool = false
 
@@ -48,12 +54,17 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let config = try Config.loadConfig(url: configURL)
+        var availableTools = try [PromptTool()]
+            + (ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools())
+        if !filterTools.isEmpty {
+            availableTools = availableTools.filter { tool in
+                filterTools.contains { filter in tool.name.contains(filter) }
+            }
+        }
         let prompter = try Prompter(
             config: config,
             modelOverride: model,
-            tools:
-                [PromptTool()] +
-                (try ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools())
+            tools: availableTools
         )
 
         guard messages.isEmpty else {

@@ -103,6 +103,14 @@ In this example:
 - The `assistant` message is meant to guide the interaction.
 - The `user` message is the inquiry from the user.
 
+### Filtering Available Tools
+
+You can restrict which shell-command tools are exposed to the LLM by using the `--filter-tools` option. Provide one or more tool name substrings, and Promptly will only load tools whose names match at least one of the specified filters.
+
+```bash
+promptly --filter-tools ShowFileTree --message "user:what is this project"
+```
+
 ## License
 
 Promptly is released under the MIT License. See the LICENSE file for more details.
