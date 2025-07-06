@@ -3,8 +3,8 @@ import Foundation
 /// A built-in tool to prompt the user for input directly, bypassing shell commands.
 public struct PromptTool: ExecutableTool, Sendable {
 
-    public let name = "prompt"
-    public let description = "Prompt the user for input with a given message"
+    public let name = "AskQuestion"
+    public let description = "Ask the user for input to a question or prompt, returning the input as a string."
 
     public let parameters: JSONSchema = .object(
         requiredProperties: [
