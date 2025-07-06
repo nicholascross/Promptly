@@ -68,7 +68,15 @@ struct Promptly: AsyncParsableCommand {
         )
 
         guard messages.isEmpty else {
-            try await prompter.runChatStream(messages: messages.chatMessages)
+            let allMessages: [Message]
+            if let cannedContext = cannedContext {
+                let prompt = try loadCannedPrompt(name: cannedContext)
+                allMessages = [.system(prompt)] + messages
+            } else {
+                allMessages = messages
+            }
+            
+            try await prompter.runChatStream(messages:allMessages.chatMessages)
             return
         }
 
