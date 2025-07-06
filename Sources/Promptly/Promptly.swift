@@ -22,10 +22,16 @@ struct Promptly: AsyncParsableCommand {
     var tools: String = "tools"
 
     @Option(
-        name: .customLong("filter-tools"),
-        help: "Filter available shell-command tools by name. Provide one or more substrings; only matching tools will be loaded."
+        name: .customLong("include-tools"),
+        help: "Include shell-command tools by name. Provide one or more substrings; only matching tools will be loaded."
     )
-    var filterTools: [String] = []
+    var includeTools: [String] = []
+
+    @Option(
+        name: .customLong("exclude-tools"),
+        help: "Exclude shell-command tools by name. Provide one or more substrings; any matching tools will be omitted."
+    )
+    var excludeTools: [String] = []
 
     @Flag(name: .customLong("setup-token"), help: "Setup a new token.")
     var setupToken: Bool = false
@@ -56,9 +62,15 @@ struct Promptly: AsyncParsableCommand {
         let config = try Config.loadConfig(url: configURL)
         var availableTools = try [PromptTool()]
             + (ToolFactory(fileManager: fileManager, toolsFileName: tools).makeTools())
-        if !filterTools.isEmpty {
+        if !includeTools.isEmpty {
             availableTools = availableTools.filter { tool in
-                filterTools.contains { filter in tool.name.contains(filter) }
+                includeTools.contains { include in tool.name.contains(include) }
+            }
+        }
+
+        if !excludeTools.isEmpty {
+            availableTools = availableTools.filter { tool in
+                !excludeTools.contains { filter in tool.name.contains(filter) }
             }
         }
         let prompter = try Prompter(

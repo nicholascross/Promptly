@@ -105,10 +105,16 @@ In this example:
 
 ### Filtering Available Tools
 
-You can restrict which shell-command tools are exposed to the LLM by using the `--filter-tools` option. Provide one or more tool name substrings, and Promptly will only load tools whose names match at least one of the specified filters.
+You can restrict which shell-command tools are exposed to the LLM by using the `--include-tools` option. Provide one or more tool name substrings; only matching tools will be loaded.
+
+You can also exclude specific shell-command tools by using the `--exclude-tools` option. Provide one or more tool name substrings; any matching tools will be omitted from the loaded set.
 
 ```bash
-promptly --filter-tools ShowFileTree --message "user:what is this project"
+promptly --include-tools ShowFileTree --message "user:what is this project"
+```
+
+```bash
+promptly --exclude-tools RemoveMe --message "user:what is this project"
 ```
 
 ## License
