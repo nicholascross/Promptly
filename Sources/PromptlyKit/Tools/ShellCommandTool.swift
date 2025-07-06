@@ -33,7 +33,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
     }
 
     public func execute(arguments: JSONValue) async throws -> JSONValue {
-        print("Executing shell command: \(executable) with arguments: \(arguments)")
+        Logger.log("Executing shell command: \(executable) with arguments: \(arguments)", level: .info)
         let (exitCode, output) = try await ProcessRunner().run(
             executable: executable,
             arguments: deriveExecutableArguments(arguments: arguments),

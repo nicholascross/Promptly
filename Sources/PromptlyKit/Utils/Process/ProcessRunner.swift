@@ -33,7 +33,7 @@ struct ProcessRunner: RunnableProcess {
         arguments: [String],
         currentDirectory: URL?
     ) throws -> (exitCode: Int32, output: String) {
-        print("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")")
+        Logger.log("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")", level: .info)
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments

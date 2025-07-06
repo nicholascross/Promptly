@@ -4,15 +4,15 @@ import PromptlyKit
 
 extension Config {
     public static func setupToken(configURL: URL) async throws {
-        print("Enter a name for your token: ", terminator: "")
-        guard let tokenName = readLine(strippingNewline: true) else {
-            print("Token name cannot be empty.")
+        Logger.prompt("Enter a name for your token: ")
+        guard let tokenName = readLine(strippingNewline: true), !tokenName.isEmpty else {
+            Logger.log("Token name cannot be empty.", level: .error)
             return
         }
 
-        print("Enter your API token: ", terminator: "")
+        Logger.prompt("Enter your API token: ")
         guard let token = readLine(strippingNewline: true), !token.isEmpty else {
-            print("Token cannot be empty.")
+            Logger.log("Token cannot be empty.", level: .error)
             return
         }
 
@@ -22,12 +22,12 @@ extension Config {
                 service: "Promptly",
                 password: token
             )
-            print("Token stored in Keychain under \(tokenName).")
+            Logger.log("Token stored in Keychain under \(tokenName).", level: .success)
         } catch {
-            print("Failed to store token: \(error.localizedDescription)")
+            Logger.log("Failed to store token: \(error.localizedDescription)", level: .error)
         }
 
-        print("Updating config file with token name...")
+        Logger.log("Updating config file with token name...", level: .info)
         try updateConfig(tokenName: tokenName, configURL: configURL)
     }
 
