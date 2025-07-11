@@ -13,7 +13,7 @@ public struct PromptTool: ExecutableTool, Sendable {
                 maxLength: nil,
                 pattern: nil,
                 format: nil,
-                description: "Prompt message to display to the user"
+                description: "Question to display to the user"
             )
         ],
         optionalProperties: [
@@ -25,7 +25,7 @@ public struct PromptTool: ExecutableTool, Sendable {
                 description: "Default value if user presses enter with no input"
             )
         ],
-        description: "Prompt the user and return the input as a string"
+        description: "Ask the user a question and return the response as a string"
     )
 
     public init() {}
