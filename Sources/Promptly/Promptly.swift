@@ -87,8 +87,8 @@ struct Promptly: AsyncParsableCommand {
             } else {
                 allMessages = messages
             }
-            
-            try await prompter.runChatStream(messages:allMessages.chatMessages)
+
+            try await prompter.runChatStream(messages: allMessages.chatMessages)
             return
         }
 

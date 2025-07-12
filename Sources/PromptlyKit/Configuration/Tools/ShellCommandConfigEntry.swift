@@ -4,6 +4,8 @@ struct ShellCommandConfigEntry: Decodable {
     let name: String
     let description: String
     let executable: String
+    /// Whether to echo the output of the command to the console.
+    let echoOutput: Bool?
     /// Groups of tokens to build each command segment.
     /// Each subarray may include placeholders (e.g. "{{param}}" or "p{{path}}");
     /// if any placeholder in a group has no corresponding value, the entire group is omitted.

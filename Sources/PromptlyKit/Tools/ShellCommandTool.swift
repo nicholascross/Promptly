@@ -7,6 +7,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
     public let executable: String
     public let parameters: JSONSchema
 
+    private let echoOutput: Bool
     private let argumentTemplate: [[String]]
     private let exclusiveArgumentTemplate: Bool
     private let fileManager: any FileManagerProtocol
@@ -16,6 +17,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         name: String,
         description: String,
         executable: String,
+        echoOutput: Bool,
         parameters: JSONSchema,
         argumentTemplate: [[String]],
         exclusiveArgumentTemplate: Bool,
@@ -25,6 +27,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         self.name = name
         self.description = description
         self.executable = executable
+        self.echoOutput = echoOutput
         self.parameters = parameters
         self.argumentTemplate = argumentTemplate
         self.exclusiveArgumentTemplate = exclusiveArgumentTemplate
@@ -37,7 +40,8 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         let (exitCode, output) = try await ProcessRunner().run(
             executable: executable,
             arguments: deriveExecutableArguments(arguments: arguments),
-            currentDirectoryURL: fileManager.currentDirectoryURL
+            currentDirectoryURL: fileManager.currentDirectoryURL,
+            streamOutput: echoOutput
         )
 
         return .object([

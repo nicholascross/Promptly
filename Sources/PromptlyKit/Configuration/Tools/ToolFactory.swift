@@ -54,6 +54,7 @@ public struct ToolFactory {
                 name: entry.name,
                 description: entry.description,
                 executable: entry.executable,
+                echoOutput: entry.echoOutput ?? false,
                 parameters: entry.parameters,
                 argumentTemplate: entry.argumentTemplate,
                 exclusiveArgumentTemplate: entry.exclusiveArgumentTemplate ?? false,

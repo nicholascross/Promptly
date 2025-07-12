@@ -4,13 +4,15 @@ struct ProcessRunner: RunnableProcess {
     func run(
         executable: String,
         arguments: [String],
-        currentDirectoryURL: URL?
+        currentDirectoryURL: URL?,
+        streamOutput: Bool
     ) throws -> (exitCode: Int32, output: String) {
         let executablePath = try findExecutablePath(executable: executable)
         return try runProcess(
             executable: executablePath,
             arguments: arguments,
-            currentDirectory: currentDirectoryURL
+            currentDirectory: currentDirectoryURL,
+            streamOutput: streamOutput
         )
     }
 
@@ -18,7 +20,8 @@ struct ProcessRunner: RunnableProcess {
         let (exitCode, output) = try runProcess(
             executable: "/usr/bin/which",
             arguments: [executable],
-            currentDirectory: nil
+            currentDirectory: nil,
+            streamOutput: false
         )
 
         guard exitCode == 0 else {
@@ -31,7 +34,8 @@ struct ProcessRunner: RunnableProcess {
     private func runProcess(
         executable: String,
         arguments: [String],
-        currentDirectory: URL?
+        currentDirectory: URL?,
+        streamOutput: Bool
     ) throws -> (exitCode: Int32, output: String) {
         Logger.log("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")", level: .info)
         let process = Process()
@@ -41,8 +45,30 @@ struct ProcessRunner: RunnableProcess {
         let pipe = Pipe()
         process.standardOutput = pipe
         process.standardError = pipe
+
         try process.run()
-        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+
+        let outputPipe: Pipe
+        if streamOutput {
+            outputPipe = Pipe()
+            while process.isRunning {
+                let data = pipe.fileHandleForReading.availableData
+                if !data.isEmpty {
+                    outputPipe.fileHandleForWriting.write(data)
+                    if let output = String(data: data, encoding: .utf8) {
+                        print(output, terminator: "")
+                        fflush(stdout)
+                    }
+                } else {
+                    break
+                }
+            }
+            outputPipe.fileHandleForWriting.closeFile()
+        } else {
+            outputPipe = pipe
+        }
+
+        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
         let output = String(bytes: data, encoding: .utf8) ?? ""
         process.waitUntilExit()
         return (process.terminationStatus, output)
