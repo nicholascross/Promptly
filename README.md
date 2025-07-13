@@ -10,13 +10,23 @@ Promptly is a Swift-based CLI tool that streamlines interaction with large langu
 ## Examples
 
 ```bash
-# Piping content to an LLM and piping the output back to another command
-git diff --staged | promptly "Write a commit message that explains the changes in this diff" | pbcopy
+# Generate a concise commit message from the staged diff and copy to clipboard
+git diff --staged | promptly --message "user:Write a concise commit message for the staged changes" | pbcopy
 ```
 
 ```bash
-# Update project readme for staged changes
-(cat README.md; echo; git diff --staged) | promptly "Update the readme for the following changes. When making any modifications to examples, ensure they are relevant to real-world use cases." > README.md
+# Update project README from staged diff using default tools.json configuration
+git diff --staged | promptly --message "user:Update the README for the changes in the diff"
+```
+
+```bash
+# Use a canned prompt named 'refactor' to improve Main.swift
+cat Sources/App/Main.swift | promptly --canned refactor
+```
+
+```bash
+# Display the project's directory structure using the ShowFileTree tool
+promptly --include-tools ShowFileTree --message "user:Display the project's directory structure"
 ```
 
 ## Features
