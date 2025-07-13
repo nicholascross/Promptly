@@ -1,6 +1,5 @@
 # Promptly
 
-[![Swift CI](https://github.com/nicholascross/Promptly/actions/workflows/swift-ci.yml/badge.svg?branch=main)](https://github.com/nicholascross/Promptly/actions)
 [![Release Version](https://img.shields.io/github/v/release/nicholascross/Promptly)](https://github.com/nicholascross/Promptly/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Homebrew](https://img.shields.io/badge/homebrew-promptly-informational?logo=homebrew)](https://formulae.brew.sh/formula/promptly)
