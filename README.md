@@ -1,6 +1,11 @@
-# Promptly Project
+# Promptly
 
-Promptly is a versatile command-line tool designed to interact with OpenAI's API for completions, as well as compatible APIs such as Ollama, OpenWebUI, and llama-cpp.
+[![Swift CI](https://github.com/nicholascross/Promptly/actions/workflows/swift-ci.yml/badge.svg?branch=main)](https://github.com/nicholascross/Promptly/actions)
+[![Release Version](https://img.shields.io/github/v/release/nicholascross/Promptly)](https://github.com/nicholascross/Promptly/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Homebrew](https://img.shields.io/badge/homebrew-promptly-informational?logo=homebrew)](https://formulae.brew.sh/formula/promptly)
+
+Promptly is a Swift-based CLI tool that streamlines interaction with large language models. It supports OpenAI and OpenAI-compatible providers (Azure OpenAI, OpenRouter, Gemini, Mistral, DeepSeek, xAI, Groq, ArceeAI) as well as local hosts (Ollama, llama.cpp). Promptly features secure API token management, interactive and piped modes, customizable canned prompts, and sandboxed shell command integrations for flexible automation.
 
 ## Examples
 
@@ -16,10 +21,26 @@ git diff --staged | promptly "Write a commit message that explains the changes i
 
 ## Features
 
-- **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) in the system's Keychain.
-- **Flexible API Interaction**: Choose to interact with OpenAI's API or compatible APIs such as OpenWebUI based on your configuration.
-- **Command-Line Interface**: Directly pass context strings through the command line to interact with the chosen API.
-- **Supports tool usage**: Define an allow list of supported commandline tools with rudimentary sandboxing of path parameters.
+- **Multi‑provider support**: Work with OpenAI and OpenAI‑compatible services (Azure OpenAI, OpenRouter, Gemini, Mistral, DeepSeek, xAI, Groq, ArceeAI) as well as local hosts (Ollama, llama.cpp).
+- **Secure API token storage**: Safely store your API keys in the system Keychain.
+- **Piped and interactive modes**: Send context through stdin in one‑off commands or start a persistent interactive REPL session.
+- **Canned prompts**: Create and reuse predefined prompts via text files in `~/.config/promptly/canned`.
+- **Sandboxed shell command integrations**: Expose allow‑listed shell tools with path validation to automate common workflows.
+- **Flexible configuration**: Customize providers, models, and tool behaviors through JSON config files.
+
+## Quick Reference
+
+| Flag                    | Description                                      |
+|-------------------------|--------------------------------------------------|
+| `-i`, `--interactive`   | Start REPL mode                                  |
+| `-p`, `--canned <name>` | Use a canned prompt from `~/.config/promptly/canned` |
+| `--include-tools`       | Whitelist shell tools by substring               |
+| `--exclude-tools`       | Blacklist shell tools by substring               |
+| `-c`, `--config <path>`  | Override config file path (default `~/.config/promptly/config.json`) |
+| `--tools <name>`         | Override shell tools config basename (default `tools`) |
+| `--setup-token`          | Store or update the API token in Keychain        |
+| `--model <id>`           | Override the default model identifier            |
+| `--message <role:msg>`   | Send a prefixed chat message (roles: user, system, assistant; e.g. `user:Hi`) |
 
 ## Requirements
 
@@ -108,7 +129,7 @@ echo "something" | promptly --canned "example"
 
 ### Role based messages
 
-You can use the `--message` option to send a predefined series of messages to the chat interface. Note that when using `--message`, standard input and context arguments are ignored.
+You can use the `--message` option to send a predefined series of messages to the chat interface. Note that when using `--message`, standard input and context arguments are ignored. Supported roles are `system`, `assistant`, and `user`.
 
 ```bash
 promptly --message "system:Respond as a pirate." --message "assistant:Ahoy" --message "user:Can you tell me a story?"
