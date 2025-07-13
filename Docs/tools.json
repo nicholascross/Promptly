@@ -18,6 +18,7 @@
       "name": "ShowFileTree",
       "description": "Visual directory tree listing",
       "executable": "tree",
+      "truncateOutput": true,
       "argumentTemplate": [["{(path)}"]],
       "parameters": {
         "type": "object",
@@ -44,10 +45,10 @@
       }
     },
     {
-      "name": "Grep",
-      "description": "Search file contents for a pattern",
-      "executable": "grep",
-      "argumentTemplate": [["-R", "-n", "{{pattern}}", "{(path)}"]],
+      "name": "RipGrepIncludHidden",
+      "description": "Search file contents for a regex pattern including in hidden folders.  Use this only as required since it is slower than RipGrep that ignores hidden files.",
+      "executable": "rg",
+      "argumentTemplate": [["--hidden","--glob", "'!.git'", "-R", "-n", "{{pattern}}", "{(path)}"]],
       "parameters": {
         "type": "object",
         "properties": {
@@ -71,6 +72,22 @@
         },
         "required": ["pattern", "path"],
         "description": "Parameters for ripgrep command"
+      }
+    },
+    {
+      "name": "RipGrepWithGlob",
+      "description": "Search file contents for a regex pattern only in files matching given glob, using ripgrep.",
+      "executable": "rg",
+      "argumentTemplate": [["-n", "{{pattern}}", "--glob", "{{glob}}", "{(path)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Regex pattern to search for" },
+          "glob": { "type": "string", "description": "Glob pattern for file filtering (ripgrep --glob argument, including any ! if excluding). User specifies complete glob pattern." },
+          "path": { "type": "string", "description": "Path to search in" }
+        },
+        "required": ["pattern", "glob", "path"],
+        "description": "Parameters for ripgrep command with --glob support. glob should be formatted for ripgrep, with ! as needed."
       }
     },
     {
@@ -166,28 +183,6 @@
       }
     },
     {
-      "name": "source-crawler",
-      "description": "Analyze Swift project structure with SourceCrawler.  This produces an output json file that must be read seperately.",
-      "executable": "source-crawler",
-      "argumentTemplate": [
-        ["--root-path", "{(rootPath)}"],
-        ["-t", "{{fileExtensions}}"],
-        ["--output-path", "{(outputPath)}"],
-        ["--excluded-paths", "{{excludedPaths}}"]
-      ],
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "rootPath": { "type": "string", "description": "Root path of the project" },
-          "fileExtensions": { "type": "string", "description": "Comma-separated list of file extensions to include" },
-          "outputPath": { "type": "string", "description": "Path for the JSON output file" },
-          "excludedPaths": { "type": "string", "description": "Comma-separated list of glob patterns to exclude" }
-        },
-        "required": [],
-        "description": "Parameters for source-crawler command"
-      }
-    },
-    {
       "name": "WriteToFile",
       "description": "Create or overwrite a file with specified content via heredoc",
       "executable": "bash",
@@ -237,7 +232,52 @@
         "required": ["file"],
         "description": "Parameters for wc command"
       }
+    },
+    {
+      "name": "BuildSwift",
+      "description": "Build a Swift project using swift build",
+      "executable": "swift",
+      "echoOutput": true,
+      "truncateOutput": true,
+      "argumentTemplate": [["build", "--package-path", "{(packagePath)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "packagePath": { "type": "string", "description": "Path to the Swift package" }
+        },
+        "required": ["packagePath"],
+        "description": "Parameters for swift build command"
+      }
+    },
+    {
+      "name": "TestSwift",
+      "description": "Run tests in a Swift package using swift test",
+      "executable": "swift",
+      "echoOutput": true,
+      "truncateOutput": true,
+      "argumentTemplate": [["test", "--package-path", "{(packagePath)}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "packagePath": { "type": "string", "description": "Path to the Swift package" }
+        },
+        "required": ["packagePath"],
+        "description": "Parameters for swift test command"
+      }
+    },
+    {
+      "name": "FixSwift",
+      "description": "Attempt to fix any build or test issues in a Swift package",
+      "executable": "promptly",
+      "echoOutput": true,
+      "truncateOutput": true,
+      "argumentTemplate": [["--canned", "build-swift", "--message", "user:Please fix any build or test issues in this Swift package.", "--exclude-tools", "FixSwift"]],
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "description": "Parameters for promptly command to fix Swift issues"
+      }
     }
   ]
 }
-
