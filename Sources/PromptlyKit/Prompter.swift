@@ -30,7 +30,7 @@ public struct Prompter {
     public func runChatStream(
         systemPrompt: String,
         supplementarySystemPrompt: String? = nil
-    ) async throws {
+    ) async throws -> [ChatMessage] {
         let inputData = FileHandle.standardInput.readDataToEndOfFile()
         let userInput = String(data: inputData, encoding: .utf8) ?? ""
 
@@ -40,7 +40,7 @@ public struct Prompter {
             ChatMessage(role: .user, content: .text(userInput))
         ].compactMap { $0 }
 
-        try await runChatStream(messages: messages)
+        return try await runChatStream(messages: messages)
     }
 
     /// Stream a chat, automatically pausing for tool calls,
@@ -52,7 +52,7 @@ public struct Prompter {
     public func runChatStream(
         messages initialMessages: [ChatMessage],
         onToolCall handler: ((String, JSONValue) async throws -> JSONValue)? = nil
-    ) async throws {
+    ) async throws -> [ChatMessage] {
         var messages = initialMessages
         let callTool: (String, JSONValue) async throws -> JSONValue = { name, args in
             if let handler {
@@ -81,6 +81,7 @@ public struct Prompter {
                 )
             }
 
+            var currentMessageContent = ""
             let responseProcessor = ResponseProcessor()
             for try await line in stream.lines {
                 let events = try await responseProcessor.process(line: line)
@@ -88,6 +89,7 @@ public struct Prompter {
                 for event in events {
                     switch event {
                     case let .content(text):
+                        currentMessageContent += text
                         print(text, terminator: "")
                         fflush(stdout)
                     case let .toolCall(id, name, arguments):
@@ -100,11 +102,20 @@ public struct Prompter {
                         )
                         replyPending = true
                     case .stop:
-                        return
+                        print("")
+                        fflush(stdout)
+                        return messages + [
+                            ChatMessage(
+                                role: .assistant,
+                                content: .text(currentMessageContent)
+                            )
+                        ]
                     }
                 }
             }
         } while replyPending
+
+        return messages
     }
 
     private func handleToolCall(

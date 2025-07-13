@@ -76,6 +76,24 @@ After setting up your API token, you can initiate requests by passing a context 
 echo "some output to send the LLM" | promptly "Your context about what to do with the input"
 ```
 
+### Interactive Mode
+
+To start an interactive session where you can send multiple prompts without restarting the command, use the `--interactive` flag. For example:
+
+```bash
+# Start an interactive session with an initial system prompt
+promptly --interactive --message "user:You are a helpful assistant."
+
+# At each '>' prompt, type your input and press Enter:
+> Hello, how are you?
+I'm doing well, thank you! How can I assist you today?
+
+> Tell me a joke.
+Why did the developer go broke? Because he used up all his cache.
+
+# Press Ctrl-D (EOF) / Ctrl-C to exit interactive mode.
+```
+
 ### Canned prompts
 
 You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.

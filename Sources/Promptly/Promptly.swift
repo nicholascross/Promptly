@@ -47,6 +47,8 @@ struct Promptly: AsyncParsableCommand {
         help: "The model to use for the chat. If not specified defaults to configuration"
     )
     private var model: String?
+    @Flag(name: .customLong("interactive"), help: "Enable interactive prompt mode; stay open for further user input")
+    private var interactive: Bool = false
 
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: configFile.expandingTilde).standardizedFileURL
@@ -89,7 +91,8 @@ struct Promptly: AsyncParsableCommand {
                 allMessages = messages
             }
 
-            try await prompter.runChatStream(messages: allMessages.chatMessages)
+            let messages = try await prompter.runChatStream(messages: allMessages.chatMessages)
+            try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: messages)
             return
         }
 
@@ -100,16 +103,22 @@ struct Promptly: AsyncParsableCommand {
             supplementaryContext = contextArgument
         } else {
             guard let contextArgument = contextArgument else {
+                if interactive {
+                    try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: [])
+                    return
+                }
                 throw ValidationError("Usage: promptly <context-string>\\n")
             }
             prompt = contextArgument
             supplementaryContext = nil
         }
 
-        try await prompter.runChatStream(
+        let messages = try await prompter.runChatStream(
             systemPrompt: prompt,
             supplementarySystemPrompt: supplementaryContext
         )
+
+        try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: messages)
     }
 
     private func loadCannedPrompt(name: String) throws -> String {
@@ -120,6 +129,21 @@ struct Promptly: AsyncParsableCommand {
         }
         let data = try Data(contentsOf: cannedURL)
         return String(data: data, encoding: .utf8) ?? ""
+    }
+
+    private func continueInteractivelyIfNeeded(
+        prompter: Prompter,
+        initialMessages: [ChatMessage]
+    ) async throws {
+        guard interactive else { return }
+        var conversation = initialMessages
+        while true {
+            print("\n> ", terminator: "")
+            fflush(stdout)
+            guard let line = readLine() else { break }
+            conversation.append(ChatMessage(role: .user, content: .text(line)))
+            conversation = try await prompter.runChatStream(messages: conversation)
+        }
     }
 }
 
