@@ -6,6 +6,8 @@ struct ShellCommandConfigEntry: Decodable {
     let executable: String
     /// Whether to echo the output of the command to the console.
     let echoOutput: Bool?
+    /// Whether to truncate large outputs of the command by slicing logs when enabled in tool config.
+    let truncateOutput: Bool?
     /// Groups of tokens to build each command segment.
     /// Each subarray may include placeholders (e.g. "{{param}}" or "p{{path}}");
     /// if any placeholder in a group has no corresponding value, the entire group is omitted.

@@ -97,6 +97,23 @@ Analyze an error log to receive troubleshooting steps and potential fixes:
 cat system_error.log | promptly "Analyze the error log above and propose a list of troubleshooting steps along with possible solutions."
 ```
 
+## Smart Log Slicing Middleware
+
+When using a shell-command tool configured with `truncateOutput: true` (for example, wrapping `xcodebuild`, `swift build`, or `tree`), Promptly will condense large outputs by keeping the first 250 and last 250 lines. It then asks the LLM to suggest up to five regular expressions that match important content (errors, warnings, etc.) in the omitted middle section. The matched lines are reinjected between the head and tail of the log. The JSON response from the tool includes the exit code, condensed output, number of skipped lines, and the regex patterns suggested by the LLM.
+
+Example:
+
+```bash
+promptly --message "user:Build the swift package and Analyze the build log for failures and warnings"
+```
+
+The tool response will include:
+
+- `exitCode`: exit code of the wrapped command
+- `skippedLines`: number of lines omitted
+- `regex`: array of regex patterns suggested by the LLM
+- `output`: the condensed log with matched lines reinjected
+
 ## Refactoring Suggestions
 
 Get recommendations on how to refactor a block of code for clarity and maintainability:

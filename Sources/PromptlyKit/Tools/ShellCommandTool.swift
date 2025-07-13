@@ -8,6 +8,8 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
     public let parameters: JSONSchema
 
     private let echoOutput: Bool
+    /// Whether to truncate large outputs by wrapping with log-slicing middleware when configured.
+    internal let truncateOutput: Bool
     private let argumentTemplate: [[String]]
     private let exclusiveArgumentTemplate: Bool
     private let fileManager: any FileManagerProtocol
@@ -18,6 +20,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         description: String,
         executable: String,
         echoOutput: Bool,
+        truncateOutput: Bool,
         parameters: JSONSchema,
         argumentTemplate: [[String]],
         exclusiveArgumentTemplate: Bool,
@@ -28,6 +31,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         self.description = description
         self.executable = executable
         self.echoOutput = echoOutput
+        self.truncateOutput = truncateOutput
         self.parameters = parameters
         self.argumentTemplate = argumentTemplate
         self.exclusiveArgumentTemplate = exclusiveArgumentTemplate

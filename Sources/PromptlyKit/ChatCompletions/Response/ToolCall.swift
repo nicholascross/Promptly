@@ -87,4 +87,16 @@ actor ResponseProcessor {
 
         return output
     }
+
+    func processAllContent(from stream: URLSession.AsyncBytes) async throws -> String {
+        var content = ""
+        for try await line in stream.lines {
+            for event in try process(line: line) {
+                if case let .content(txt) = event {
+                    content += txt
+                }
+            }
+        }
+        return content
+    }
 }
