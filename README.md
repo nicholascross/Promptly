@@ -14,8 +14,6 @@ git diff --staged | promptly "Write a commit message that explains the changes i
 (cat README.md; echo; git diff --staged) | promptly "Update the readme for the following changes. When making any modifications to examples, ensure they are relevant to real-world use cases." > README.md
 ```
 
-For more detailed examples and usage, check out the [Cookbook](Docs/cookbook.md).
-
 ## Features
 
 - **Secure API Token Storage**: Safely store your OpenAI (and compatible APIs) in the system's Keychain.
