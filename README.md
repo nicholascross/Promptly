@@ -2,7 +2,7 @@
 
 [![Release Version](https://img.shields.io/github/v/release/nicholascross/Promptly)](https://github.com/nicholascross/Promptly/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Homebrew](https://img.shields.io/badge/homebrew-promptly-informational?logo=homebrew)](https://formulae.brew.sh/formula/promptly)
+[![Homebrew](https://img.shields.io/badge/homebrew-promptly-informational?logo=homebrew)](https://github.com/nicholascross/homebrew-promptly)
 
 Promptly is a Swift-based CLI tool that streamlines interaction with large language models. It supports OpenAI and OpenAI-compatible providers (Azure OpenAI, OpenRouter, Gemini, Mistral, DeepSeek, xAI, Groq, ArceeAI) as well as local hosts (Ollama, llama.cpp). Promptly features secure API token management, interactive and piped modes, customizable canned prompts, and sandboxed shell command integrations for flexible automation.
 
