@@ -44,7 +44,7 @@ struct Promptly: AsyncParsableCommand {
 
     @Option(
         name: .customLong("model"),
-        help: "The model to use for the chat. If not specified defaults to configuration"
+        help: "The model to use for the chat. May be an alias defined in configuration; if not specified, defaults to configuration"
     )
     private var model: String?
     @Flag(name: .customLong("interactive"), help: "Enable interactive prompt mode; stay open for further user input")

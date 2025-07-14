@@ -9,6 +9,9 @@
 2. Example Configuration
    ```json
    {
+     "modelAliases": {
+       "o4": "o4-mini"
+     },
      "model": "o4-mini",
      "provider": "openai",
      "providers": {
@@ -67,6 +70,7 @@
    ```
 
 3. Parameter Overview
+   - modelAliases: Map of alias names to model identifiers. Aliases can be used in place of model names when specifying `--model`.
    - model: Model identifier.
    - provider: Selected provider key. Must match one of the entries in the `providers` map.
    - providers: Map of provider configurations. Each entry contains:

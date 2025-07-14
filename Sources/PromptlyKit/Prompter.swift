@@ -15,7 +15,7 @@ public struct Prompter {
 
         requestFactory = ChatRequestFactory(
             chatCompletionURL: config.chatCompletionsURL,
-            model: modelOverride ?? config.model,
+            model: config.resolveModel(override: modelOverride),
             token: config.token,
             organizationId: config.organizationId,
             tools: tools,
