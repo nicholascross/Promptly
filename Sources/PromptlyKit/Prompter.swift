@@ -6,12 +6,25 @@ public struct Prompter {
     private let encoder = JSONEncoder()
     private let requestFactory: ChatRequestFactory
 
+    /// Handler for streaming output strings (may include newline characters).
+    public typealias OutputHandler = (String) -> Void
+    private let output: OutputHandler
+
+    /// Create a new Prompter.
+    ///
+    /// - Parameters:
+    ///   - config: Configuration for OpenAI API.
+    ///   - modelOverride: Optional model name override.
+    ///   - tools: List of executable tools available to the prompter.
+    ///   - output: Handler for streaming output; defaults to standard output.
     public init(
         config: Config,
         modelOverride: String? = nil,
-        tools: [any ExecutableTool] = []
+        tools: [any ExecutableTool] = [],
+        output: @escaping OutputHandler = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws {
         self.tools = tools
+        self.output = output
 
         requestFactory = ChatRequestFactory(
             chatCompletionURL: config.chatCompletionsURL,
@@ -51,7 +64,8 @@ public struct Prompter {
     /// at initialization
     public func runChatStream(
         messages initialMessages: [ChatMessage],
-        onToolCall handler: ((String, JSONValue) async throws -> JSONValue)? = nil
+        onToolCall handler: ((String, JSONValue) async throws -> JSONValue)? = nil,
+        suppressPrinting: Bool = false
     ) async throws -> [ChatMessage] {
         var messages = initialMessages
         let callTool: (String, JSONValue) async throws -> JSONValue = { name, args in
@@ -90,8 +104,9 @@ public struct Prompter {
                     switch event {
                     case let .content(text):
                         currentMessageContent += text
-                        print(text, terminator: "")
-                        fflush(stdout)
+                        if !suppressPrinting {
+                            output(text)
+                        }
                     case let .toolCall(id, name, arguments):
                         await handleToolCall(
                             id: id,
@@ -102,8 +117,9 @@ public struct Prompter {
                         )
                         replyPending = true
                     case .stop:
-                        print("")
-                        fflush(stdout)
+                        if !suppressPrinting {
+                            output("\n")
+                        }
                         return messages + [
                             ChatMessage(
                                 role: .assistant,
@@ -166,8 +182,7 @@ public struct Prompter {
 
     private func streamRawOutput(from stream: URLSession.AsyncBytes) async throws {
         for try await line in stream.lines {
-            print(line)
-            fflush(stdout)
+            output(line + "\n")
         }
     }
 }

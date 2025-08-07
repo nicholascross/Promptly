@@ -42,6 +42,7 @@ promptly --include-tools ShowFileTree --message "user:Display the project's dire
 | Flag                    | Description                                      |
 |-------------------------|--------------------------------------------------|
 | `-i`, `--interactive`   | Start REPL mode                                  |
+| `--ui`                  | Launch the terminal-based UI powered by TerminalUI |
 | `-p`, `--canned <name>` | Use a canned prompt from `~/.config/promptly/canned` |
 | `--include-tools`       | Whitelist shell tools by substring               |
 | `--exclude-tools`       | Blacklist shell tools by substring               |
@@ -122,6 +123,14 @@ I'm doing well, thank you! How can I assist you today?
 Why did the developer go broke? Because he used up all his cache.
 
 # Press Ctrl-D (EOF) / Ctrl-C to exit interactive mode.
+```
+
+### UI Mode
+
+To launch the terminal-based UI powered by TerminalUI, use the `--ui` flag:
+
+```bash
+promptly --ui
 ```
 
 ### Canned prompts

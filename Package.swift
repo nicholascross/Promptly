@@ -15,7 +15,8 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
-        .package(url: "https://github.com/nicholascross/SwiftTokenizer", from: "0.0.1")
+        .package(url: "https://github.com/nicholascross/SwiftTokenizer", from: "0.0.1"),
+        .package(url: "https://github.com/nicholascross/TerminalUI", from: "0.5.0")
     ],
     targets: [
         .executableTarget(
@@ -23,7 +24,8 @@ let package = Package(
             dependencies: [
                 "PromptlyKit",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "SwiftTokenizer", package: "SwiftTokenizer")
+                .product(name: "SwiftTokenizer", package: "SwiftTokenizer"),
+                .product(name: "TerminalUI", package: "TerminalUI")
             ]
         ),
         .target(

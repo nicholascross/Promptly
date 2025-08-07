@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import TerminalUI
 
 private let fileManager = FileManager()
 
@@ -49,6 +50,8 @@ struct Promptly: AsyncParsableCommand {
     private var model: String?
     @Flag(name: .customLong("interactive"), help: "Enable interactive prompt mode; stay open for further user input")
     private var interactive: Bool = false
+    @Flag(name: .customLong("ui"), help: "Enable terminal UI mode")
+    private var ui: Bool = false
 
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: configFile.expandingTilde).standardizedFileURL
@@ -58,6 +61,16 @@ struct Promptly: AsyncParsableCommand {
 
         if setupToken {
             try await Config.setupToken(configURL: configURL)
+            return
+        }
+        if ui {
+            try await TerminalUI.run(
+                configURL: configURL,
+                toolsFileName: tools,
+                includeTools: includeTools,
+                excludeTools: excludeTools,
+                modelOverride: model
+            )
             return
         }
 

@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ChatMessage: Codable {
+public struct ChatMessage: Codable, Sendable {
     public let role: ChatRole
     public let id: String?
     public let content: Content

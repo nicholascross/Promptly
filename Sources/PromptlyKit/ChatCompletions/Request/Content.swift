@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Content: Codable {
+public enum Content: Codable, Sendable {
     case text(String)
     case blocks([ContentBlock])
     case empty

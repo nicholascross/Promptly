@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ChatFunction: Codable {
+public struct ChatFunction: Codable, Sendable {
     public let name: String
     public let arguments: String
 
