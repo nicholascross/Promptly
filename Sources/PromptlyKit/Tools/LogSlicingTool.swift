@@ -55,8 +55,6 @@ public struct LogSlicingTool: ExecutableTool {
         let filteredLines = omitted.apply(patterns: regexPatterns)
         let condensed = makeCondensedOutput(head: head, filtered: filteredLines, tail: tail)
 
-        Logger.log("Log-slicing tool condensed output to \(condensed.count) characters")
-
         return makeResult(
             exitCode: context.exitCode,
             condensedOutput: condensed,

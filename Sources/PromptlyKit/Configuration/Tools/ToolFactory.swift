@@ -22,14 +22,16 @@ public struct ToolFactory {
         config: Config,
         headLines: Int = 250,
         tailLines: Int = 250,
-        sampleLines: Int = 10
+        sampleLines: Int = 10,
+        toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
         let defaultTools = try loadShellCommandConfig(
             configURL: toolsConfigURL,
             config: config,
             headLines: headLines,
             tailLines: tailLines,
-            sampleLines: sampleLines
+            sampleLines: sampleLines,
+            toolOutput: toolOutput
         )
 
         let localTools = try loadShellCommandConfig(
@@ -37,7 +39,8 @@ public struct ToolFactory {
             config: config,
             headLines: headLines,
             tailLines: tailLines,
-            sampleLines: sampleLines
+            sampleLines: sampleLines,
+            toolOutput: toolOutput
         )
 
         // Merge the default tools with local tools, giving precedence to local tools.
@@ -72,7 +75,8 @@ public struct ToolFactory {
         config: Config,
         headLines: Int,
         tailLines: Int,
-        sampleLines: Int
+        sampleLines: Int,
+        toolOutput: @Sendable @escaping (String) -> Void
     ) throws -> [any ExecutableTool] {
         guard fileManager.fileExists(atPath: url.path) else {
             return []
@@ -92,7 +96,8 @@ public struct ToolFactory {
                 argumentTemplate: entry.argumentTemplate,
                 exclusiveArgumentTemplate: entry.exclusiveArgumentTemplate ?? false,
                 sandboxURL: sandboxURL,
-                fileManager: fileManager
+                fileManager: fileManager,
+                toolOutput: toolOutput
             )
 
             if entry.truncateOutput ?? false {

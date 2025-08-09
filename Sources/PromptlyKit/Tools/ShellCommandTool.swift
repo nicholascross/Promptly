@@ -14,6 +14,7 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
     private let exclusiveArgumentTemplate: Bool
     private let fileManager: any FileManagerProtocol
     private let sandboxURL: URL
+    private let toolOutput: @Sendable (String) -> Void
 
     public init(
         name: String,
@@ -25,7 +26,11 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         argumentTemplate: [[String]],
         exclusiveArgumentTemplate: Bool,
         sandboxURL: URL,
-        fileManager: FileManagerProtocol
+        fileManager: FileManagerProtocol,
+        toolOutput: @Sendable @escaping (String) -> Void = { stream in
+            fputs(stream, stdout)
+            fflush(stdout)
+        }
     ) {
         self.name = name
         self.description = description
@@ -37,11 +42,13 @@ public struct ShellCommandTool: ExecutableTool, Sendable {
         self.exclusiveArgumentTemplate = exclusiveArgumentTemplate
         self.sandboxURL = sandboxURL
         self.fileManager = fileManager
+        self.toolOutput = toolOutput
     }
 
     public func execute(arguments: JSONValue) async throws -> JSONValue {
-        Logger.log("Executing shell command: \(executable) with arguments: \(arguments)", level: .info)
-        let (exitCode, output) = try await ProcessRunner().run(
+        toolOutput("Executing shell command: \(executable) with arguments: \(arguments)\n")
+        let runner = ProcessRunner(toolOutputHandler: toolOutput)
+        let (exitCode, output) = try await runner.run(
             executable: executable,
             arguments: deriveExecutableArguments(arguments: arguments),
             currentDirectoryURL: fileManager.currentDirectoryURL,

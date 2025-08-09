@@ -28,12 +28,21 @@ public struct PromptTool: ExecutableTool, Sendable {
         description: "Ask the user a question and return the response as a string"
     )
 
-    public init() {}
+    private let toolOutput: @Sendable (String) -> Void
+
+    /// Create a PromptTool.
+    ///
+    /// - Parameter toolOutput: Handler for streaming prompt output; defaults to standard output.
+    public init(toolOutput: @Sendable @escaping (String) -> Void = { stream in
+        fputs(stream, stdout)
+        fflush(stdout)
+    }) {
+        self.toolOutput = toolOutput
+    }
 
     public func execute(arguments: JSONValue) async throws -> JSONValue {
         let promptToolArguments = try arguments.decoded(PromptToolArguments.self)
-        fputs("\(promptToolArguments.message)\n", stdout)
-        fflush(stdout)
+        toolOutput("\(promptToolArguments.message)\n")
         let input = readLine(strippingNewline: true) ?? ""
         if input.isEmpty, let def = promptToolArguments.default {
             return .string(def)

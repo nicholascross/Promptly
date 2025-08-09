@@ -42,7 +42,6 @@ public struct SuggestionService {
         ]
 
         let suggestion = try await fetchSuggestion(messages: messages)
-        Logger.log("Received regex suggestion: \(suggestion)", level: .info)
         return extractPatterns(from: suggestion)
     }
 

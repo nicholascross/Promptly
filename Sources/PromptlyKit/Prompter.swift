@@ -8,7 +8,10 @@ public struct Prompter {
 
     /// Handler for streaming output strings (may include newline characters).
     public typealias OutputHandler = (String) -> Void
+    /// Handler for streaming output from tool calls.
+    public typealias ToolOutputHandler = OutputHandler
     private let output: OutputHandler
+    private let toolOutput: ToolOutputHandler
 
     /// Create a new Prompter.
     ///
@@ -17,14 +20,17 @@ public struct Prompter {
     ///   - modelOverride: Optional model name override.
     ///   - tools: List of executable tools available to the prompter.
     ///   - output: Handler for streaming output; defaults to standard output.
+    ///   - toolOutput: Handler for streaming tool output; defaults to standard output.
     public init(
         config: Config,
         modelOverride: String? = nil,
         tools: [any ExecutableTool] = [],
-        output: @escaping OutputHandler = { stream in fputs(stream, stdout); fflush(stdout) }
+        output: @escaping OutputHandler = { stream in fputs(stream, stdout); fflush(stdout) },
+        toolOutput: @escaping ToolOutputHandler = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws {
         self.tools = tools
         self.output = output
+        self.toolOutput = toolOutput
 
         requestFactory = ChatRequestFactory(
             chatCompletionURL: config.chatCompletionsURL,

@@ -1,6 +1,18 @@
 import Foundation
 
 struct ProcessRunner: RunnableProcess {
+    /// Handler for streaming output of tool calls (e.g., shell command stdout/stderr and prompt input).
+    let toolOutputHandler: (String) -> Void
+
+    /// Create a ProcessRunner.
+    ///
+    /// - Parameter toolOutputHandler: Handler for streaming output; defaults to standard output.
+    init(toolOutputHandler: @escaping (String) -> Void = { stream in
+        fputs(stream, stdout)
+        fflush(stdout)
+    }) {
+        self.toolOutputHandler = toolOutputHandler
+    }
     func run(
         executable: String,
         arguments: [String],
@@ -37,7 +49,8 @@ struct ProcessRunner: RunnableProcess {
         currentDirectory: URL?,
         streamOutput: Bool
     ) throws -> (exitCode: Int32, output: String) {
-        Logger.log("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")", level: .info)
+        // Report command invocation via the output handler instead of the global logger
+        self.toolOutputHandler("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")\n")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -55,9 +68,8 @@ struct ProcessRunner: RunnableProcess {
                 let data = pipe.fileHandleForReading.availableData
                 if !data.isEmpty {
                     outputPipe.fileHandleForWriting.write(data)
-                    if let output = String(data: data, encoding: .utf8) {
-                        print(output, terminator: "")
-                        fflush(stdout)
+                        if let output = String(data: data, encoding: .utf8) {
+                            self.toolOutputHandler(output)
                     }
                 } else {
                     break

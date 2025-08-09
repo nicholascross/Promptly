@@ -21,11 +21,23 @@ enum TerminalUI {
             terminal.clearScreen()
         }
 
-        // Load configuration and tools
+        // Load configuration
         let config = try Config.loadConfig(url: configURL)
-        var availableTools = try [PromptTool()]
+
+        // Widgets for displaying messages and tool output
+        let messagesArea = TextAreaWidget(text: "", title: "Conversation")
+        let toolOutputArea = TextAreaWidget(text: "", title: "Tool Output")
+        // Shared handler for streaming tool output into the UI
+        let toolOutputHandler: @Sendable (String) -> Void = { text in
+            Task { @MainActor in
+                toolOutputArea.text += text
+            }
+        }
+
+        // Load and filter executable tools (PromptTool and shell-command tools) using UI handler
+        var availableTools = try [PromptTool(toolOutput: toolOutputHandler)]
             + ToolFactory(fileManager: FileManager(), toolsFileName: toolsFileName)
-            .makeTools(config: config)
+                .makeTools(config: config, toolOutput: toolOutputHandler)
         if !includeTools.isEmpty {
             availableTools = availableTools.filter { tool in
                 includeTools.contains { include in tool.name.contains(include) }
@@ -38,9 +50,6 @@ enum TerminalUI {
         }
         // Conversation history
         var conversation: [ChatMessage] = []
-
-        // Widget for displaying messages
-        let messagesArea = TextAreaWidget(text: "", title: "Conversation")
 
         // Helper to render conversation
         func renderConversation() {
@@ -79,6 +88,11 @@ enum TerminalUI {
                     }
                     renderConversation()
                 }
+            },
+            toolOutput: { text in
+                Task { @MainActor in
+                    toolOutputArea.text += text
+                }
             }
         )
 
@@ -87,6 +101,8 @@ enum TerminalUI {
 
         input.onSubmit = { text in
             Task { @MainActor in
+                // Clear previous tool output and append user message
+                toolOutputArea.text = ""
                 conversation.append(ChatMessage(role: .user, content: .text(text)))
                 renderConversation()
                 let updated = try await prompter.runChatStream(messages: conversation)
@@ -99,6 +115,7 @@ enum TerminalUI {
         let loop = UIEventLoop(terminal: terminal) {
             Stack(axis: .vertical, spacing: 0) {
                 messagesArea
+                toolOutputArea.frame(height: 10)
                 input.frame(height: 3)
             }
         }
