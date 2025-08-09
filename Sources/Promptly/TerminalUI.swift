@@ -114,7 +114,7 @@ enum TerminalUI {
         // Layout and run UI
         let loop = UIEventLoop(terminal: terminal) {
             Stack(axis: .vertical, spacing: 0) {
-                input.frame(height: 3)
+                input.expanding(maxHeight: 5)
                 messagesArea
                 toolOutputArea.frame(height: 10)
             }
