@@ -114,9 +114,9 @@ enum TerminalUI {
         // Layout and run UI
         let loop = UIEventLoop(terminal: terminal) {
             Stack(axis: .vertical, spacing: 0) {
+                input.frame(height: 3)
                 messagesArea
                 toolOutputArea.frame(height: 10)
-                input.frame(height: 3)
             }
         }
         try await loop.run()
