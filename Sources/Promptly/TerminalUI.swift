@@ -26,7 +26,7 @@ enum TerminalUI {
 
         // Widgets for displaying messages and tool output
         let messagesArea = TextAreaWidget(text: "", title: "Conversation")
-        let toolOutputArea = TextAreaWidget(text: "", title: "Tool Output")
+        let toolOutputArea = TextAreaWidget(text: "", title: "Tool Calls")
         // Shared handler for streaming tool output into the UI
         let toolOutputHandler: @Sendable (String) -> Void = { text in
             Task { @MainActor in
