@@ -34,10 +34,9 @@ enum TerminalUI {
             }
         }
 
-        // Load and filter executable tools (PromptTool and shell-command tools) using UI handler
-        var availableTools = try [PromptTool(toolOutput: toolOutputHandler)]
-            + ToolFactory(fileManager: FileManager(), toolsFileName: toolsFileName)
-                .makeTools(config: config, toolOutput: toolOutputHandler)
+        // Load and filter executable tools using UI handler
+        var availableTools = try ToolFactory(fileManager: FileManager(), toolsFileName: toolsFileName)
+            .makeTools(config: config, toolOutput: toolOutputHandler)
         if !includeTools.isEmpty {
             availableTools = availableTools.filter { tool in
                 includeTools.contains { include in tool.name.contains(include) }

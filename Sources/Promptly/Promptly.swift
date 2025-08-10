@@ -75,9 +75,8 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let config = try Config.loadConfig(url: configURL)
-        var availableTools = try [PromptTool()]
-            + ToolFactory(fileManager: fileManager, toolsFileName: tools)
-                .makeTools(config: config)
+        var availableTools = try ToolFactory(fileManager: fileManager, toolsFileName: tools)
+            .makeTools(config: config)
         if !includeTools.isEmpty {
             availableTools = availableTools.filter { tool in
                 includeTools.contains { include in tool.name.contains(include) }
