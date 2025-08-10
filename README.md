@@ -43,7 +43,7 @@ promptly --include-tools ShowFileTree --message "user:Display the project's dire
 |-------------------------|--------------------------------------------------|
 | `-i`, `--interactive`   | Start REPL mode                                  |
 | `--ui`                  | Launch the terminal-based UI powered by TerminalUI |
-| `-p`, `--canned <name>` | Use a canned prompt from `~/.config/promptly/canned` |
+| `-p`, `--canned <name>` | Use one or more canned prompts from `~/.config/promptly/canned` |
 | `--include-tools`       | Whitelist shell tools by substring               |
 | `--exclude-tools`       | Blacklist shell tools by substring               |
 | `-c`, `--config <path>`  | Override config file path (default `~/.config/promptly/config.json`) |
@@ -135,14 +135,14 @@ promptly --ui
 
 ### Canned prompts
 
-You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.
+You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option one or more times. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.
 
 Create canned prompts as text files in the `~/.config/promptly/canned/` directory. 
 
-You can invoke a canned prompt for `example.txt` as follows:
+You can invoke one or multiple canned prompts as follows:
 
 ```bash
-echo "something" | promptly --canned "example"
+echo "something" | promptly --canned "example1" --canned "example2"
 ```
 
 ### Role based messages

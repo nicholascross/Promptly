@@ -40,8 +40,9 @@ struct Promptly: AsyncParsableCommand {
     @Option(name: .customLong("message"), help: "A message to send to the chat.")
     private var messages: [Message] = []
 
-    @Option(name: [.customLong("canned"), .customShort("p")], help: "Use canned prompt as conext.")
-    private var cannedContext: String?
+    @Option(name: [.customLong("canned"), .customShort("p")],
+            help: "Use one or more canned prompts as context.")
+    private var cannedContexts: [String] = []
 
     @Option(
         name: .customLong("model"),
@@ -96,9 +97,10 @@ struct Promptly: AsyncParsableCommand {
 
         guard messages.isEmpty else {
             let allMessages: [Message]
-            if let cannedContext = cannedContext {
-                let prompt = try loadCannedPrompt(name: cannedContext)
-                allMessages = [.system(prompt)] + messages
+            if !cannedContexts.isEmpty {
+                let combined = try cannedContexts.map { try loadCannedPrompt(name: $0) }
+                    .joined(separator: "\n\n")
+                allMessages = [.system(combined)] + messages
             } else {
                 allMessages = messages
             }
@@ -110,8 +112,9 @@ struct Promptly: AsyncParsableCommand {
 
         let prompt: String
         let supplementaryContext: String?
-        if let cannedContext = cannedContext {
-            prompt = try loadCannedPrompt(name: cannedContext)
+        if !cannedContexts.isEmpty {
+            prompt = try cannedContexts.map { try loadCannedPrompt(name: $0) }
+                .joined(separator: "\n\n")
             supplementaryContext = contextArgument
         } else {
             guard let contextArgument = contextArgument else {
