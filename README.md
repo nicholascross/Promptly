@@ -44,8 +44,8 @@ promptly --include-tools ShowFileTree --message "user:Display the project's dire
 | `-i`, `--interactive`   | Start REPL mode                                  |
 | `--ui`                  | Launch the terminal-based UI powered by TerminalUI |
 | `-p`, `--canned <name>` | Use one or more canned prompts from `~/.config/promptly/canned` |
-| `--include-tools`       | Whitelist shell tools by substring               |
-| `--exclude-tools`       | Blacklist shell tools by substring               |
+| `--include-tools`       | Include shell tools by substring; explicitly enable opt-in tools when listed |
+| `--exclude-tools`       | Exclude shell tools by substring               |
 | `-c`, `--config <path>`  | Override config file path (default `~/.config/promptly/config.json`) |
 | `--tools <name>`         | Override shell tools config basename (default `tools`) |
 | `--setup-token`          | Store or update the API token in Keychain        |
@@ -160,7 +160,7 @@ In this example:
 
 ### Filtering Available Tools
 
-You can restrict which shell-command tools are exposed to the LLM by using the `--include-tools` option. Provide one or more tool name substrings; only matching tools will be loaded.
+You can restrict which shell-command tools are exposed to the LLM by using the `--include-tools` option. Provide one or more tool name substrings; only matching tools will be loaded. This flag also explicitly enables any tools marked as opt-in.
 
 You can also exclude specific shell-command tools by using the `--exclude-tools` option. Provide one or more tool name substrings; any matching tools will be omitted from the loaded set.
 

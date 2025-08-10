@@ -18,8 +18,18 @@ public struct ToolFactory {
     ///   - config: Promptly configuration for LLM access used by log slicing.
     ///   - headLines: Number of lines to keep from the start of large outputs.
     ///   - tailLines: Number of lines to keep from the end of large outputs.
+    /// Create executable tools from configuration, skipping opt-in tools unless explicitly enabled,
+    /// and wrap shell-command tools with log-slicing middleware.
+    /// - Parameters:
+    ///   - config: Promptly configuration for LLM access used by log slicing.
+    ///   - includeTools: Substrings of tool names to explicitly enable opt-in tools.
+    ///   - headLines: Number of lines to keep from the start of large outputs.
+    ///   - tailLines: Number of lines to keep from the end of large outputs.
+    ///   - sampleLines: Number of lines to sample for regex matches.
+    ///   - toolOutput: Closure to receive streaming tool output.
     public func makeTools(
         config: Config,
+        includeTools: [String] = [],
         headLines: Int = 250,
         tailLines: Int = 250,
         sampleLines: Int = 10,
@@ -28,6 +38,7 @@ public struct ToolFactory {
         let defaultTools = try loadShellCommandConfig(
             configURL: toolsConfigURL,
             config: config,
+            includeTools: includeTools,
             headLines: headLines,
             tailLines: tailLines,
             sampleLines: sampleLines,
@@ -37,6 +48,7 @@ public struct ToolFactory {
         let localTools = try loadShellCommandConfig(
             configURL: localToolsConfigURL,
             config: config,
+            includeTools: includeTools,
             headLines: headLines,
             tailLines: tailLines,
             sampleLines: sampleLines,
@@ -73,6 +85,7 @@ public struct ToolFactory {
     private func loadShellCommandConfig(
         configURL url: URL,
         config: Config,
+        includeTools: [String],
         headLines: Int,
         tailLines: Int,
         sampleLines: Int,
@@ -84,8 +97,13 @@ public struct ToolFactory {
 
         let data = try Data(contentsOf: url)
         let commandConfig = try JSONDecoder().decode(ShellCommandConfig.self, from: data)
+        // Filter out opt-in tools unless explicitly included via includeTools substrings.
+        let entries = commandConfig.shellCommands.filter { entry in
+            guard entry.optIn == true else { return true }
+            return includeTools.contains { include in entry.name.contains(include) }
+        }
 
-        return commandConfig.shellCommands.map { entry in
+        return entries.map { entry in
             let shellTool = ShellCommandTool(
                 name: entry.name,
                 description: entry.description,

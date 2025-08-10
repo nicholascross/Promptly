@@ -173,6 +173,7 @@ Each entry may include:
 - `echoOutput`: Optional boolean. When true, stdout and stderr of the command are echoed directly.
 - `truncateOutput`: Optional boolean. When true, large outputs are truncated via smart log-slicing middleware (retaining head/tail lines and reinjecting regex matches).
 - `exclusiveArgumentTemplate`: Optional boolean. When true, argumentTemplate groups are treated as alternatives; Promptly will use only the first group whose placeholders can be fully resolved, ignoring others.
+- `optIn`: Optional boolean. When true, the tool is disabled by default and only loaded when its name matches one of the substrings provided via `--include-tools`.
   - **Note:** Order argumentTemplate groups from most specific to most general (e.g. chunked tail/head first, full-file fallback last).
 
 Example layout of [tools.json](tools.json):

@@ -46,6 +46,7 @@
     },
     {
       "name": "RipGrepIncludHidden",
+      "optIn": true,
       "description": "Search file contents for a regex pattern including in hidden folders.  Use this only as required since it is slower than RipGrep that ignores hidden files.",
       "executable": "rg",
       "argumentTemplate": [["--hidden","--glob", "'!.git'", "-R", "-n", "{{pattern}}", "{(path)}"]],
@@ -267,6 +268,7 @@
     },
     {
       "name": "FixSwift",
+      "optIn": true,
       "description": "Attempt to fix any build or test issues in a Swift package",
       "executable": "promptly",
       "echoOutput": true,

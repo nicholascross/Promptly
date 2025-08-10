@@ -36,7 +36,7 @@ enum TerminalUI {
 
         // Load and filter executable tools using UI handler
         var availableTools = try ToolFactory(fileManager: FileManager(), toolsFileName: toolsFileName)
-            .makeTools(config: config, toolOutput: toolOutputHandler)
+            .makeTools(config: config, includeTools: includeTools, toolOutput: toolOutputHandler)
         if !includeTools.isEmpty {
             availableTools = availableTools.filter { tool in
                 includeTools.contains { include in tool.name.contains(include) }

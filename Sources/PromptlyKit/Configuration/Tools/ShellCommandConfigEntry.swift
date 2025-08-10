@@ -14,5 +14,7 @@ struct ShellCommandConfigEntry: Decodable {
     let argumentTemplate: [[String]]
     /// When true, only the first argumentTemplate group whose placeholders can be fully resolved is used.
     let exclusiveArgumentTemplate: Bool?
+    /// When true, tool is disabled by default and only loaded when its name is specified via --include-tools.
+    let optIn: Bool?
     let parameters: JSONSchema
 }
