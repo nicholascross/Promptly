@@ -1,5 +1,5 @@
 {
-  "originHash" : "c5e3a14b2cada8a5eb29edf649ca09468cbcc96610c2ba595fd083850862ae2d",
+  "originHash" : "f05d6dc6f5baa7575c42e83022d437db7e681bbdbc152f298e4bd1d86c8f9aec",
   "pins" : [
     {
       "identity" : "swift-argument-parser",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nicholascross/TerminalUI",
       "state" : {
-        "revision" : "41ecda82541714d48644256718829e41399c12e9",
-        "version" : "0.7.0"
+        "revision" : "3b7ec2a7636cc20b4be8e60e6b005ccceb31765b",
+        "version" : "0.8.0"
       }
     }
   ],
