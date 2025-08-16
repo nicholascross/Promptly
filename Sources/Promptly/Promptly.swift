@@ -132,11 +132,22 @@ struct Promptly: AsyncParsableCommand {
             supplementaryContext = nil
         }
 
-        let messages = try await prompter.runChatStream(
-            systemPrompt: prompt,
-            supplementarySystemPrompt: supplementaryContext
+        // Read user input from stdin and build initial messages
+        let inputData = FileHandle.standardInput.readDataToEndOfFile()
+        let userInput = String(data: inputData, encoding: .utf8) ?? ""
+        var initialMessages: [ChatMessage] = [
+            ChatMessage(role: .system, content: .text(prompt))
+        ]
+        if let supplementary = supplementaryContext {
+            initialMessages.append(
+                ChatMessage(role: .system, content: .text(supplementary))
+            )
+        }
+        initialMessages.append(
+            ChatMessage(role: .user, content: .text(userInput))
         )
 
+        let messages = try await prompter.runChatStream(messages: initialMessages)
         try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: messages)
     }
 

@@ -42,25 +42,6 @@ public struct Prompter {
         )
     }
 
-    /// Read standard input and stream chat with system prompts.
-    /// - Parameters:
-    ///   - systemPrompt: primary system prompt
-    ///   - supplementarySystemPrompt: additional system prompt
-    public func runChatStream(
-        systemPrompt: String,
-        supplementarySystemPrompt: String? = nil
-    ) async throws -> [ChatMessage] {
-        let inputData = FileHandle.standardInput.readDataToEndOfFile()
-        let userInput = String(data: inputData, encoding: .utf8) ?? ""
-
-        let messages = [
-            ChatMessage(role: .system, content: .text(systemPrompt)),
-            supplementarySystemPrompt.map { ChatMessage(role: .system, content: .text($0)) },
-            ChatMessage(role: .user, content: .text(userInput))
-        ].compactMap { $0 }
-
-        return try await runChatStream(messages: messages)
-    }
 
     /// Stream a chat, automatically pausing for tool calls,
     /// executing the tool, and resuming the assistant’s response.
