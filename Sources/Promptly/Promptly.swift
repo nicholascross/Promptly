@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import PromptlyKit
 import TerminalUI
+import Darwin
 
 private let fileManager = FileManager()
 
@@ -99,56 +100,42 @@ struct Promptly: AsyncParsableCommand {
             tools: availableTools
         )
 
-        guard messages.isEmpty else {
-            let allMessages: [Message]
-            if !cannedContexts.isEmpty {
-                let combined = try cannedContexts.map { try loadCannedPrompt(name: $0) }
-                    .joined(separator: "\n\n")
-                allMessages = [.system(combined)] + messages
-            } else {
-                allMessages = messages
+        // Build initial messages in order: canned contexts, positional context, piped stdin, explicit --message flags
+        var initialMessages: [ChatMessage] = []
+
+        // 1. canned contexts as system messages
+        for name in cannedContexts {
+            let canned = try loadCannedPrompt(name: name)
+            initialMessages.append(.init(role: .system, content: .text(canned)))
+        }
+
+        // 2. positional context as system message
+        if let ctx = contextArgument {
+            initialMessages.append(.init(role: .system, content: .text(ctx)))
+        }
+
+        // 3. piped stdin as user message (only if stdin is not a TTY and contains data)
+        if isatty(STDIN_FILENO) == 0 {
+            let data = FileHandle.standardInput.readDataToEndOfFile()
+            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                initialMessages.append(.init(role: .user, content: .text(text)))
             }
-
-            let messages = try await prompter.runChatStream(messages: allMessages.chatMessages)
-            try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: messages)
-            return
         }
 
-        let prompt: String
-        let supplementaryContext: String?
-        if !cannedContexts.isEmpty {
-            prompt = try cannedContexts.map { try loadCannedPrompt(name: $0) }
-                .joined(separator: "\n\n")
-            supplementaryContext = contextArgument
-        } else {
-            guard let contextArgument = contextArgument else {
-                if interactive {
-                    try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: [])
-                    return
-                }
-                throw ValidationError("Usage: promptly <context-string>\\n")
+        // 4. explicit --message flags
+        initialMessages += messages.chatMessages
+
+        // If still no messages, either enter interactive REPL or error
+        if initialMessages.isEmpty {
+            if interactive {
+                try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: [])
+                return
             }
-            prompt = contextArgument
-            supplementaryContext = nil
+            throw ValidationError("No input provided. Usage: promptly [options] <context> or --message or piped stdin")
         }
 
-        // Read user input from stdin and build initial messages
-        let inputData = FileHandle.standardInput.readDataToEndOfFile()
-        let userInput = String(data: inputData, encoding: .utf8) ?? ""
-        var initialMessages: [ChatMessage] = [
-            ChatMessage(role: .system, content: .text(prompt))
-        ]
-        if let supplementary = supplementaryContext {
-            initialMessages.append(
-                ChatMessage(role: .system, content: .text(supplementary))
-            )
-        }
-        initialMessages.append(
-            ChatMessage(role: .user, content: .text(userInput))
-        )
-
-        let messages = try await prompter.runChatStream(messages: initialMessages)
-        try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: messages)
+        let conversation = try await prompter.runChatStream(messages: initialMessages)
+        try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: conversation)
     }
 
     private func loadCannedPrompt(name: String) throws -> String {
