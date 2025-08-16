@@ -29,6 +29,7 @@ struct ChatRequestFactory {
 
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("promptly", forHTTPHeaderField: "User-Agent")
 
         if let token {
             request.addValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
