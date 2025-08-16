@@ -77,14 +77,14 @@ struct Promptly: AsyncParsableCommand {
         let config = try Config.loadConfig(url: configURL)
         let factory = ToolFactory(fileManager: fileManager, toolsFileName: tools)
 
-        // UI mode requires a terminal; piped stdin cannot be used with --ui
-        if userInterfaceMode && isatty(STDIN_FILENO) == 0 {
-            throw ValidationError("UI mode requires a TTY; piped stdin is not supported")
-        }
 
         let initialMessages = try deriveInitialMessages()
 
         if userInterfaceMode {
+            // If stdin was piped (consumed) and not a TTY, reopen /dev/tty so UI can read input
+            if isatty(STDIN_FILENO) == 0 {
+                _ = freopen("/dev/tty", "r", stdin)
+            }
             try await TerminalUI.run(
                 config: config,
                 toolFactory: factory,
@@ -162,6 +162,11 @@ struct Promptly: AsyncParsableCommand {
         initialMessages: [ChatMessage]
     ) async throws {
         guard interactive else { return }
+        // If stdin has been consumed (e.g. piped input) and is not a TTY,
+        // reopen /dev/tty so further interactive reads come from the terminal.
+        if isatty(STDIN_FILENO) == 0 {
+            _ = freopen("/dev/tty", "r", stdin)
+        }
         var conversation = initialMessages
         while true {
             print("\n> ", terminator: "")

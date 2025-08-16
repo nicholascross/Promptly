@@ -133,7 +133,7 @@ To launch the terminal-based UI powered by TerminalUI, use the `--ui` flag:
 promptly --ui
 ```
 
-Note that UI mode requires a TTY; piping input into `--ui` is not supported.
+Note that UI mode requires a TTY for interactive input, but piped initial input into `--ui` is now supported.
 
 ### Canned prompts
 
