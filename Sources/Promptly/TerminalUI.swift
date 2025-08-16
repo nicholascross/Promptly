@@ -9,7 +9,8 @@ enum TerminalUI {
     static func run(
         config: Config,
         tools: [any ExecutableTool],
-        modelOverride: String?
+        modelOverride: String?,
+        initialMessages: [ChatMessage]
     ) async throws {
         let terminal = Terminal()
         terminal.hideCursor()
@@ -30,7 +31,7 @@ enum TerminalUI {
         }
 
         // Conversation history
-        var conversation: [ChatMessage] = []
+        var conversation: [ChatMessage] = initialMessages
 
         // Helper to render conversation
         func renderConversation() {
@@ -51,6 +52,9 @@ enum TerminalUI {
                 messagesArea.text = text
             }
         }
+
+        // Render any initial messages
+        renderConversation()
 
         // Create a Prompter that streams directly into the UI
         let prompter = try Prompter(

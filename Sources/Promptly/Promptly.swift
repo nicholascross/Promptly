@@ -89,8 +89,15 @@ struct Promptly: AsyncParsableCommand {
             }
         }
 
+        let initialMessages = try deriveInitialMessages()
+
         if userInterfaceMode {
-            try await TerminalUI.run(config: config, tools: availableTools, modelOverride: model)
+            try await TerminalUI.run(
+                config: config,
+                tools: availableTools,
+                modelOverride: model,
+                initialMessages: initialMessages
+            )
             return
         }
 
@@ -100,8 +107,6 @@ struct Promptly: AsyncParsableCommand {
             tools: availableTools
         )
 
-        // Build initial messages in order: canned contexts, positional context, piped stdin, explicit --message flags
-        let initialMessages = try deriveInitialMessages()
 
         // If still no messages, either enter interactive REPL or error
         if initialMessages.isEmpty {
