@@ -112,16 +112,19 @@ struct Promptly: AsyncParsableCommand {
             tools: availableTools
         )
 
-        // If still no messages, either enter interactive REPL or error
-        if initialMessages.isEmpty {
-            if interactive {
-                try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: [])
-                return
-            }
+        // If no initial messages and not in interactive mode, error
+        if initialMessages.isEmpty && !interactive {
             throw ValidationError("No input provided. Usage: promptly [options] <context> or --message or piped stdin")
         }
 
-        let conversation = try await prompter.runChatStream(messages: initialMessages)
+        // Run chat stream if there are initial messages
+        let conversation: [ChatMessage]
+        if initialMessages.isEmpty {
+            conversation = initialMessages
+        } else {
+            conversation = try await prompter.runChatStream(messages: initialMessages)
+        }
+
         try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: conversation)
     }
 
