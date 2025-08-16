@@ -101,29 +101,7 @@ struct Promptly: AsyncParsableCommand {
         )
 
         // Build initial messages in order: canned contexts, positional context, piped stdin, explicit --message flags
-        var initialMessages: [ChatMessage] = []
-
-        // 1. canned contexts as system messages
-        for name in cannedContexts {
-            let canned = try loadCannedPrompt(name: name)
-            initialMessages.append(.init(role: .system, content: .text(canned)))
-        }
-
-        // 2. positional context as system message
-        if let ctx = contextArgument {
-            initialMessages.append(.init(role: .system, content: .text(ctx)))
-        }
-
-        // 3. piped stdin as user message (only if stdin is not a TTY and contains data)
-        if isatty(STDIN_FILENO) == 0 {
-            let data = FileHandle.standardInput.readDataToEndOfFile()
-            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
-                initialMessages.append(.init(role: .user, content: .text(text)))
-            }
-        }
-
-        // 4. explicit --message flags
-        initialMessages += messages.chatMessages
+        let initialMessages = try deriveInitialMessages()
 
         // If still no messages, either enter interactive REPL or error
         if initialMessages.isEmpty {
@@ -136,6 +114,29 @@ struct Promptly: AsyncParsableCommand {
 
         let conversation = try await prompter.runChatStream(messages: initialMessages)
         try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: conversation)
+    }
+
+    private func deriveInitialMessages() throws -> [ChatMessage] {
+        var initialMessages: [ChatMessage] = []
+        // 1. canned contexts as system messages
+        for name in cannedContexts {
+            let canned = try loadCannedPrompt(name: name)
+            initialMessages.append(.init(role: .system, content: .text(canned)))
+        }
+        // 2. positional context as system message
+        if let ctx = contextArgument {
+            initialMessages.append(.init(role: .system, content: .text(ctx)))
+        }
+        // 3. piped stdin as user message (only if stdin is not a TTY and contains data)
+        if isatty(STDIN_FILENO) == 0 {
+            let data = FileHandle.standardInput.readDataToEndOfFile()
+            if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                initialMessages.append(.init(role: .user, content: .text(text)))
+            }
+        }
+        // 4. explicit --message flags
+        initialMessages += messages.chatMessages
+        return initialMessages
     }
 
     private func loadCannedPrompt(name: String) throws -> String {
