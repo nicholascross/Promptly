@@ -2,18 +2,33 @@ import Foundation
 import PromptlyKit
 import TerminalUI
 
-/// UI mode for Promptly, providing a basic chat messaging interface powered by TerminalUI.
-enum TerminalUI {
-    /// Runs the example TerminalUI application.
-    @MainActor
-    static func run(
+/// Terminal-based UI mode for Promptly, providing a basic chat messaging interface powered by the TerminalUI library.
+final class TerminalUIMode {
+    private let config: Config
+    private let toolFactory: ToolFactory
+    private let includeTools: [String]
+    private let excludeTools: [String]
+    private let modelOverride: String?
+    private var initialMessages: [ChatMessage]
+
+    init(
         config: Config,
         toolFactory: ToolFactory,
         includeTools: [String] = [],
         excludeTools: [String] = [],
         modelOverride: String?,
         initialMessages: [ChatMessage]
-    ) async throws {
+    ) {
+        self.config = config
+        self.toolFactory = toolFactory
+        self.includeTools = includeTools
+        self.excludeTools = excludeTools
+        self.modelOverride = modelOverride
+        self.initialMessages = initialMessages
+    }
+
+    @MainActor
+    func run() async throws {
         let terminal = Terminal()
         terminal.hideCursor()
         terminal.clearScreen()

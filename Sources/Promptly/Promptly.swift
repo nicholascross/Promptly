@@ -85,7 +85,7 @@ struct Promptly: AsyncParsableCommand {
             if isatty(STDIN_FILENO) == 0 {
                 _ = freopen("/dev/tty", "r", stdin)
             }
-            try await TerminalUI.run(
+            let uiMode = TerminalUIMode(
                 config: config,
                 toolFactory: factory,
                 includeTools: includeTools,
@@ -93,6 +93,7 @@ struct Promptly: AsyncParsableCommand {
                 modelOverride: model,
                 initialMessages: initialMessages
             )
+            try await uiMode.run()
             return
         }
 
