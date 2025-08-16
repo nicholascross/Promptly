@@ -89,6 +89,11 @@ struct Promptly: AsyncParsableCommand {
             }
         }
 
+        // UI mode requires a terminal; piped stdin cannot be used with --ui
+        if userInterfaceMode && isatty(STDIN_FILENO) == 0 {
+            throw ValidationError("UI mode requires a TTY; piped stdin is not supported")
+        }
+
         let initialMessages = try deriveInitialMessages()
 
         if userInterfaceMode {
@@ -106,7 +111,6 @@ struct Promptly: AsyncParsableCommand {
             modelOverride: model,
             tools: availableTools
         )
-
 
         // If still no messages, either enter interactive REPL or error
         if initialMessages.isEmpty {

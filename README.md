@@ -133,6 +133,8 @@ To launch the terminal-based UI powered by TerminalUI, use the `--ui` flag:
 promptly --ui
 ```
 
+Note that UI mode requires a TTY; piping input into `--ui` is not supported.
+
 ### Canned prompts
 
 You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option one or more times. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.
