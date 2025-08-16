@@ -13,6 +13,12 @@ public struct Prompter {
     private let output: OutputHandler
     private let toolOutput: ToolOutputHandler
 
+    /// Result of a single streaming iteration.
+    private enum StreamResult {
+        case finish([ChatMessage])
+        case `continue`([ChatMessage])
+    }
+
     /// Create a new Prompter.
     ///
     /// - Parameters:
@@ -60,59 +66,66 @@ public struct Prompter {
             return try await self.tools.executeTool(name: name, arguments: args)
         }
 
-        var replyPending = false
-        repeat {
-            // looping only while performing tool calls
-            replyPending = false
-
-            let request = try requestFactory.makeRequest(
-                messages: messages
-            )
-            let (stream, response) = try await URLSession.shared.bytes(for: request)
-
-            guard
-                let httpResponse = response as? HTTPURLResponse,
-                200 ... 299 ~= httpResponse.statusCode
-            else {
-                try await streamRawOutput(from: stream)
-                throw PrompterError.invalidResponse(
-                    statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1
-                )
+        while true {
+            let result = try await processStreamOnce(messages: messages, callTool: callTool)
+            switch result {
+            case .finish(let finalMessages):
+                return finalMessages
+            case .continue(let nextMessages):
+                messages = nextMessages
             }
+        }
+    }
 
-            var currentMessageContent = ""
-            let responseProcessor = ResponseProcessor()
-            for try await line in stream.lines {
-                let events = try await responseProcessor.process(line: line)
+    private func processStreamOnce(
+        messages initialMessages: [ChatMessage],
+        callTool: (String, JSONValue) async throws -> JSONValue
+    ) async throws -> StreamResult {
+        var messages = initialMessages
+        let request = try requestFactory.makeRequest(messages: messages)
+        let (stream, response) = try await URLSession.shared.bytes(for: request)
 
-                for event in events {
-                    switch event {
-                    case let .content(text):
-                        currentMessageContent += text
-                        output(text)
-                    case let .toolCall(id, name, arguments):
-                        await handleToolCall(
-                            id: id,
-                            functionName: name,
-                            arguments: arguments,
-                            callTool: callTool,
-                            messages: &messages
-                        )
-                        replyPending = true
-                    case .stop:
-                        output("\n")
-                        return messages + [
-                            ChatMessage(
-                                role: .assistant,
-                                content: .text(currentMessageContent)
-                            )
-                        ]
-                    }
+        guard
+            let httpResponse = response as? HTTPURLResponse,
+            200 ... 299 ~= httpResponse.statusCode
+        else {
+            try await streamRawOutput(from: stream)
+            throw PrompterError.invalidResponse(
+                statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1
+            )
+        }
+
+        var currentMessageContent = ""
+        var replyPending = false
+        let responseProcessor = ResponseProcessor()
+
+        for try await line in stream.lines {
+            let events = try await responseProcessor.process(line: line)
+            for event in events {
+                switch event {
+                case let .content(text):
+                    currentMessageContent += text
+                    output(text)
+                case let .toolCall(id, name, arguments):
+                    await handleToolCall(
+                        id: id,
+                        functionName: name,
+                        arguments: arguments,
+                        callTool: callTool,
+                        messages: &messages
+                    )
+                    replyPending = true
+                case .stop:
+                    output("\n")
+                    messages.append(
+                        ChatMessage(role: .assistant, content: .text(currentMessageContent))
+                    )
+                    return .finish(messages)
                 }
             }
-        } while replyPending
+        }
 
-        return messages
+        return replyPending ? .continue(messages) : .finish(messages)
     }
 
     private func handleToolCall(
