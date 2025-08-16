@@ -75,19 +75,7 @@ struct Promptly: AsyncParsableCommand {
         }
 
         let config = try Config.loadConfig(url: configURL)
-        var availableTools = try ToolFactory(fileManager: fileManager, toolsFileName: tools)
-            .makeTools(config: config, includeTools: includeTools)
-        if !includeTools.isEmpty {
-            availableTools = availableTools.filter { tool in
-                includeTools.contains { include in tool.name.contains(include) }
-            }
-        }
-
-        if !excludeTools.isEmpty {
-            availableTools = availableTools.filter { tool in
-                !excludeTools.contains { filter in tool.name.contains(filter) }
-            }
-        }
+        let factory = ToolFactory(fileManager: fileManager, toolsFileName: tools)
 
         // UI mode requires a terminal; piped stdin cannot be used with --ui
         if userInterfaceMode && isatty(STDIN_FILENO) == 0 {
@@ -99,12 +87,20 @@ struct Promptly: AsyncParsableCommand {
         if userInterfaceMode {
             try await TerminalUI.run(
                 config: config,
-                tools: availableTools,
+                toolFactory: factory,
+                includeTools: includeTools,
+                excludeTools: excludeTools,
                 modelOverride: model,
                 initialMessages: initialMessages
             )
             return
         }
+
+        let availableTools = try factory.makeTools(
+            config: config,
+            includeTools: includeTools,
+            excludeTools: excludeTools
+        )
 
         let prompter = try Prompter(
             config: config,

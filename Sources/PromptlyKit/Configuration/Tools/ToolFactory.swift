@@ -19,10 +19,11 @@ public struct ToolFactory {
     ///   - headLines: Number of lines to keep from the start of large outputs.
     ///   - tailLines: Number of lines to keep from the end of large outputs.
     /// Create executable tools from configuration, skipping opt-in tools unless explicitly enabled,
-    /// and wrap shell-command tools with log-slicing middleware.
+    /// wrap shell-command tools with log-slicing middleware, and filter by include/exclude lists.
     /// - Parameters:
     ///   - config: Promptly configuration for LLM access used by log slicing.
     ///   - includeTools: Substrings of tool names to explicitly enable opt-in tools.
+    ///   - excludeTools: Substrings of tool names to explicitly disable matching tools.
     ///   - headLines: Number of lines to keep from the start of large outputs.
     ///   - tailLines: Number of lines to keep from the end of large outputs.
     ///   - sampleLines: Number of lines to sample for regex matches.
@@ -30,6 +31,7 @@ public struct ToolFactory {
     public func makeTools(
         config: Config,
         includeTools: [String] = [],
+        excludeTools: [String] = [],
         headLines: Int = 250,
         tailLines: Int = 250,
         sampleLines: Int = 10,
@@ -63,7 +65,19 @@ public struct ToolFactory {
             toolNames.insert(tool.name)
         }
 
-        return tools
+        // Apply include/exclude filters to the merged tools
+        var filtered = tools
+        if !includeTools.isEmpty {
+            filtered = filtered.filter { tool in
+                includeTools.contains { include in tool.name.contains(include) }
+            }
+        }
+        if !excludeTools.isEmpty {
+            filtered = filtered.filter { tool in
+                !excludeTools.contains { filter in tool.name.contains(filter) }
+            }
+        }
+        return filtered
     }
 
     /// Load and instantiate shell command tools from an allow list config file in JSON format.

@@ -8,7 +8,9 @@ enum TerminalUI {
     @MainActor
     static func run(
         config: Config,
-        tools: [any ExecutableTool],
+        toolFactory: ToolFactory,
+        includeTools: [String] = [],
+        excludeTools: [String] = [],
         modelOverride: String?,
         initialMessages: [ChatMessage]
     ) async throws {
@@ -56,11 +58,19 @@ enum TerminalUI {
         // Render any initial messages
         renderConversation()
 
+        // Create shell-command tools with UI streaming handler
+        let uiTools = try toolFactory.makeTools(
+            config: config,
+            includeTools: includeTools,
+            excludeTools: excludeTools,
+            toolOutput: toolOutputHandler
+        )
+
         // Create a Prompter that streams directly into the UI
         let prompter = try Prompter(
             config: config,
             modelOverride: modelOverride,
-            tools: tools,
+            tools: uiTools,
             output: { text in
                 // Ensure UI updates and conversation mutations on the main actor
                 Task { @MainActor in
