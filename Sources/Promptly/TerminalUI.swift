@@ -7,10 +7,8 @@ enum TerminalUI {
     /// Runs the example TerminalUI application.
     @MainActor
     static func run(
-        configURL: URL,
-        toolsFileName: String,
-        includeTools: [String],
-        excludeTools: [String],
+        config: Config,
+        tools: [any ExecutableTool],
         modelOverride: String?
     ) async throws {
         let terminal = Terminal()
@@ -20,9 +18,6 @@ enum TerminalUI {
             terminal.showCursor()
             terminal.clearScreen()
         }
-
-        // Load configuration
-        let config = try Config.loadConfig(url: configURL)
 
         // Widgets for displaying messages and tool output
         let messagesArea = TextAreaWidget(text: "", title: "Conversation")
@@ -34,19 +29,6 @@ enum TerminalUI {
             }
         }
 
-        // Load and filter executable tools using UI handler
-        var availableTools = try ToolFactory(fileManager: FileManager(), toolsFileName: toolsFileName)
-            .makeTools(config: config, includeTools: includeTools, toolOutput: toolOutputHandler)
-        if !includeTools.isEmpty {
-            availableTools = availableTools.filter { tool in
-                includeTools.contains { include in tool.name.contains(include) }
-            }
-        }
-        if !excludeTools.isEmpty {
-            availableTools = availableTools.filter { tool in
-                !excludeTools.contains { exclude in tool.name.contains(exclude) }
-            }
-        }
         // Conversation history
         var conversation: [ChatMessage] = []
 
@@ -74,7 +56,7 @@ enum TerminalUI {
         let prompter = try Prompter(
             config: config,
             modelOverride: modelOverride,
-            tools: availableTools,
+            tools: tools,
             output: { text in
                 // Ensure UI updates and conversation mutations on the main actor
                 Task { @MainActor in
@@ -88,11 +70,7 @@ enum TerminalUI {
                     renderConversation()
                 }
             },
-            toolOutput: { text in
-                Task { @MainActor in
-                    toolOutputArea.text += text
-                }
-            }
+            toolOutput: toolOutputHandler
         )
 
         // Input widget for user messages

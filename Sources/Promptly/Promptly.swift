@@ -40,19 +40,27 @@ struct Promptly: AsyncParsableCommand {
     @Option(name: .customLong("message"), help: "A message to send to the chat.")
     private var messages: [Message] = []
 
-    @Option(name: [.customLong("canned"), .customShort("p")],
-            help: "Use one or more canned prompts as context.")
+    @Option(
+        name: [.customLong("canned"), .customShort("p")],
+        help: "Use one or more canned prompts as context."
+    )
     private var cannedContexts: [String] = []
 
     @Option(
         name: .customLong("model"),
-        help: "The model to use for the chat. May be an alias defined in configuration; if not specified, defaults to configuration"
+        help:
+        """
+        The model to use for the chat.
+        May be an alias defined in configuration; if not specified, defaults to configuration
+        """
     )
     private var model: String?
+
     @Flag(name: .customLong("interactive"), help: "Enable interactive prompt mode; stay open for further user input")
     private var interactive: Bool = false
+
     @Flag(name: .customLong("ui"), help: "Enable terminal UI mode")
-    private var ui: Bool = false
+    private var userInterfaceMode: Bool = false
 
     mutating func run() async throws {
         let configURL = URL(fileURLWithPath: configFile.expandingTilde).standardizedFileURL
@@ -62,16 +70,6 @@ struct Promptly: AsyncParsableCommand {
 
         if setupToken {
             try await Config.setupToken(configURL: configURL)
-            return
-        }
-        if ui {
-            try await TerminalUI.run(
-                configURL: configURL,
-                toolsFileName: tools,
-                includeTools: includeTools,
-                excludeTools: excludeTools,
-                modelOverride: model
-            )
             return
         }
 
@@ -89,6 +87,12 @@ struct Promptly: AsyncParsableCommand {
                 !excludeTools.contains { filter in tool.name.contains(filter) }
             }
         }
+
+        if userInterfaceMode {
+            try await TerminalUI.run(config: config, tools: availableTools, modelOverride: model)
+            return
+        }
+
         let prompter = try Prompter(
             config: config,
             modelOverride: model,
