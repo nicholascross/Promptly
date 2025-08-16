@@ -42,7 +42,6 @@ public struct Prompter {
         )
     }
 
-
     /// Stream a chat, automatically pausing for tool calls,
     /// executing the tool, and resuming the assistant’s response.
     /// - Parameters:
@@ -51,8 +50,7 @@ public struct Prompter {
     /// at initialization
     public func runChatStream(
         messages initialMessages: [ChatMessage],
-        onToolCall handler: ((String, JSONValue) async throws -> JSONValue)? = nil,
-        suppressPrinting: Bool = false
+        onToolCall handler: ((String, JSONValue) async throws -> JSONValue)? = nil
     ) async throws -> [ChatMessage] {
         var messages = initialMessages
         let callTool: (String, JSONValue) async throws -> JSONValue = { name, args in
@@ -91,9 +89,7 @@ public struct Prompter {
                     switch event {
                     case let .content(text):
                         currentMessageContent += text
-                        if !suppressPrinting {
-                            output(text)
-                        }
+                        output(text)
                     case let .toolCall(id, name, arguments):
                         await handleToolCall(
                             id: id,
@@ -104,9 +100,7 @@ public struct Prompter {
                         )
                         replyPending = true
                     case .stop:
-                        if !suppressPrinting {
-                            output("\n")
-                        }
+                        output("\n")
                         return messages + [
                             ChatMessage(
                                 role: .assistant,
