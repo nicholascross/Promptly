@@ -77,7 +77,6 @@ struct Promptly: AsyncParsableCommand {
         let config = try Config.loadConfig(url: configURL)
         let factory = ToolFactory(fileManager: fileManager, toolsFileName: tools)
 
-
         let initialMessages = try deriveInitialMessages()
 
         if userInterfaceMode {
@@ -85,7 +84,7 @@ struct Promptly: AsyncParsableCommand {
             if isatty(STDIN_FILENO) == 0 {
                 _ = freopen("/dev/tty", "r", stdin)
             }
-            let uiMode = TerminalUIMode(
+            let controller = await PromptlyTerminalUIController(
                 config: config,
                 toolFactory: factory,
                 includeTools: includeTools,
@@ -93,7 +92,7 @@ struct Promptly: AsyncParsableCommand {
                 modelOverride: model,
                 initialMessages: initialMessages
             )
-            try await uiMode.run()
+            try await controller.run()
             return
         }
 

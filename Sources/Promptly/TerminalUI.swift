@@ -2,14 +2,20 @@ import Foundation
 import PromptlyKit
 import TerminalUI
 
-/// Terminal-based UI mode for Promptly, providing a basic chat messaging interface powered by the TerminalUI library.
-final class TerminalUIMode {
+@MainActor
+final class PromptlyTerminalUIController {
     private let config: Config
     private let toolFactory: ToolFactory
     private let includeTools: [String]
     private let excludeTools: [String]
     private let modelOverride: String?
-    private var initialMessages: [ChatMessage]
+    private let initialMessages: [ChatMessage]
+
+    // UI components
+    private let terminal: Terminal
+    private let input: TextInputWidget
+    private let messagesArea: TextAreaWidget
+    private let toolOutputArea: TextAreaWidget
 
     init(
         config: Config,
@@ -25,56 +31,31 @@ final class TerminalUIMode {
         self.excludeTools = excludeTools
         self.modelOverride = modelOverride
         self.initialMessages = initialMessages
-    }
 
-    @MainActor
-    func run() async throws {
-        let terminal = Terminal()
+        terminal = Terminal()
         terminal.hideCursor()
         terminal.clearScreen()
-        defer {
-            terminal.showCursor()
-            terminal.clearScreen()
-        }
 
-        // Widgets for displaying messages and tool output
-        let messagesArea = TextAreaWidget(text: "", title: "Conversation")
-        let toolOutputArea = TextAreaWidget(text: "", title: "Tool Calls")
-        // Shared handler for streaming tool output into the UI
-        let toolOutputHandler: @Sendable (String) -> Void = { text in
+        input = TextInputWidget(prompt: "> ", title: "Message")
+        messagesArea = TextAreaWidget(text: "", title: "Conversation")
+        toolOutputArea = TextAreaWidget(text: "", title: "Tool Calls")
+    }
+
+    func run() async throws {
+        defer { teardown() }
+
+        let toolOutputHandler = { @Sendable text in
             Task { @MainActor in
-                toolOutputArea.text += text
+                self.toolOutputArea.text += text
             }
+            return
         }
 
-        // Conversation history
         var conversation: [ChatMessage] = initialMessages
-
-        // Helper to render conversation
-        func renderConversation() {
-            let text = conversation.map { message -> String in
-                let role = message.role.rawValue.capitalized
-                let content: String
-                switch message.content {
-                case let .text(str):
-                    content = str
-                case let .blocks(blocks):
-                    content = blocks.map { $0.text }.joined()
-                case .empty:
-                    content = ""
-                }
-                return "\(role): \(content)"
-            }.joined(separator: "\n\n")
-            Task { @MainActor in
-                messagesArea.text = text
-            }
-        }
-
-        // Render any initial messages
-        renderConversation()
+        updateConversation(conversation)
 
         // Create shell-command tools with UI streaming handler
-        let uiTools = try toolFactory.makeTools(
+        let tools = try toolFactory.makeTools(
             config: config,
             includeTools: includeTools,
             excludeTools: excludeTools,
@@ -85,9 +66,9 @@ final class TerminalUIMode {
         let prompter = try Prompter(
             config: config,
             modelOverride: modelOverride,
-            tools: uiTools,
-            output: { text in
-                // Ensure UI updates and conversation mutations on the main actor
+            tools: tools,
+            output: { [weak self] text in
+                guard let self else { return }
                 Task { @MainActor in
                     // Append or update the current assistant message
                     if conversation.last?.role != .assistant {
@@ -96,35 +77,71 @@ final class TerminalUIMode {
                         conversation[conversation.count - 1] =
                             ChatMessage(role: .assistant, content: .text(prev + text))
                     }
-                    renderConversation()
+                    self.updateConversation(conversation)
                 }
             },
             toolOutput: toolOutputHandler
         )
 
-        // Input widget for user messages
-        let input = TextInputWidget(prompt: "> ", title: "Message")
-
-        input.onSubmit = { text in
+        input.onSubmit = { [weak self] text in
+            guard let self else { return }
             Task { @MainActor in
-                // Clear previous tool output and append user message
                 toolOutputArea.text = ""
                 conversation.append(ChatMessage(role: .user, content: .text(text)))
-                renderConversation()
+                self.updateConversation(conversation)
                 let updated = try await prompter.runChatStream(messages: conversation)
                 conversation = updated
-                renderConversation()
+                self.updateConversation(conversation)
             }
         }
 
-        // Layout and run UI
-        let loop = UIEventLoop(terminal: terminal) {
+        let loop = makeEventLoop()
+        try await loop.run()
+    }
+
+    /// Creates an event loop for this UI, wiring layout to the terminal.
+    private func makeEventLoop() -> UIEventLoop {
+        UIEventLoop(terminal: terminal) {
             Stack(axis: .vertical, spacing: 0) {
-                input.expanding(maxHeight: 5)
-                messagesArea
-                toolOutputArea.frame(height: 10)
+                self.input.expanding(maxHeight: 5)
+                self.messagesArea
+                self.toolOutputArea.frame(height: 10)
             }
         }
-        try await loop.run()
+    }
+
+    /// Updates the conversation display with the latest messages.
+    private func updateConversation(_ conversation: [ChatMessage]) {
+        let text = conversation.map { message -> String in
+            let role = message.role.rawValue.capitalized
+            let content: String
+            switch message.content {
+            case let .text(str):
+                content = str
+            case let .blocks(blocks):
+                content = blocks.map { $0.text }.joined()
+            case .empty:
+                content = ""
+            }
+            return "\(role): \(content)"
+        }.joined(separator: "\n\n")
+        Task { @MainActor in
+            messagesArea.text = text
+        }
+    }
+
+    /// Returns a handler that appends tool output to the tool output area.
+    private func makeToolOutputHandler() -> @Sendable (String) -> Void {
+        { text in
+            Task { @MainActor in
+                self.toolOutputArea.text += text
+            }
+        }
+    }
+
+    /// Restores terminal state by showing cursor and clearing the screen.
+    private func teardown() {
+        terminal.showCursor()
+        terminal.clearScreen()
     }
 }
