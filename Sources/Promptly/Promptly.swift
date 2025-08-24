@@ -8,6 +8,25 @@ private let fileManager = FileManager()
 
 @main
 struct Promptly: AsyncParsableCommand {
+
+    static let configuration = CommandConfiguration(
+        commandName: "promptly",
+        abstract: "Promptly CLI for AI assistance and tool management",
+        subcommands: [
+            PromptCommand.self,
+            ToolCommand.self
+        ],
+        defaultSubcommand: PromptCommand.self
+    )
+}
+
+/// `promptly prompt` — send a prompt to the AI chat interface
+struct PromptCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        commandName: "prompt",
+        abstract: "Send a prompt to the AI chat interface"
+    )
+
     @Argument(help: "A context string to pass to the system prompt.")
     var contextArgument: String?
 
@@ -110,7 +129,7 @@ struct Promptly: AsyncParsableCommand {
 
         // If no initial messages and not in interactive mode, error
         if initialMessages.isEmpty && !interactive {
-            throw ValidationError("No input provided. Usage: promptly [options] <context> or --message or piped stdin")
+            throw ValidationError("No input provided. Usage: promptly prompt [options] <context> or --message or piped stdin")
         }
 
         // Run chat stream if there are initial messages

@@ -1,5 +1,9 @@
 import Foundation
 
-struct ShellCommandConfig: Decodable {
-    let shellCommands: [ShellCommandConfigEntry]
+public struct ShellCommandConfig: Codable {
+    public var shellCommands: [ShellCommandConfigEntry]
+
+    public init(shellCommands: [ShellCommandConfigEntry]) {
+        self.shellCommands = shellCommands
+    }
 }

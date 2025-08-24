@@ -143,13 +143,42 @@ Create canned prompts as text files in the `~/.config/promptly/canned/` director
 
 You can invoke one or multiple canned prompts as follows:
 
+
 ```bash
 echo "something" | promptly --canned "example1" --canned "example2"
 ```
 
+## Tool Management
+
+Promptly provides commands to manage shell-command tools: listing, viewing, adding, and removing.
+
+```bash
+# List all registered tools (merges ~/.config/promptly/tools.json and ./tools.json)
+promptly tool list
+
+# View detailed information about a tool
+promptly tool view <tool-id>
+
+# Add a new tool
+promptly tool add \
+  --id <id> \
+  --name "<description>" \
+  --command "<executable>" \
+  [--echo-output] \
+  [--truncate-output] \
+  [--exclusive-argument-template] \
+  [--argument-template <tokens>...] \
+  [--parameters <json-schema> | --parameters-file <path>] \
+  [--opt-in] \
+  [--config-file <path>]
+
+# Remove a tool (use --force to skip confirmation)
+promptly tool remove <tool-id> [--force] [--config-file <path>]
+```
+
 ### Role based messages
 
-You can use the `--message` option to send a predefined series of messages to the chat interface. Note that when using `--message`, standard input and context arguments are ignored. Supported roles are `system`, `assistant`, and `user`.
+You can use the `--message` option to send a predefined series of messages to the chat interface. Supported roles are `system`, `assistant`, and `user`.
 
 ```bash
 promptly --message "system:Respond as a pirate." --message "assistant:Ahoy" --message "user:Can you tell me a story?"

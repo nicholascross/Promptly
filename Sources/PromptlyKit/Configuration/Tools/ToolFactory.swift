@@ -80,6 +80,52 @@ public struct ToolFactory {
         return filtered
     }
 
+    // Build the correct URL for tools.json, respecting --config-file override,
+    // then local (./tools.json), then global (~/.config/promptly/tools.json).
+    public func toolsConfigURL(_ override: String?) -> URL {
+        if let path = override {
+            return URL(fileURLWithPath: path).standardizedFileURL
+        }
+
+        let local = URL(
+            fileURLWithPath: "tools.json",
+            relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        ).standardizedFileURL
+
+        if fileManager.fileExists(atPath: local.path) {
+            return local
+        }
+
+        return URL(
+            fileURLWithPath: ".config/promptly/tools.json",
+            relativeTo: fileManager.homeDirectoryForCurrentUser
+        ).standardizedFileURL
+    }
+
+    /// Load and merge shell command config entries from an optional override config file,
+    /// falling back to local (./tools.json) then global (~/.config/promptly/tools.json).
+    /// Returned entries give precedence to local entries with the same name.
+    public func loadConfigEntries(overrideConfigFile override: String? = nil) throws -> [ShellCommandConfigEntry] {
+        if let path = override {
+            let url = URL(fileURLWithPath: path).standardizedFileURL
+            let config = try decodeShellCommandConfig(from: url)
+            return config.shellCommands
+        }
+
+        let defaultEntries: [ShellCommandConfigEntry] = {
+            guard let config = try? decodeShellCommandConfig(from: toolsConfigURL) else { return [] }
+            return config.shellCommands
+        }()
+
+        let localEntries: [ShellCommandConfigEntry] = {
+            guard let config = try? decodeShellCommandConfig(from: localToolsConfigURL) else { return [] }
+            return config.shellCommands
+        }()
+
+        let localIDs = Set(localEntries.map { $0.name })
+        return localEntries + defaultEntries.filter { !localIDs.contains($0.name) }
+    }
+
     /// Load and instantiate shell command tools from an allow list config file in JSON format.
     /// Expected format in tools config file (default `tools.json`):
     /// {
@@ -109,8 +155,7 @@ public struct ToolFactory {
             return []
         }
 
-        let data = try Data(contentsOf: url)
-        let commandConfig = try JSONDecoder().decode(ShellCommandConfig.self, from: data)
+        let commandConfig = try decodeShellCommandConfig(from: url)
         // Filter out opt-in tools unless explicitly included via includeTools substrings.
         let entries = commandConfig.shellCommands.filter { entry in
             guard entry.optIn == true else { return true }
@@ -163,5 +208,11 @@ public struct ToolFactory {
 
     private var sandboxURL: URL {
         URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+    }
+
+    /// Decode a shell-command config from JSON at the given URL.
+    private func decodeShellCommandConfig(from url: URL) throws -> ShellCommandConfig {
+        let data = try Data(contentsOf: url)
+        return try JSONDecoder().decode(ShellCommandConfig.self, from: data)
     }
 }
