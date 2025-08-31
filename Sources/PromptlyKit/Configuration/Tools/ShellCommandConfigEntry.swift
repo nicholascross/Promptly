@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ShellCommandConfigEntry: Codable {
+public struct ShellCommandConfigEntry: Codable, Sendable {
     public let name: String
     public let description: String
     public let executable: String

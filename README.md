@@ -172,6 +172,9 @@ promptly tool add \
   [--opt-in] \
   [--config-file <path>]
 
+# Install default tools into configuration directory
+promptly tool install [--tools <basename>]
+
 # Remove a tool (use --force to skip confirmation)
 promptly tool remove <tool-id> [--force] [--config-file <path>]
 ```

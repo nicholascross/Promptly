@@ -8,6 +8,7 @@ let package = Package(
     platforms: [.macOS(.v14)],
     products: [
         .executable(name: "promptly", targets: ["Promptly"]),
+        .executable(name: "toolgen", targets: ["GenerateDefaultShellCommandConfig"]),
         .library(
             name: "PromptlyKit",
             targets: ["PromptlyKit"]
@@ -33,6 +34,13 @@ let package = Package(
             dependencies: [
                 .product(name: "SwiftTokenizer", package: "SwiftTokenizer")
             ]
+        ),
+        .executableTarget(
+            name: "GenerateDefaultShellCommandConfig",
+            dependencies: [
+                "PromptlyKit"
+            ],
+            path: "Scripts/GenerateDefaultShellCommandConfig"
         )
     ],
     swiftLanguageModes: [.v6]
