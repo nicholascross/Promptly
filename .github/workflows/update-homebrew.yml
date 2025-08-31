@@ -56,7 +56,7 @@ jobs:
 
             def install
               # inject version placeholder replacement into source
-              inreplace "Sources/Promptly/Promptly.swift", "__VERSION__", version
+              inreplace "Sources/Promptly/Promptly.swift", "__VERSION__", version.to_s
               system "swift", "build", "-c", "release", "--disable-sandbox"
               bin.install ".build/release/promptly"
             end
