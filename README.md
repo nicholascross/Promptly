@@ -41,6 +41,7 @@ promptly --include-tools ShowFileTree --message "user:Display the project's dire
 
 | Flag                    | Description                                      |
 |-------------------------|--------------------------------------------------|
+| `-v`, `--version`       | Show the current version of the tool             |
 | `-i`, `--interactive`   | Start REPL mode                                  |
 | `--ui`                  | Launch the terminal-based UI powered by TerminalUI |
 | `-p`, `--canned <name>` | Use one or more canned prompts from `~/.config/promptly/canned` |
