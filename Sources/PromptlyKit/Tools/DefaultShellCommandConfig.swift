@@ -3,6 +3,7 @@
 
 import Foundation
 
+// swiftlint:disable line_length
 public enum DefaultShellCommandConfig {
     public static let config: ShellCommandConfig = shellCommands {
         command("ListFiles")
@@ -157,3 +158,4 @@ public enum DefaultShellCommandConfig {
 
     }
 }
+// swiftlint:enable line_length

@@ -61,28 +61,40 @@ struct ProcessRunner: RunnableProcess {
 
         try process.run()
 
-        let outputPipe: Pipe
+        let readHandle = pipe.fileHandleForReading
+        var outputData = Data()
+
         if streamOutput {
-            outputPipe = Pipe()
-            while process.isRunning {
-                let data = pipe.fileHandleForReading.availableData
-                if !data.isEmpty {
-                    outputPipe.fileHandleForWriting.write(data)
-                        if let output = String(data: data, encoding: .utf8) {
-                            self.toolOutputHandler(output)
-                    }
+            readHandle.readabilityHandler = { handle in
+                let data = handle.availableData
+                if data.isEmpty {
+                    handle.readabilityHandler = nil
                 } else {
-                    break
+                    outputData.append(data)
+                    if let string = String(data: data, encoding: .utf8) {
+                        self.toolOutputHandler(string)
+                    }
                 }
             }
-            outputPipe.fileHandleForWriting.closeFile()
-        } else {
-            outputPipe = pipe
         }
 
-        let data = outputPipe.fileHandleForReading.readDataToEndOfFile()
-        let output = String(bytes: data, encoding: .utf8) ?? ""
         process.waitUntilExit()
-        return (process.terminationStatus, output)
+
+        if streamOutput {
+            readHandle.readabilityHandler = nil
+            let remaining = readHandle.readDataToEndOfFile()
+            if !remaining.isEmpty {
+                outputData.append(remaining)
+                if let string = String(data: remaining, encoding: .utf8) {
+                    self.toolOutputHandler(string)
+                }
+            }
+            let output = String(data: outputData, encoding: .utf8) ?? ""
+            return (process.terminationStatus, output)
+        } else {
+            let data = readHandle.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8) ?? ""
+            return (process.terminationStatus, output)
+        }
     }
 }
