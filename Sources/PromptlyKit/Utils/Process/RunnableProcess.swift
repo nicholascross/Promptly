@@ -6,5 +6,5 @@ protocol RunnableProcess {
         arguments: [String],
         currentDirectoryURL: URL?,
         streamOutput: Bool
-    ) throws -> (exitCode: Int32, output: String)
+    ) async throws -> (exitCode: Int32, output: String)
 }
