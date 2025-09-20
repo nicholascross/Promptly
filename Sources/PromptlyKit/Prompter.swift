@@ -120,6 +120,9 @@ public struct Prompter {
                     messages.append(
                         ChatMessage(role: .assistant, content: .text(currentMessageContent))
                     )
+                    if replyPending {
+                        return .continue(messages)
+                    }
                     return .finish(messages)
                 }
             }
