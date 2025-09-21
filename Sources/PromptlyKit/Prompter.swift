@@ -108,21 +108,6 @@ public struct Prompter {
                     currentMessageContent += text
                     output(text)
                 case let .toolCall(id, name, arguments):
-                    let functionCall = try ChatFunctionCall(
-                        id: id,
-                        function: ChatFunction(name: name, arguments: arguments),
-                        type: "function"
-                    )
-
-                    messages.append(
-                        ChatMessage(
-                            role: .assistant,
-                            id: id,
-                            content: .empty,
-                            toolCalls: [functionCall]
-                        )
-                    )
-
                     replyMessages += await handleToolCall(
                         id: id,
                         functionName: name,
@@ -151,6 +136,21 @@ public struct Prompter {
     ) async -> [ChatMessage] {
         var messages = [ChatMessage]()
         do {
+            let functionCall = try ChatFunctionCall(
+                id: id,
+                function: ChatFunction(name: functionName, arguments: arguments),
+                type: "function"
+            )
+
+            messages.append(
+                ChatMessage(
+                    role: .assistant,
+                    id: id,
+                    content: .empty,
+                    toolCalls: [functionCall]
+                )
+            )
+            
             let result = try await callTool(functionName, arguments)
             let data = try encoder.encode(result)
             let json = String(data: data, encoding: .utf8) ?? ""
