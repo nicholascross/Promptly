@@ -147,7 +147,7 @@ public struct Prompter {
         id: String,
         functionName: String,
         arguments: JSONValue,
-        callTool: (String, JSONValue) async throws -> JSONValue,
+        callTool: (String, JSONValue) async throws -> JSONValue
     ) async -> [ChatMessage] {
         var messages = [ChatMessage]()
         do {
