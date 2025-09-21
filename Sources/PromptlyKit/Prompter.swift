@@ -96,8 +96,9 @@ public struct Prompter {
         }
 
         var currentMessageContent = ""
-        var replyPending = false
         let responseProcessor = ResponseProcessor()
+
+        var replyMessages: [ChatMessage] = []
 
         for try await line in stream.lines {
             let events = try await responseProcessor.process(line: line)
@@ -107,28 +108,39 @@ public struct Prompter {
                     currentMessageContent += text
                     output(text)
                 case let .toolCall(id, name, arguments):
-                    await handleToolCall(
+                    let functionCall = try ChatFunctionCall(
+                        id: id,
+                        function: ChatFunction(name: name, arguments: arguments),
+                        type: "function"
+                    )
+
+                    messages.append(
+                        ChatMessage(
+                            role: .assistant,
+                            id: id,
+                            content: .empty,
+                            toolCalls: [functionCall]
+                        )
+                    )
+
+                    replyMessages += await handleToolCall(
                         id: id,
                         functionName: name,
                         arguments: arguments,
-                        callTool: callTool,
-                        messages: &messages
+                        callTool: callTool
                     )
-                    replyPending = true
                 case .stop:
                     output("\n")
                     messages.append(
                         ChatMessage(role: .assistant, content: .text(currentMessageContent))
                     )
-                    if replyPending {
-                        return .continue(messages)
-                    }
-                    return .finish(messages)
                 }
             }
         }
 
-        return replyPending ? .continue(messages) : .finish(messages)
+        messages.append(contentsOf: replyMessages)
+
+        return !replyMessages.isEmpty ? .continue(messages) : .finish(messages)
     }
 
     private func handleToolCall(
@@ -136,24 +148,9 @@ public struct Prompter {
         functionName: String,
         arguments: JSONValue,
         callTool: (String, JSONValue) async throws -> JSONValue,
-        messages: inout [ChatMessage]
-    ) async {
+    ) async -> [ChatMessage] {
+        var messages = [ChatMessage]()
         do {
-            let functionCall = try ChatFunctionCall(
-                id: id,
-                function: ChatFunction(name: functionName, arguments: arguments),
-                type: "function"
-            )
-
-            messages.append(
-                ChatMessage(
-                    role: .assistant,
-                    id: id,
-                    content: .empty,
-                    toolCalls: [functionCall]
-                )
-            )
-
             let result = try await callTool(functionName, arguments)
             let data = try encoder.encode(result)
             let json = String(data: data, encoding: .utf8) ?? ""
@@ -175,6 +172,8 @@ public struct Prompter {
                 )
             )
         }
+
+        return messages
     }
 
     private func streamRawOutput(from stream: URLSession.AsyncBytes) async throws {
