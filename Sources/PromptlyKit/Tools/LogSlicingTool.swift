@@ -21,7 +21,13 @@ public struct LogSlicingTool: ExecutableTool {
     ///   - config: the Promptly configuration for LLM access
     ///   - headLines: number of lines to keep from the start of the log
     ///   - tailLines: number of lines to keep from the end of the log
-    public init(wrapping tool: any ExecutableTool, config: Config, headLines: Int, tailLines: Int, sampleLines: Int) {
+    public init(
+        wrapping tool: any ExecutableTool,
+        config: Config,
+        headLines: Int,
+        tailLines: Int,
+        sampleLines: Int
+    ) throws {
         wrapped = tool
         name = tool.name
         description = tool.description
@@ -29,7 +35,7 @@ public struct LogSlicingTool: ExecutableTool {
         self.headLines = headLines
         self.tailLines = tailLines
         self.sampleLines = sampleLines
-        suggestionService = SuggestionService(config: config)
+        suggestionService = try SuggestionService(config: config)
     }
 
     public func execute(arguments: JSONValue) async throws -> JSONValue {

@@ -2,11 +2,27 @@ import Foundation
 
 /// A service that suggests regular expression patterns by querying a language model.
 public struct SuggestionService {
-    private let factory: ChatRequestFactory
+    private let client: any AIClient
 
     /// Initialize with a Promptly config to create the chat request factory.
-    public init(config: Config) {
-        factory = config.makeChatFactory()
+    public init(
+        config: Config,
+        client clientOverride: (any AIClient)? = nil
+    ) throws {
+        if let clientOverride {
+            self.client = clientOverride
+            return
+        }
+
+        self.client = try AIClientFactory.makeClient(
+            config: config,
+            api: config.api,
+            model: config.resolveModel(),
+            tools: [],
+            outputHandler: { _ in },
+            toolOutputHandler: { _ in },
+            toolCallHandler: nil
+        )
     }
 
     /// Suggest up to five regex patterns to match important content in logs.
@@ -41,7 +57,7 @@ public struct SuggestionService {
             ChatMessage(role: .user, content: .text(userPrompt))
         ]
 
-        let suggestion = try await fetchSuggestion(messages: messages)
+        let suggestion = try await client.complete(messages: messages)
         return extractPatterns(from: suggestion)
     }
 
@@ -92,19 +108,6 @@ public struct SuggestionService {
         """
     }
 
-    private func fetchSuggestion(
-        messages: [ChatMessage]
-    ) async throws -> String {
-        let request = try factory.makeRequest(messages: messages)
-        let (stream, response) = try await URLSession.shared.bytes(for: request)
-
-        guard let http = response as? HTTPURLResponse, 200 ... 299 ~= http.statusCode else {
-            return ""
-        }
-
-        return try await ResponseProcessor().processAllContent(from: stream)
-    }
-
     private func extractPatterns(from suggestion: String) -> [String] {
         guard
             let data = suggestion.data(using: .utf8),
@@ -114,18 +117,5 @@ public struct SuggestionService {
         }
 
         return patterns
-    }
-}
-
-private extension Config {
-    func makeChatFactory() -> ChatRequestFactory {
-        return ChatRequestFactory(
-            chatCompletionURL: chatCompletionsURL,
-            model: model,
-            token: token,
-            organizationId: organizationId,
-            tools: [],
-            encoder: JSONEncoder()
-        )
     }
 }

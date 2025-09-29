@@ -7,13 +7,17 @@ public struct Config: Decodable {
     public let modelAliases: [String: String]
     /// Organization ID for OpenAI-compatible APIs.
     public let organizationId: String?
-    /// Resolved API endpoint URL.
-    public let chatCompletionsURL: URL
+    /// Preferred API surface.
+    public let api: API
+    /// Resolved Responses API endpoint URL, when available.
+    public let responsesURL: URL?
+    /// Resolved Chat Completions API endpoint URL, when available.
+    public let chatCompletionsURL: URL?
     /// Resolved API token.
     public let token: String
 
     enum CodingKeys: String, CodingKey {
-        case organizationId, model, modelAliases, provider, providers
+        case organizationId, model, modelAliases, provider, providers, api
     }
 
     public init(from decoder: Decoder) throws {
@@ -33,8 +37,21 @@ public struct Config: Decodable {
         organizationId = try container.decodeIfPresent(String.self, forKey: .organizationId)
         model = try container.decodeIfPresent(String.self, forKey: .model)
         modelAliases = try container.decodeIfPresent([String: String].self, forKey: .modelAliases) ?? [:]
-        chatCompletionsURL = try spec.resolveChatCompletionsURL(providerKey: providerKey)
+        api = try container.decodeIfPresent(API.self, forKey: .api) ?? .responses
+        responsesURL = try? spec.resolveResponsesURL(providerKey: providerKey)
+        chatCompletionsURL = try? spec.resolveChatCompletionsURL(providerKey: providerKey)
         token = try spec.resolveToken(providerKey: providerKey)
+
+        switch api {
+        case .responses:
+            guard responsesURL != nil else {
+                throw ConfigError.couldNotResolveURL(providerKey)
+            }
+        case .chatCompletions:
+            guard chatCompletionsURL != nil else {
+                throw ConfigError.couldNotResolveURL(providerKey)
+            }
+        }
     }
 
     /// Load configuration from the given file URL.
@@ -48,5 +65,28 @@ public struct Config: Decodable {
     public func resolveModel(override: String? = nil) -> String? {
         guard let raw = override ?? model else { return nil }
         return modelAliases[raw] ?? raw
+    }
+}
+
+public extension Config {
+    enum API: Decodable {
+        case responses
+        case chatCompletions
+
+        public init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            let raw = try container.decode(String.self).lowercased()
+            switch raw {
+            case "responses", "response":
+                self = .responses
+            case "chat", "chat_completions", "chat-completions", "chatcompletions", "completions":
+                self = .chatCompletions
+            default:
+                throw DecodingError.dataCorruptedError(
+                    in: container,
+                    debugDescription: "Unknown API value '\(raw)'"
+                )
+            }
+        }
     }
 }

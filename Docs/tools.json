@@ -49,7 +49,7 @@
       "optIn": true,
       "description": "Search file contents for a regex pattern including in hidden folders.  Use this only as required since it is slower than RipGrep that ignores hidden files.",
       "executable": "rg",
-      "argumentTemplate": [["--hidden","--glob", "'!.git'", "-R", "-n", "{{pattern}}", "{(path)}"]],
+      "argumentTemplate": [["--hidden","--glob", "!.git", "-R", "-n", "{{pattern}}", "{(path)}"]],
       "parameters": {
         "type": "object",
         "properties": {
@@ -203,10 +203,12 @@
     {
       "name": "ShowFileContents",
       "description": "Display file contents from a specified starting line, limited by line count",
-      "executable": "sed",
+      "executable": "awk",
       "argumentTemplate": [
-        ["-n", "$(({{startLine}}+1)),$(({{startLine}}+{{lineCount}}))p", "{(file)}"],
-        ["-e", "", "{(file)}"]
+        ["-v", "start={{startLine}}", "-v", "count={{lineCount}}", "NR>start && NR<=start+count {print}", "{(file)}"],
+        ["-v", "start={{startLine}}", "NR>start {print}", "{(file)}"],
+        ["-v", "count={{lineCount}}", "NR<=count {print}", "{(file)}"],
+        ["1", "{(file)}"]
       ],
       "exclusiveArgumentTemplate": true,
       "parameters": {
@@ -217,7 +219,7 @@
           "lineCount": { "type": "integer", "description": "Maximum number of lines to read" }
         },
         "required": ["file"],
-        "description": "Parameters for sed command, optionally limited by start line and line count"
+        "description": "Parameters for awk command, optionally limited by start line and line count"
       }
     },
     {

@@ -162,7 +162,7 @@ public struct ToolFactory {
             return includeTools.contains { include in entry.name.contains(include) }
         }
 
-        return entries.map { entry in
+        return try entries.map { entry in
             let shellTool = ShellCommandTool(
                 name: entry.name,
                 description: entry.description,
@@ -178,7 +178,7 @@ public struct ToolFactory {
             )
 
             if entry.truncateOutput ?? false {
-                return LogSlicingTool(
+                return try LogSlicingTool(
                     wrapping: shellTool,
                     config: config,
                     headLines: headLines,

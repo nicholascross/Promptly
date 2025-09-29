@@ -1,19 +1,19 @@
 import Foundation
 
-enum StreamEvent: Sendable {
-    case content(String)
-    case toolCall(id: String, name: String, args: JSONValue)
-    case stop
-}
+actor ChatCompletionsResponseProcessor {
+    enum Event: Sendable {
+        case content(String)
+        case toolCall(id: String, name: String, args: JSONValue)
+        case stop
+    }
 
-actor ResponseProcessor {
     private let prefix = "data: "
 
     private var pendingToolId: String?
     private var pendingToolName: String?
     private var pendingArgs = ""
 
-    func process(line: String) throws -> [StreamEvent] {
+    func process(line: String) throws -> [Event] {
         guard line.hasPrefix(prefix) else { return [] }
 
         let payload = String(line.dropFirst(prefix.count))
@@ -23,18 +23,13 @@ actor ResponseProcessor {
             return []
         }
 
-        let chunk = try JSONDecoder().decode(
-            ChatCompletionChunk.self,
-            from: Data(payload.utf8)
-        )
-
-        // Deliberately ignore possibility of multiple choices
+        let chunk = try JSONDecoder().decode(Chunk.self, from: Data(payload.utf8))
         guard let choice = chunk.choices.first else { return [] }
 
-        var output: [StreamEvent] = []
+        var output: [Event] = []
 
-        if let txt = choice.delta.content, !txt.isEmpty {
-            output.append(.content(txt))
+        if let text = choice.delta.content, !text.isEmpty {
+            output.append(.content(text))
         }
 
         if let calls = choice.delta.toolCalls {
@@ -43,12 +38,10 @@ actor ResponseProcessor {
                     let id = raw.id,
                     let name = raw.function.name
                 {
-                    // start a new buffer
                     pendingToolId = id
                     pendingToolName = name
                     pendingArgs = raw.function.arguments
                 } else if pendingToolName != nil {
-                    // append to existing buffer
                     pendingArgs += raw.function.arguments
                 }
             }
@@ -57,11 +50,7 @@ actor ResponseProcessor {
         if let reason = choice.finishReason {
             switch reason {
             case "tool_calls":
-                if
-                    let id = pendingToolId,
-                    let name = pendingToolName
-                {
-                    // try to decode the full JSONValue
+                if let id = pendingToolId, let name = pendingToolName {
                     let parsedArgs: JSONValue
                     if
                         let data = pendingArgs.data(using: .utf8),
@@ -69,7 +58,6 @@ actor ResponseProcessor {
                     {
                         parsedArgs = decoded
                     } else {
-                        // fall back to raw string
                         parsedArgs = .string(pendingArgs)
                     }
                     output.append(.toolCall(id: id, name: name, args: parsedArgs))
@@ -88,7 +76,7 @@ actor ResponseProcessor {
         return output
     }
 
-    func processAllContent(from stream: URLSession.AsyncBytes) async throws -> String {
+    func collectContent(from stream: URLSession.AsyncBytes) async throws -> String {
         var content = ""
         for try await line in stream.lines {
             for event in try process(line: line) {
@@ -98,5 +86,41 @@ actor ResponseProcessor {
             }
         }
         return content
+    }
+}
+
+private extension ChatCompletionsResponseProcessor {
+    struct Chunk: Decodable {
+        let choices: [Choice]
+    }
+
+    struct Choice: Decodable {
+        let delta: Delta
+        let finishReason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case delta
+            case finishReason = "finish_reason"
+        }
+    }
+
+    struct Delta: Decodable {
+        let content: String?
+        let toolCalls: [RawToolCall]?
+
+        enum CodingKeys: String, CodingKey {
+            case content
+            case toolCalls = "tool_calls"
+        }
+    }
+
+    struct RawToolCall: Decodable {
+        let id: String?
+        let function: FunctionDescriptor
+
+        struct FunctionDescriptor: Decodable {
+            let name: String?
+            let arguments: String
+        }
     }
 }
