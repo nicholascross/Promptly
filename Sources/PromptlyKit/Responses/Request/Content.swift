@@ -22,9 +22,33 @@ public enum Content: Codable, Sendable {
         if let str = try? container.decode(String.self) {
             self = .text(str)
         } else if let blocks = try? container.decode([ContentBlock].self) {
-            self = .blocks(blocks)
+            if blocks.isEmpty {
+                self = .empty
+            } else {
+                self = .blocks(blocks)
+            }
         } else {
             self = .empty
+        }
+    }
+}
+
+extension Content {
+    func blocks(for role: ChatRole) -> [ContentBlock] {
+        switch self {
+        case let .text(text):
+            switch role {
+            case .system, .user:
+                return [ContentBlock(type: "input_text", text: text)]
+            case .assistant:
+                return [ContentBlock(type: "output_text", text: text)]
+            case .tool:
+                return [ContentBlock(type: "input_text", text: text)]
+            }
+        case let .blocks(blocks):
+            return blocks
+        case .empty:
+            return []
         }
     }
 }

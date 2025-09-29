@@ -61,6 +61,12 @@ struct PromptCommand: AsyncParsableCommand {
     )
     private var model: String?
 
+    @Option(
+        name: .customLong("api"),
+        help: "Select backend API (responses or chat). Overrides configuration."
+    )
+    private var api: APISelection?
+
     @Flag(name: .customLong("interactive"), help: "Enable interactive prompt mode; stay open for further user input")
     private var interactive: Bool = false
 
@@ -94,7 +100,8 @@ struct PromptCommand: AsyncParsableCommand {
                 includeTools: includeTools,
                 excludeTools: excludeTools,
                 modelOverride: model,
-                initialMessages: initialMessages
+                initialMessages: initialMessages,
+                apiOverride: api?.configValue
             )
             try await controller.run()
             return
@@ -106,9 +113,10 @@ struct PromptCommand: AsyncParsableCommand {
             excludeTools: excludeTools
         )
 
-        let prompter = try Prompter(
+        let client: any AIClient = try Prompter(
             config: config,
             modelOverride: model,
+            apiOverride: api?.configValue,
             tools: availableTools
         )
 
@@ -122,10 +130,10 @@ struct PromptCommand: AsyncParsableCommand {
         if initialMessages.isEmpty {
             conversation = initialMessages
         } else {
-            conversation = try await prompter.runChatStream(messages: initialMessages)
+            conversation = try await client.runChatStream(messages: initialMessages)
         }
 
-        try await continueInteractivelyIfNeeded(prompter: prompter, initialMessages: conversation)
+        try await continueInteractivelyIfNeeded(client: client, initialMessages: conversation)
     }
 
     private func deriveInitialMessages() throws -> [ChatMessage] {
@@ -162,7 +170,7 @@ struct PromptCommand: AsyncParsableCommand {
     }
 
     private func continueInteractivelyIfNeeded(
-        prompter: Prompter,
+        client: any AIClient,
         initialMessages: [ChatMessage]
     ) async throws {
         guard interactive else { return }
@@ -177,10 +185,35 @@ struct PromptCommand: AsyncParsableCommand {
             fflush(stdout)
             guard let line = readLine() else { break }
             conversation.append(ChatMessage(role: .user, content: .text(line)))
-            conversation = try await prompter.runChatStream(messages: conversation)
+            conversation = try await client.runChatStream(messages: conversation)
         }
     }
 }
+
+    private enum APISelection: ExpressibleByArgument {
+        case responses
+        case chatCompletions
+
+        init?(argument: String) {
+            switch argument.lowercased() {
+            case "responses", "response":
+                self = .responses
+            case "chat", "chat_completions", "chat-completions", "chatcompletions":
+                self = .chatCompletions
+            default:
+                return nil
+            }
+        }
+
+        var configValue: Config.API {
+            switch self {
+            case .responses:
+                return .responses
+            case .chatCompletions:
+                return .chatCompletions
+            }
+        }
+    }
 
 private enum Message: ExpressibleByArgument {
     case user(String)

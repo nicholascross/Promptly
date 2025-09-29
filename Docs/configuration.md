@@ -13,6 +13,7 @@
        "o4": "o4-mini"
      },
      "model": "o4-mini",
+     "api": "responses",
      "provider": "openai",
      "providers": {
        "openai": {
@@ -70,19 +71,24 @@
    ```
 
 3. Parameter Overview
-   - modelAliases: Map of alias names to model identifiers. Aliases can be used in place of model names when specifying `--model`.
-   - model: Model identifier.
-   - provider: Selected provider key. Must match one of the entries in the `providers` map.
+  - modelAliases: Map of alias names to model identifiers. Aliases can be used in place of model names when specifying `--model`.
+  - model: Model identifier.
+  - api (optional): Chooses which OpenAI-compatible surface to use. Valid values are `responses` (default) and `chat` (alias for `chat_completions`).
+  - provider: Selected provider key. Must match one of the entries in the `providers` map.
    - providers: Map of provider configurations. Each entry contains:
      - name: Human-readable name of the provider.
      - baseURL: Full base URL for the provider API (may include path prefix). **(If baseURL is specified, other URL components (scheme, host, port, path) should not be used.)**
      - scheme: URL scheme (e.g., http or https).
      - host: API host address.
-     - port: API port number.
-     - path: API path prefix (e.g., v1/chat/completions).
+    - port: API port number.
+    - path: API path prefix (used when `api` is omitted or set to `responses`).
+    - responsesPath (optional): Overrides the path appended to `baseURL` when using the Responses API.
+    - chatPath (optional): Overrides the path appended to `baseURL` when using the Chat Completions API.
      - envKey: Environment variable name to read the API token from. **(Mutually exclusive with tokenName)**
      - tokenName: Keychain account name for reading the API token. **(Mutually exclusive with envKey)**
-   - organizationId (optional): Your organization ID for OpenAI-compatible APIs.
+- organizationId (optional): Your organization ID for OpenAI-compatible APIs.
+
+You can override the configured API for a single run by passing `prompt --api chat` or `prompt --api responses`.
 
 ## Using llama.cpp
 
@@ -95,6 +101,7 @@ Example config (no token required):
 ```json
 {
   "provider": "llama",
+  "api": "chat",
   "providers": {
     "llama": {
       "name": "llama",

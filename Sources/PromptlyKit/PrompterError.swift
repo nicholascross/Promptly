@@ -5,4 +5,5 @@ public enum PrompterError: Error {
     case invalidConfiguration
     case missingConfiguration
     case invalidResponse(statusCode: Int)
+    case apiError(String)
 }

@@ -3,7 +3,6 @@
 
 import Foundation
 
-// swiftlint:disable line_length
 public enum DefaultShellCommandConfig {
     public static let config: ShellCommandConfig = shellCommands {
         command("ListFiles")
@@ -25,15 +24,15 @@ public enum DefaultShellCommandConfig {
             .describing("Locate files matching a pattern using fd")
             .executable("fd")
             .argRow("{{pattern}}", "{(path)}")
-            .require("path", .string(description: "Root path to search in"))
             .require("pattern", .string(description: "Search pattern (regex-like)"))
+            .require("path", .string(description: "Root path to search in"))
             .paramsDescription("Parameters for fd command")
 
         command("RipGrepIncludHidden")
             .describing("Search file contents for a regex pattern including in hidden folders.  Use this only as required since it is slower than RipGrep that ignores hidden files.")
             .executable("rg")
             .optedIn()
-            .argRow("--hidden", "--glob", "'!.git'", "-R", "-n", "{{pattern}}", "{(path)}")
+            .argRow("--hidden", "--glob", "!.git", "-R", "-n", "{{pattern}}", "{(path)}")
             .require("pattern", .string(description: "Pattern to search for"))
             .require("path", .string(description: "Root path to search in"))
             .paramsDescription("Parameters for grep command")
@@ -42,8 +41,8 @@ public enum DefaultShellCommandConfig {
             .describing("Search file contents for a regex pattern")
             .executable("rg")
             .argRow("-n", "{{pattern}}", "{(path)}")
-            .require("pattern", .string(description: "Regex pattern to search for"))
             .require("path", .string(description: "Path to search in"))
+            .require("pattern", .string(description: "Regex pattern to search for"))
             .paramsDescription("Parameters for ripgrep command")
 
         command("RipGrepWithGlob")
@@ -51,8 +50,8 @@ public enum DefaultShellCommandConfig {
             .executable("rg")
             .argRow("-n", "{{pattern}}", "--glob", "{{glob}}", "{(path)}")
             .require("pattern", .string(description: "Regex pattern to search for"))
-            .require("path", .string(description: "Path to search in"))
             .require("glob", .string(description: "Glob pattern for file filtering (ripgrep --glob argument, including any ! if excluding). User specifies complete glob pattern."))
+            .require("path", .string(description: "Path to search in"))
             .paramsDescription("Parameters for ripgrep command with --glob support. glob should be formatted for ripgrep, with ! as needed.")
 
         command("SearchAndReplace")
@@ -99,8 +98,8 @@ public enum DefaultShellCommandConfig {
             .describing("Copy files or directories")
             .executable("cp")
             .argRow("-r", "-p", "{(source)}", "{(destination)}")
-            .require("destination", .string(description: "Destination path"))
             .require("source", .string(description: "Source path"))
+            .require("destination", .string(description: "Destination path"))
             .paramsDescription("Parameters for cp command")
 
         command("WriteToFile")
@@ -113,14 +112,16 @@ public enum DefaultShellCommandConfig {
 
         command("ShowFileContents")
             .describing("Display file contents from a specified starting line, limited by line count")
-            .executable("sed")
+            .executable("awk")
             .exclusiveArgs()
-            .argRow("-n", "$(({{startLine}}+1)),$(({{startLine}}+{{lineCount}}))p", "{(file)}")
-            .argRow("-e", "", "{(file)}")
+            .argRow("-v", "start={{startLine}}", "-v", "count={{lineCount}}", "NR>start && NR<=start+count {print}", "{(file)}")
+            .argRow("-v", "start={{startLine}}", "NR>start {print}", "{(file)}")
+            .argRow("-v", "count={{lineCount}}", "NR<=count {print}", "{(file)}")
+            .argRow("1", "{(file)}")
             .require("file", .string(description: "File path to read"))
             .optional("startLine", .integer(description: "Line number to start reading from (0-based)"))
             .optional("lineCount", .integer(description: "Maximum number of lines to read"))
-            .paramsDescription("Parameters for sed command, optionally limited by start line and line count")
+            .paramsDescription("Parameters for awk command, optionally limited by start line and line count")
 
         command("LineCount")
             .describing("Check the total number of lines in a file")
@@ -158,4 +159,3 @@ public enum DefaultShellCommandConfig {
 
     }
 }
-// swiftlint:enable line_length

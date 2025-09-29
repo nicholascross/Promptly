@@ -10,6 +10,7 @@ final class PromptlyTerminalUIController {
     private let excludeTools: [String]
     private let modelOverride: String?
     private let initialMessages: [ChatMessage]
+    private let apiOverride: Config.API?
 
     // UI components
     private let terminal: Terminal
@@ -23,7 +24,8 @@ final class PromptlyTerminalUIController {
         includeTools: [String] = [],
         excludeTools: [String] = [],
         modelOverride: String?,
-        initialMessages: [ChatMessage]
+        initialMessages: [ChatMessage],
+        apiOverride: Config.API?
     ) {
         self.config = config
         self.toolFactory = toolFactory
@@ -31,6 +33,7 @@ final class PromptlyTerminalUIController {
         self.excludeTools = excludeTools
         self.modelOverride = modelOverride
         self.initialMessages = initialMessages
+        self.apiOverride = apiOverride
 
         terminal = Terminal()
         terminal.hideCursor()
@@ -62,10 +65,11 @@ final class PromptlyTerminalUIController {
             toolOutput: toolOutputHandler
         )
 
-        // Create a Prompter that streams directly into the UI
-        let prompter = try Prompter(
+        // Create an AI client that streams directly into the UI
+        let client: any AIClient = try Prompter(
             config: config,
             modelOverride: modelOverride,
+            apiOverride: apiOverride,
             tools: tools,
             output: { [weak self] text in
                 guard let self else { return }
@@ -89,7 +93,7 @@ final class PromptlyTerminalUIController {
                 toolOutputArea.text = ""
                 conversation.append(ChatMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
-                let updated = try await prompter.runChatStream(messages: conversation)
+                let updated = try await client.runChatStream(messages: conversation)
                 conversation = updated
                 self.updateConversation(conversation)
             }
@@ -119,7 +123,7 @@ final class PromptlyTerminalUIController {
             case let .text(str):
                 content = str
             case let .blocks(blocks):
-                content = blocks.map { $0.text }.joined()
+                content = blocks.compactMap { $0.text ?? $0.output }.joined()
             case .empty:
                 content = ""
             }
