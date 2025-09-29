@@ -1,5 +1,5 @@
 import Foundation
-import SwiftTokenizer
+@preconcurrency import SwiftTokenizer
 
 public struct ShellCommandTool: ExecutableTool, Sendable {
     public let name: String

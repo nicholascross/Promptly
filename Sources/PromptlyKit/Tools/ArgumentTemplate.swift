@@ -1,4 +1,4 @@
-import SwiftTokenizer
+@preconcurrency import SwiftTokenizer
 
 actor ArgumentTemplate {
     private let tokens: [ArgumentTemplateToken]
