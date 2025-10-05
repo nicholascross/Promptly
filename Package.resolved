@@ -1,13 +1,22 @@
 {
-  "originHash" : "f05d6dc6f5baa7575c42e83022d437db7e681bbdbc152f298e4bd1d86c8f9aec",
+  "originHash" : "8048c2c030846ccd98280d4e4d4d5eef0c3b829887dda501ed813c3193aac130",
   "pins" : [
+    {
+      "identity" : "patchapplykit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nicholascross/PatchApplyKit",
+      "state" : {
+        "branch" : "main",
+        "revision" : "2a639506bf1e98c8e0b71b907e53bc412caf6918"
+      }
+    },
     {
       "identity" : "swift-argument-parser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser",
       "state" : {
-        "revision" : "41982a3656a71c768319979febd796c6fd111d5c",
-        "version" : "1.5.0"
+        "revision" : "309a47b2b1d9b5e991f36961c983ecec72275be3",
+        "version" : "1.6.1"
       }
     },
     {

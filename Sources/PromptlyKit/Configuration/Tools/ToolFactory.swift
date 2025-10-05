@@ -58,8 +58,8 @@ public struct ToolFactory {
         )
 
         // Merge the default tools with local tools, giving precedence to local tools.
-        var tools = [any ExecutableTool]()
-        var toolNames = Set<String>()
+        var tools = builtinTools(toolOutput: toolOutput)
+        var toolNames = Set(tools.map { $0.name })
         for tool in localTools + defaultTools where !toolNames.contains(tool.name) {
             tools.append(tool)
             toolNames.insert(tool.name)
@@ -205,6 +205,16 @@ public struct ToolFactory {
         )
         .standardizedFileURL
     }
+
+    private func builtinTools(toolOutput: @Sendable @escaping (String) -> Void) -> [any ExecutableTool] {
+        [
+            ApplyPatchTool(
+                rootDirectory: sandboxURL,
+                output: toolOutput
+            )
+        ]
+    }
+
 
     private var sandboxURL: URL {
         URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
