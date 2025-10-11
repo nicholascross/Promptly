@@ -1,13 +1,13 @@
 {
-  "originHash" : "8048c2c030846ccd98280d4e4d4d5eef0c3b829887dda501ed813c3193aac130",
+  "originHash" : "28c3262221a424463289038f664d8528068b41ed3d0a50713d18bbb0fef27aed",
   "pins" : [
     {
       "identity" : "patchapplykit",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/nicholascross/PatchApplyKit",
       "state" : {
-        "branch" : "main",
-        "revision" : "2a639506bf1e98c8e0b71b907e53bc412caf6918"
+        "revision" : "2a639506bf1e98c8e0b71b907e53bc412caf6918",
+        "version" : "0.0.2"
       }
     },
     {
