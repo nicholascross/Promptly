@@ -180,6 +180,16 @@ promptly tool install [--tools <basename>]
 promptly tool remove <tool-id> [--force] [--config-file <path>]
 ```
 
+### Install Default Canned Prompts
+
+Install the bundled canned prompts (including helpers for registering tools, generating new canned prompts, and drafting commit messages) into `~/.config/promptly/canned`:
+
+```bash
+promptly canned install
+```
+
+Use `--overwrite` to replace any existing canned prompt files with the defaults.
+
 ### Role based messages
 
 You can use the `--message` option to send a predefined series of messages to the chat interface. Supported roles are `system`, `assistant`, and `user`.

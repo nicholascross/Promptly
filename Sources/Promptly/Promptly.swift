@@ -10,7 +10,8 @@ struct Promptly: AsyncParsableCommand {
         version: "__VERSION__",
         subcommands: [
             PromptCommand.self,
-            ToolCommand.self
+            ToolCommand.self,
+            CannedCommand.self
         ],
         defaultSubcommand: PromptCommand.self
     )
