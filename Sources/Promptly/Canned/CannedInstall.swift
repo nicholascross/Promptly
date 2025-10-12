@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PromptlyKit
 
 /// `promptly canned install` — install default canned prompts
 struct CannedInstall: ParsableCommand {

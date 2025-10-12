@@ -12,6 +12,14 @@ jobs:
       - name: Check out the Promptly repository
         uses: actions/checkout@v4
 
+      - name: Set up Swift
+        uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+
+      - name: Ensure project builds
+        run: swift build
+
       - name: Get the latest release tag
         id: get_tag
         run: echo "LATEST_TAG=${{ github.event.release.tag_name }}" >> $GITHUB_ENV
