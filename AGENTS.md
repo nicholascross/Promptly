@@ -26,4 +26,8 @@ These notes capture the best practices learned while extending Promptly’s tool
 - When adding entries, favor actionable instructions over historical summaries, and keep the document focused on reusable lessons.
 - If a change affects existing guidance, update or consolidate the relevant sections rather than duplicating information.
 
+### 7. Release Workflow
+- The `update-homebrew` GitHub Action runs on `macos-latest`, ensuring TerminalUI’s Darwin dependency links successfully.
+- It includes an explicit `swift-actions/setup-swift` step (6.0.3) plus `swift build`; keep both so releases fail fast when the project does not compile.
+
 Following these conventions keeps Promptly’s automation surface predictable and safe for both human operators and LLM agents. Edit this file whenever fresh insights arise so future contributors inherit the full context.
