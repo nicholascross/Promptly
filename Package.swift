@@ -18,7 +18,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.2.0"),
         .package(url: "https://github.com/nicholascross/SwiftTokenizer", from: "0.0.1"),
         .package(url: "https://github.com/nicholascross/TerminalUI", from: "0.8.0"),
-        .package(url: "https://github.com/nicholascross/PatchApplyKit", from: "0.0.2")
+        .package(url: "https://github.com/nicholascross/PatchApplyKit", from: "0.0.3")
     ],
     targets: [
         .executableTarget(
