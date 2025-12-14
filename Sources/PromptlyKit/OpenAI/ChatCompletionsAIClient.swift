@@ -3,6 +3,7 @@ import Foundation
 struct ChatCompletionsAIClient: AIClient {
     private let factory: ChatCompletionsRequestFactory
     private let encoder: JSONEncoder
+    private let transport: any NetworkTransport
     private let outputHandler: AIClientFactory.OutputHandler
     private let toolOutputHandler: AIClientFactory.ToolOutputHandler
     private let toolCallHandler: AIClientFactory.ToolCallHandler?
@@ -10,12 +11,14 @@ struct ChatCompletionsAIClient: AIClient {
     init(
         factory: ChatCompletionsRequestFactory,
         encoder: JSONEncoder,
+        transport: any NetworkTransport = URLSessionNetworkTransport(),
         outputHandler: @escaping AIClientFactory.OutputHandler,
         toolOutputHandler: @escaping AIClientFactory.ToolOutputHandler,
         toolCallHandler: AIClientFactory.ToolCallHandler?
     ) {
         self.factory = factory
         self.encoder = encoder
+        self.transport = transport
         self.outputHandler = outputHandler
         self.toolOutputHandler = toolOutputHandler
         self.toolCallHandler = toolCallHandler
@@ -26,13 +29,13 @@ struct ChatCompletionsAIClient: AIClient {
 
         while true {
             let request = try factory.makeRequest(messages: messages)
-            let (stream, response) = try await URLSession.shared.bytes(for: request)
+            let (lines, response) = try await transport.lineStream(for: request)
 
             guard
                 let httpResponse = response as? HTTPURLResponse,
                 200 ... 299 ~= httpResponse.statusCode
             else {
-                try await streamRawOutput(from: stream)
+                try await streamRawOutput(from: lines)
                 throw PrompterError.invalidResponse(
                     statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1
                 )
@@ -43,7 +46,7 @@ struct ChatCompletionsAIClient: AIClient {
 
             var replyMessages: [ChatMessage] = []
 
-            for try await line in stream.lines {
+            for try await line in lines {
                 let events = try await processor.process(line: line)
                 for event in events {
                     switch event {
@@ -78,13 +81,13 @@ struct ChatCompletionsAIClient: AIClient {
 
     func complete(messages: [ChatMessage]) async throws -> String {
         let request = try factory.makeRequest(messages: messages, toolChoice: .none)
-        let (stream, response) = try await URLSession.shared.bytes(for: request)
+        let (lines, response) = try await transport.lineStream(for: request)
 
         guard let http = response as? HTTPURLResponse, 200 ... 299 ~= http.statusCode else {
             return ""
         }
 
-        return try await ChatCompletionsResponseProcessor().collectContent(from: stream)
+        return try await ChatCompletionsResponseProcessor().collectContent(from: lines)
     }
 
     private func handleToolCall(
@@ -146,9 +149,9 @@ struct ChatCompletionsAIClient: AIClient {
     }
 
     private func streamRawOutput(
-        from stream: URLSession.AsyncBytes
+        from lines: AsyncThrowingStream<String, Error>
     ) async throws {
-        for try await line in stream.lines {
+        for try await line in lines {
             outputHandler(line + "\n")
         }
     }

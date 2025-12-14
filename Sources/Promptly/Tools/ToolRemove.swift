@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 
 /// `promptly tool remove` — remove a tool from the registry
 struct ToolRemove: ParsableCommand {

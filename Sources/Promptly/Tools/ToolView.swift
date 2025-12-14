@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 
 /// `promptly tool view <id>` — show details for one tool
 struct ToolView: ParsableCommand {

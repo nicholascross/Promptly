@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 
 /// `promptly tool add` — add a new tool to the registry
 struct ToolAdd: ParsableCommand {

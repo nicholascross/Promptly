@@ -3,10 +3,16 @@ import Foundation
 struct ResponsesClient {
     private let factory: ResponsesRequestFactory
     private let decoder: JSONDecoder
+    private let transport: any NetworkTransport
 
-    init(factory: ResponsesRequestFactory, decoder: JSONDecoder) {
+    init(
+        factory: ResponsesRequestFactory,
+        decoder: JSONDecoder,
+        transport: any NetworkTransport = URLSessionNetworkTransport()
+    ) {
         self.factory = factory
         self.decoder = decoder
+        self.transport = transport
     }
 
     func createResponse(
@@ -37,7 +43,7 @@ struct ResponsesClient {
     }
 
     private func send(_ request: URLRequest) async throws -> APIResponse {
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw PrompterError.invalidResponse(statusCode: -1)
         }
@@ -54,17 +60,18 @@ struct ResponsesClient {
         _ request: URLRequest,
         onTextStream: @escaping (String) -> Void
     ) async throws -> ResponseResult {
-        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        let (lines, response) = try await transport.lineStream(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw PrompterError.invalidResponse(statusCode: -1)
         }
 
         guard 200 ... 299 ~= http.statusCode else {
-            var data = Data()
-            for try await chunk in bytes {
-                data.append(chunk)
+            var payload = ""
+            for try await line in lines {
+                payload += line
+                payload += "\n"
             }
-            let message = decodeErrorMessage(from: data) ?? "HTTP status \(http.statusCode)"
+            let message = decodeErrorMessage(from: Data(payload.utf8)) ?? "HTTP status \(http.statusCode)"
             throw PrompterError.apiError(message)
         }
 
@@ -74,7 +81,7 @@ struct ResponsesClient {
         )
         var parser = ServerSentEventParser()
 
-        for try await line in bytes.lines {
+        for try await line in lines {
             if let parsed = parser.feed(line) {
                 try collector.handle(event: parsed.event, data: parsed.data)
             }
@@ -86,6 +93,17 @@ struct ResponsesClient {
         let completion = try collector.finish()
 
         if let response = completion.response {
+            let responseIsUseful: Bool = {
+                if let text = response.combinedOutputText(), !text.isEmpty { return true }
+                if !response.toolCalls().isEmpty { return true }
+                return false
+            }()
+
+            if !responseIsUseful, let responseId = completion.responseId {
+                let retrieved = try await retrieveResponse(id: responseId)
+                return ResponseResult(response: retrieved, streamedOutputs: completion.streamedOutputs)
+            }
+
             return ResponseResult(response: response, streamedOutputs: completion.streamedOutputs)
         }
 

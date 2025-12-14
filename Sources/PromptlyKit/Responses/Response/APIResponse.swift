@@ -12,13 +12,27 @@ struct APIResponse: Decodable {
     let id: String
     let status: Status
     let output: [ResponseOutput]?
+    let outputText: String?
     let requiredAction: RequiredAction?
     let error: APIErrorEnvelope.APIError?
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case status
+        case output
+        case outputText = "output_text"
+        case requiredAction = "required_action"
+        case error
+    }
+
     func combinedOutputText() -> String? {
-        guard let output else { return nil }
-        let texts = output.flatMap { $0.outputTextFragments() }
-        return texts.joined()
+        if let output, !output.isEmpty {
+            let texts = output.flatMap { $0.outputTextFragments() }
+            if !texts.isEmpty {
+                return texts.joined()
+            }
+        }
+        return outputText
     }
 
     func toolCalls() -> [ToolCall] {

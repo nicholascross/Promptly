@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 import TerminalUI
 
 @MainActor
@@ -11,6 +12,10 @@ final class PromptlyTerminalUIController {
     private let modelOverride: String?
     private let initialMessages: [ChatMessage]
     private let apiOverride: Config.API?
+    private var conversation: [ChatMessage]
+    private var transcriptAccumulator = PromptTranscriptAccumulator(
+        configuration: .init(toolOutputPolicy: .tombstone)
+    )
 
     // UI components
     private let terminal: Terminal
@@ -34,6 +39,7 @@ final class PromptlyTerminalUIController {
         self.modelOverride = modelOverride
         self.initialMessages = initialMessages
         self.apiOverride = apiOverride
+        conversation = initialMessages
 
         terminal = Terminal()
         terminal.hideCursor()
@@ -54,7 +60,6 @@ final class PromptlyTerminalUIController {
             return
         }
 
-        var conversation: [ChatMessage] = initialMessages
         updateConversation(conversation)
 
         // Create shell-command tools with UI streaming handler
@@ -65,26 +70,11 @@ final class PromptlyTerminalUIController {
             toolOutput: toolOutputHandler
         )
 
-        // Create an AI client that streams directly into the UI
-        let client: any AIClient = try Prompter(
+        let coordinator = try PrompterCoordinator(
             config: config,
             modelOverride: modelOverride,
             apiOverride: apiOverride,
-            tools: tools,
-            output: { [weak self] text in
-                guard let self else { return }
-                Task { @MainActor in
-                    // Append or update the current assistant message
-                    if conversation.last?.role != .assistant {
-                        conversation.append(ChatMessage(role: .assistant, content: .text(text)))
-                    } else if case let .text(prev) = conversation[conversation.count - 1].content {
-                        conversation[conversation.count - 1] =
-                            ChatMessage(role: .assistant, content: .text(prev + text))
-                    }
-                    self.updateConversation(conversation)
-                }
-            },
-            toolOutput: toolOutputHandler
+            tools: tools
         )
 
         input.onSubmit = { [weak self] text in
@@ -93,8 +83,28 @@ final class PromptlyTerminalUIController {
                 toolOutputArea.text = ""
                 conversation.append(ChatMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
-                let updated = try await client.runChatStream(messages: conversation)
-                conversation = updated
+                self.transcriptAccumulator = PromptTranscriptAccumulator(
+                    configuration: .init(toolOutputPolicy: .tombstone)
+                )
+
+                let result = try await coordinator.run(
+                    messages: conversation,
+                    onEvent: { event in
+                        Task { @MainActor [weak self] in
+                            self?.handle(event: event)
+                        }
+                    }
+                )
+
+                _ = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
+                if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
+                    if conversation.last?.role == .assistant {
+                        conversation[conversation.count - 1] = ChatMessage(role: .assistant, content: .text(assistantText))
+                    } else {
+                        conversation.append(ChatMessage(role: .assistant, content: .text(assistantText)))
+                    }
+                }
+
                 self.updateConversation(conversation)
             }
         }
@@ -131,6 +141,31 @@ final class PromptlyTerminalUIController {
         }.joined(separator: "\n\n")
         Task { @MainActor in
             messagesArea.text = text
+        }
+    }
+
+    private func handle(event: PromptStreamEvent) {
+        transcriptAccumulator.handle(event)
+        switch event {
+        case let .assistantTextDelta(delta):
+            if conversation.last?.role != .assistant {
+                conversation.append(ChatMessage(role: .assistant, content: .text(delta)))
+            } else if case let .text(prev) = conversation[conversation.count - 1].content {
+                conversation[conversation.count - 1] = ChatMessage(
+                    role: .assistant,
+                    content: .text(prev + delta)
+                )
+            }
+            updateConversation(conversation)
+
+        case let .toolCallRequested(_, name, _):
+            toolOutputArea.text += "Calling tool \(name)\n"
+
+        case let .toolCallCompleted(_, _, output):
+            let encoder = JSONEncoder()
+            if let encoded = try? String(data: encoder.encode(output), encoding: .utf8) {
+                toolOutputArea.text += encoded + "\n"
+            }
         }
     }
 

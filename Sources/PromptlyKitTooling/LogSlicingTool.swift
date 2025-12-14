@@ -1,7 +1,8 @@
 import Foundation
+import PromptlyKit
 
 /// A middleware tool that wraps a shell command tool to slice large logs,
-/// asking the LLM to suggest regex patterns based on the beginning and end of the log,
+/// asking the language model to suggest regex patterns based on the beginning and end of the log,
 /// then filtering the omitted portion locally with those patterns.
 public struct LogSlicingTool: ExecutableTool {
     public let name: String
@@ -15,12 +16,6 @@ public struct LogSlicingTool: ExecutableTool {
 
     private let suggestionService: SuggestionService
 
-    /// Initialize a log-slicing wrapper around an existing shell command tool.
-    /// - Parameters:
-    ///   - tool: the shell command tool to wrap
-    ///   - config: the Promptly configuration for LLM access
-    ///   - headLines: number of lines to keep from the start of the log
-    ///   - tailLines: number of lines to keep from the end of the log
     public init(
         wrapping tool: any ExecutableTool,
         config: Config,
@@ -52,7 +47,7 @@ public struct LogSlicingTool: ExecutableTool {
         let regexPatterns = try await suggestionService.suggestPatterns(
             head: Array(head.prefix(sampleLines)),
             tail: Array(tail.suffix(sampleLines)),
-            truncatedSample: omitted.randomElements(sampleLines),
+            truncatedSample: omitted.sampleRandomLines(sampleLines),
             toolName: wrapped.name,
             toolDescription: wrapped.description,
             arguments: arguments
@@ -93,7 +88,7 @@ public struct LogSlicingTool: ExecutableTool {
     }
 
     private func makeCondensedOutput(head: [String], filtered: [String], tail: [String]) -> String {
-        return [head, filtered, tail].flatMap { $0 }.joined(separator: "\n")
+        [head, filtered, tail].flatMap { $0 }.joined(separator: "\n")
     }
 
     private func makeResult(
@@ -102,7 +97,7 @@ public struct LogSlicingTool: ExecutableTool {
         omittedCount: Int,
         patterns: [String]
     ) -> JSONValue {
-        return .object([
+        .object([
             "exitCode": exitCode,
             "output": .string(condensedOutput),
             "skippedLines": .number(Double(omittedCount)),
@@ -127,5 +122,14 @@ private extension [String] {
             }
         }
         return matches
+    }
+}
+
+private extension Collection where Index == Int {
+    func sampleRandomLines(_ count: Int) -> [Element] {
+        guard !isEmpty, count > 0 else { return [] }
+        return (0 ..< count)
+            .map { Int.random(in: $0 ..< self.count) }
+            .map { self[$0] }
     }
 }

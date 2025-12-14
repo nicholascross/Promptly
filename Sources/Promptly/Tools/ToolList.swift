@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 
 /// `promptly tool list` — list all tools in a simple table
 struct ToolList: ParsableCommand {

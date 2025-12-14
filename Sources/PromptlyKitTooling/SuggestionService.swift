@@ -1,10 +1,10 @@
 import Foundation
+import PromptlyKit
 
 /// A service that suggests regular expression patterns by querying a language model.
 public struct SuggestionService {
     private let client: any AIClient
 
-    /// Initialize with a Promptly config to create the chat request factory.
     public init(
         config: Config,
         client clientOverride: (any AIClient)? = nil
@@ -14,26 +14,14 @@ public struct SuggestionService {
             return
         }
 
-        self.client = try AIClientFactory.makeClient(
+        self.client = try Prompter(
             config: config,
-            api: config.api,
-            model: config.resolveModel(),
             tools: [],
-            outputHandler: { _ in },
-            toolOutputHandler: { _ in },
-            toolCallHandler: nil
+            output: { _ in },
+            toolOutput: { _ in }
         )
     }
 
-    /// Suggest up to five regex patterns to match important content in logs.
-    ///
-    /// - Parameters:
-    ///   - head: Leading lines sample.
-    ///   - tail: Trailing lines sample.
-    ///   - truncatedSample: Random lines from the omitted middle section.
-    ///   - toolName: Name of the wrapped tool that generated the log.
-    ///   - toolDescription: Description of the wrapped tool.
-    ///   - arguments: JSON arguments passed to the tool.
     public func suggestPatterns(
         head: [String],
         tail: [String],

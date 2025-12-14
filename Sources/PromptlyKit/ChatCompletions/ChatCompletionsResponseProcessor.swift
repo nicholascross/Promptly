@@ -76,9 +76,9 @@ actor ChatCompletionsResponseProcessor {
         return output
     }
 
-    func collectContent(from stream: URLSession.AsyncBytes) async throws -> String {
+    func collectContent(from lines: AsyncThrowingStream<String, Error>) async throws -> String {
         var content = ""
-        for try await line in stream.lines {
+        for try await line in lines {
             for event in try process(line: line) {
                 if case let .content(txt) = event {
                     content += txt

@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKit
 
 public struct ToolFactory {
     private let fileManager: FileManagerProtocol
@@ -127,21 +128,6 @@ public struct ToolFactory {
     }
 
     /// Load and instantiate shell command tools from an allow list config file in JSON format.
-    /// Expected format in tools config file (default `tools.json`):
-    /// {
-    ///   "shellCommands": [
-    ///     {
-    ///       "name": "ls",
-    ///       "description": "Recursively list a directory",
-    ///       "executable": "/bin/ls",
-    ///       "echoOutput": true,
-    ///       "truncateOutput": true,
-    ///       "argumentTemplate": [["-R", "{{path}}"]],
-    ///       "parameters": { /* a valid JSONSchema */ }
-    ///     },
-    ///     ...
-    ///   ]
-    /// }
     private func loadShellCommandConfig(
         configURL url: URL,
         config: Config,
@@ -215,7 +201,6 @@ public struct ToolFactory {
         ]
     }
 
-
     private var sandboxURL: URL {
         URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
     }
@@ -226,3 +211,4 @@ public struct ToolFactory {
         return try JSONDecoder().decode(ShellCommandConfig.self, from: data)
     }
 }
+

@@ -6,6 +6,7 @@ struct ResponseOutput: Decodable {
     let type: String
     let status: String?
     let content: [OutputContent]?
+    let text: String?
     let role: String?
     let name: String?
     let arguments: String?
@@ -16,19 +17,23 @@ struct ResponseOutput: Decodable {
         case type
         case status
         case content
+        case text
         case role
         case name
         case arguments
     }
 
     func outputTextFragments() -> [String] {
-        guard let content else { return [] }
-
         if type == "output_text" {
+            if let text, !text.isEmpty {
+                return [text]
+            }
+            guard let content else { return [] }
             return content.compactMap { $0.text }
         }
 
         if type == "message" {
+            guard let content else { return [] }
             return content.filter { $0.type == "output_text" }.compactMap { $0.text }
         }
 

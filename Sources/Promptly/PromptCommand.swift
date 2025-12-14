@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 import TerminalUI
 import Darwin
 
@@ -113,7 +114,7 @@ struct PromptCommand: AsyncParsableCommand {
             excludeTools: excludeTools
         )
 
-        let client: any AIClient = try Prompter(
+        let coordinator = try PrompterCoordinator(
             config: config,
             modelOverride: model,
             apiOverride: api?.configValue,
@@ -125,15 +126,19 @@ struct PromptCommand: AsyncParsableCommand {
             throw ValidationError("No input provided. Usage: promptly prompt [options] <context> or --message or piped stdin")
         }
 
-        // Run chat stream if there are initial messages
-        let conversation: [ChatMessage]
-        if initialMessages.isEmpty {
-            conversation = initialMessages
-        } else {
-            conversation = try await client.runChatStream(messages: initialMessages)
+        var conversation: [ChatMessage] = initialMessages
+        if !conversation.isEmpty {
+            let (updatedConversation, _) = try await runOnce(
+                coordinator: coordinator,
+                conversation: conversation
+            )
+            conversation = updatedConversation
         }
 
-        try await continueInteractivelyIfNeeded(client: client, initialMessages: conversation)
+        try await continueInteractivelyIfNeeded(
+            coordinator: coordinator,
+            initialMessages: conversation
+        )
     }
 
     private func deriveInitialMessages() throws -> [ChatMessage] {
@@ -170,7 +175,7 @@ struct PromptCommand: AsyncParsableCommand {
     }
 
     private func continueInteractivelyIfNeeded(
-        client: any AIClient,
+        coordinator: PrompterCoordinator,
         initialMessages: [ChatMessage]
     ) async throws {
         guard interactive else { return }
@@ -185,8 +190,91 @@ struct PromptCommand: AsyncParsableCommand {
             fflush(stdout)
             guard let line = readLine() else { break }
             conversation.append(ChatMessage(role: .user, content: .text(line)))
-            conversation = try await client.runChatStream(messages: conversation)
+
+            let (updatedConversation, _) = try await runOnce(
+                coordinator: coordinator,
+                conversation: conversation
+            )
+            conversation = updatedConversation
         }
+    }
+
+    private func runOnce(
+        coordinator: PrompterCoordinator,
+        conversation: [ChatMessage]
+    ) async throws -> (conversation: [ChatMessage], transcript: PromptTranscript) {
+        let runState = RunState()
+
+        let result = try await coordinator.run(
+            messages: conversation,
+            onEvent: { event in
+                runState.handle(event)
+            }
+        )
+
+        let transcript = runState.finishTranscript(finalAssistantText: result.finalAssistantText)
+
+        var updatedConversation = conversation
+        if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
+            updatedConversation.append(ChatMessage(role: .assistant, content: .text(assistantText)))
+        }
+
+        if let assistantText = result.finalAssistantText, !assistantText.isEmpty, !runState.didStreamAssistantText {
+            fputs(assistantText, stdout)
+            fputs("\n", stdout)
+            fflush(stdout)
+        } else if runState.didStreamAssistantText {
+            fputs("\n", stdout)
+            fflush(stdout)
+        }
+
+        return (updatedConversation, transcript)
+    }
+}
+
+private final class RunState: @unchecked Sendable {
+    private let lock = NSLock()
+    private var transcriptAccumulator = PromptTranscriptAccumulator(
+        configuration: .init(toolOutputPolicy: .tombstone)
+    )
+    private var streamedAssistantText = false
+
+    var didStreamAssistantText: Bool {
+        lock.lock()
+        let value = streamedAssistantText
+        lock.unlock()
+        return value
+    }
+
+    func handle(_ event: PromptStreamEvent) {
+        lock.lock()
+        transcriptAccumulator.handle(event)
+        if case .assistantTextDelta = event {
+            streamedAssistantText = true
+        }
+        lock.unlock()
+
+        switch event {
+        case let .assistantTextDelta(text):
+            fputs(text, stdout)
+            fflush(stdout)
+        case let .toolCallRequested(_, name, _):
+            fputs("Calling tool \(name)\n", stdout)
+            fflush(stdout)
+        case let .toolCallCompleted(_, _, output):
+            let encoder = JSONEncoder()
+            if let encoded = try? String(data: encoder.encode(output), encoding: .utf8) {
+                fputs(encoded + "\n", stdout)
+                fflush(stdout)
+            }
+        }
+    }
+
+    func finishTranscript(finalAssistantText: String?) -> PromptTranscript {
+        lock.lock()
+        let transcript = transcriptAccumulator.finish(finalAssistantText: finalAssistantText)
+        lock.unlock()
+        return transcript
     }
 }
 

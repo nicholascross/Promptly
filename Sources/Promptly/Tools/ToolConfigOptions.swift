@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PromptlyKitTooling
 
 // Configuration options for the tools subcommands.
 struct ToolConfigOptions: ParsableArguments {
@@ -9,4 +10,3 @@ struct ToolConfigOptions: ParsableArguments {
     )
     var configFile: String?
 }
-
