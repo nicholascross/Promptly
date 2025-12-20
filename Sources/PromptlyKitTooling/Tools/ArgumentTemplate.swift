@@ -1,3 +1,4 @@
+import PromptlyKit
 @preconcurrency import SwiftTokenizer
 
 actor ArgumentTemplate {

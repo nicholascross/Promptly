@@ -1,4 +1,6 @@
 import Foundation
+import PromptlyKit
+import PromptlyKitUtils
 @preconcurrency import SwiftTokenizer
 
 public struct ShellCommandTool: ExecutableTool, Sendable {

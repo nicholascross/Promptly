@@ -1,6 +1,7 @@
 import Foundation
 
 import PromptlyKit
+import PromptlyKitTooling
 
 extension Config {
     public static func setupToken(configURL: URL) async throws {

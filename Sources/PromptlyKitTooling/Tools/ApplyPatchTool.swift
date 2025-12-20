@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKit
 import PatchApplyKit
 
 public struct ApplyPatchTool: ExecutableTool, Sendable {

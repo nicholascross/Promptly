@@ -2,6 +2,7 @@
 // Run: `swift run GenerateDefaultShellCommandConfig`
 
 import Foundation
+import PromptlyKit
 
 public enum DefaultShellCommandConfig {
     public static let config: ShellCommandConfig = shellCommands {

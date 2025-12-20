@@ -1,19 +1,20 @@
 import Foundation
 
-struct ProcessRunner: RunnableProcess, Sendable {
+public struct ProcessRunner: RunnableProcess, Sendable {
     /// Handler for streaming output of tool calls (e.g., shell command stdout/stderr and prompt input).
     let toolOutputHandler: @Sendable (String) -> Void
 
     /// Create a ProcessRunner.
     ///
     /// - Parameter toolOutputHandler: Handler for streaming output; defaults to standard output.
-    init(toolOutputHandler: @escaping @Sendable (String) -> Void = { stream in
+    public init(toolOutputHandler: @escaping @Sendable (String) -> Void = { stream in
         fputs(stream, stdout)
         fflush(stdout)
     }) {
         self.toolOutputHandler = toolOutputHandler
     }
-    func run(
+
+    public func run(
         executable: String,
         arguments: [String],
         currentDirectoryURL: URL?,
@@ -49,8 +50,7 @@ struct ProcessRunner: RunnableProcess, Sendable {
         currentDirectory: URL?,
         streamOutput: Bool
     ) async throws -> (exitCode: Int32, output: String) {
-        // Report command invocation via the output handler instead of the global logger
-        self.toolOutputHandler("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")\n")
+        toolOutputHandler("Running: \(executable) \(arguments.joined(separator: " ")) in \(currentDirectory?.path ?? "$(pwd)")\n")
         let process = Process()
         process.executableURL = URL(fileURLWithPath: executable)
         process.arguments = arguments
@@ -90,7 +90,7 @@ struct ProcessRunner: RunnableProcess, Sendable {
                     await outputData.append(remaining)
                 }
                 if let string = String(data: remaining, encoding: .utf8) {
-                    self.toolOutputHandler(string)
+                    toolOutputHandler(string)
                 }
             }
             let output = String(data: await outputData.snapshot(), encoding: .utf8) ?? ""

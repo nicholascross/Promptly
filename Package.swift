@@ -14,6 +14,10 @@ let package = Package(
             targets: ["PromptlyKit"]
         ),
         .library(
+            name: "PromptlyKitUtils",
+            targets: ["PromptlyKitUtils"]
+        ),
+        .library(
             name: "PromptlyKitTooling",
             targets: ["PromptlyKitTooling"]
         )
@@ -44,7 +48,11 @@ let package = Package(
         ),
         .target(
             name: "PromptlyKitTooling",
-            dependencies: ["PromptlyKit"]
+            dependencies: ["PromptlyKit", "PromptlyKitUtils"]
+        ),
+        .target(
+            name: "PromptlyKitUtils",
+            dependencies: []
         ),
         .testTarget(
             name: "PromptlyKitTests",
