@@ -1,6 +1,7 @@
 import ArgumentParser
 import Foundation
 import PromptlyKit
+import PromptlyKitTooling
 
 /// `promptly tool install` — install the default set of shell-command tools into the config directory
 struct ToolInstall: ParsableCommand {

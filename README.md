@@ -43,13 +43,12 @@ promptly --include-tools ShowFileTree --message "user:Display the project's dire
 |-------------------------|--------------------------------------------------|
 | `-v`, `--version`       | Show the current version of the tool             |
 | `-i`, `--interactive`   | Start REPL mode                                  |
-| `--ui`                  | Launch the terminal-based UI powered by TerminalUI |
+| `ui`                    | Launch the terminal-based UI powered by TerminalUI |
 | `-p`, `--canned <name>` | Use one or more canned prompts from `~/.config/promptly/canned` |
 | `--include-tools`       | Include shell tools by substring; explicitly enable opt-in tools when listed |
 | `--exclude-tools`       | Exclude shell tools by substring               |
 | `-c`, `--config <path>`  | Override config file path (default `~/.config/promptly/config.json`) |
 | `--tools <name>`         | Override shell tools config basename (default `tools`) |
-| `--setup-token`          | Store or update the API token in Keychain        |
 | `--model <id>`           | Override the default model identifier            |
 | `--message <role:msg>`   | Send a prefixed chat message (roles: user, system, assistant; e.g. `user:Hi`) |
 
@@ -98,7 +97,7 @@ To install Promptly, execute the following steps:
 
 Before utilizing the tool to make API requests, you must store your API token. Execute the following command and adhere to the prompts:
 ```bash
-promptly --setup-token
+promptly token setup
 ```
 
 ### Making API Requests
@@ -128,13 +127,13 @@ Why did the developer go broke? Because he used up all his cache.
 
 ### UI Mode
 
-To launch the terminal-based UI powered by TerminalUI, use the `--ui` flag:
+To launch the terminal-based UI powered by TerminalUI, use:
 
 ```bash
-promptly --ui
+promptly ui
 ```
 
-Note that UI mode requires a TTY for interactive input, but piped initial input into `--ui` is now supported.
+Note that UI mode requires a TTY for interactive input, but piped initial input into `promptly ui` is now supported.
 
 ### Canned prompts
 
