@@ -9,11 +9,8 @@ struct ResponsesPromptEndpointTests {
         let transport = TestResponsesTransport(
             lineStream: [
                 "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"text\":\"Hel\"},\"output_index\":0,\"response_id\":\"r1\"}",
-                "",
                 "data: {\"type\":\"response.output_text.delta\",\"delta\":{\"text\":\"lo\"},\"output_index\":0,\"response_id\":\"r1\"}",
-                "",
                 "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"r1\",\"status\":\"completed\",\"output\":[{\"type\":\"message\",\"content\":[{\"type\":\"output_text\",\"text\":\"Hello\"}]}]}}",
-                ""
             ],
             dataResponseBody: #"{"id":"r1","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"Hello"}]}]}"#
         )

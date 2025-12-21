@@ -13,7 +13,7 @@ public struct ServerSentEventParser {
 
     public mutating func feed(_ line: String) -> ParsedEvent? {
         if line.isEmpty {
-            return flush()
+            return nil
         }
 
         if line.hasPrefix("id:") {
