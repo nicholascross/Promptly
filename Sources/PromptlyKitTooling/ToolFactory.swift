@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 
 public struct ToolFactory {
     private let fileManager: FileManagerProtocol

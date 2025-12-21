@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 public struct ShellCommandConfigEntry: Codable, Sendable {
     public let name: String

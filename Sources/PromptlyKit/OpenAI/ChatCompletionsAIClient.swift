@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ChatCompletionsAIClient: AIClient {
     private let factory: ChatCompletionsRequestFactory

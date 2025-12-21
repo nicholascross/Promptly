@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ResponsesClient {
     private let factory: ResponsesRequestFactory

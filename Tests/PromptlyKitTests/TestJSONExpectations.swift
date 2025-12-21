@@ -1,6 +1,7 @@
 import Foundation
 @testable import PromptlyKit
 import Testing
+import PromptlyKitUtils
 
 func expectString(_ value: JSONValue?, equals expected: String, sourceLocation: SourceLocation = #_sourceLocation) {
     guard case let .string(actual)? = value else {

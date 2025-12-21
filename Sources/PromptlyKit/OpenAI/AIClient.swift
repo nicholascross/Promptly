@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 public protocol AIClient {
     func runStream(messages: [ChatMessage]) async throws -> [ChatMessage]

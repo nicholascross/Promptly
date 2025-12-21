@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 
 // MARK: - Entry point
 

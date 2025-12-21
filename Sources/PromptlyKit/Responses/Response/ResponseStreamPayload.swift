@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ResponseStreamPayload: Decodable {
     let type: String

@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 /// Public entry point for the session/event architecture.
 ///

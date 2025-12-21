@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ResponsesPromptEndpoint: PromptEndpoint {
     private let client: ResponsesClient

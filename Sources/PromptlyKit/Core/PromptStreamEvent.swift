@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 /// Provider-neutral events produced while running a prompt session.
 ///

@@ -1,6 +1,7 @@
 import Foundation
 @testable import PromptlyKit
 import Testing
+import PromptlyKitUtils
 
 struct PromptSessionRunnerTranscriptIntegrationTests {
     @Test

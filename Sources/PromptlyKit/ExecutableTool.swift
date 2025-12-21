@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 /// A protocol for defining a function-call (tool) available to the LLM.
 public protocol ExecutableTool {

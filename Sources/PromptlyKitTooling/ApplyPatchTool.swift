@@ -1,6 +1,7 @@
 import Foundation
 import PromptlyKit
 import PatchApplyKit
+import PromptlyKitUtils
 
 public struct ApplyPatchTool: ExecutableTool, Sendable {
     public let name = "ApplyPatch"

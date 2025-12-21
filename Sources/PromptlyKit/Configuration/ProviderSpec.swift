@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ProviderSpec: Codable {
     let name: String

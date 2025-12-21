@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 public protocol ToolExecutionGateway {
     func executeToolCall(name: String, arguments: JSONValue) async throws -> JSONValue

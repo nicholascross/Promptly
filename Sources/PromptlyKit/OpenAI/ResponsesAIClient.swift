@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ResponsesAIClient: AIClient {
     private struct ToolInvocationOutput {

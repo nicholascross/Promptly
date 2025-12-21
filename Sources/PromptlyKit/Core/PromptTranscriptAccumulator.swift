@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 public struct PromptTranscript: Sendable {
     public var entries: [PromptTranscriptEntry]

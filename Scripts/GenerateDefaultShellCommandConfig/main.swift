@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 
 // A tool to generate a Swift source file embedding the default shell-command configuration
 // from Docs/tools.json as Swift data objects.

@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 extension JSONValue {
     var textFragment: String? {

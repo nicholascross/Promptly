@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 struct ChatCompletionsPromptEndpoint: PromptEndpoint {
     private let factory: ChatCompletionsRequestFactory

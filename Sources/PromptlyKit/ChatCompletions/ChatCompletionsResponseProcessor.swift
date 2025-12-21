@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 actor ChatCompletionsResponseProcessor {
     enum Event: Sendable {

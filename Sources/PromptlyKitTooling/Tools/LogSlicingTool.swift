@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 
 /// A middleware tool that wraps a shell command tool to slice large logs,
 /// asking the language model to suggest regex patterns based on the beginning and end of the log,

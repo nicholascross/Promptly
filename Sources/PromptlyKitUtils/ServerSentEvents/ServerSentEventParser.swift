@@ -1,15 +1,17 @@
 import Foundation
 
-struct ServerSentEventParser {
-    struct ParsedEvent {
-        let event: String?
-        let data: String
+public struct ServerSentEventParser {
+    public struct ParsedEvent {
+        public let event: String?
+        public let data: String
     }
 
     private var event: String?
     private var dataLines: [String] = []
 
-    mutating func feed(_ line: String) -> ParsedEvent? {
+    public init() {}
+
+    public mutating func feed(_ line: String) -> ParsedEvent? {
         if line.isEmpty {
             return flush()
         }
@@ -40,7 +42,7 @@ struct ServerSentEventParser {
         return nil
     }
 
-    mutating func finish() -> ParsedEvent? {
+    public mutating func finish() -> ParsedEvent? {
         return flush()
     }
 

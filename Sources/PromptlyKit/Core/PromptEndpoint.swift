@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 public struct ToolCallRequest: Sendable {
     public let id: String

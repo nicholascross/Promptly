@@ -34,6 +34,7 @@ let package = Package(
             dependencies: [
                 "PromptlyKit",
                 "PromptlyKitTooling",
+                "PromptlyKitUtils",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SwiftTokenizer", package: "SwiftTokenizer"),
                 .product(name: "TerminalUI", package: "TerminalUI")
@@ -42,6 +43,7 @@ let package = Package(
         .target(
             name: "PromptlyKit",
             dependencies: [
+                "PromptlyKitUtils",
                 .product(name: "SwiftTokenizer", package: "SwiftTokenizer"),
                 .product(name: "PatchApplyKit", package: "PatchApplyKit")
             ]
@@ -61,7 +63,8 @@ let package = Package(
         .executableTarget(
             name: "GenerateDefaultShellCommandConfig",
             dependencies: [
-                "PromptlyKit"
+                "PromptlyKit",
+                "PromptlyKitUtils"
             ],
             path: "Scripts/GenerateDefaultShellCommandConfig"
         )

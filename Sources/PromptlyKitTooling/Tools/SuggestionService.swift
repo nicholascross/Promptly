@@ -1,24 +1,18 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 
 /// A service that suggests regular expression patterns by querying a language model.
 public struct SuggestionService {
     private let client: any AIClient
 
     public init(
-        config: Config,
-        client clientOverride: (any AIClient)? = nil
+        config: Config
     ) throws {
-        if let clientOverride {
-            self.client = clientOverride
-            return
-        }
-
         self.client = try Prompter(
             config: config,
-            tools: [],
-            output: { _ in },
-            toolOutput: { _ in }
+            output: { _ in }, // silence output
+            toolOutput: { _ in } // silence tool output
         )
     }
 
