@@ -2,9 +2,6 @@ import Foundation
 import PromptlyKitUtils
 
 /// Public entry point for the session/event architecture.
-///
-/// This is additive to the existing `Prompter` API so existing integrations continue to work
-/// while the new architecture is adopted and hardened.
 public struct PrompterCoordinator {
     private let runner: PromptSessionRunner
 

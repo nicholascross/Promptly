@@ -2,11 +2,13 @@ import Foundation
 
 public final class TranscriptRecorder: @unchecked Sendable {
     private let lock = NSLock()
-    private var transcriptAccumulator = PromptTranscriptAccumulator(
-        configuration: .init(toolOutputPolicy: .tombstone)
-    )
+    private var transcriptAccumulator: PromptTranscriptAccumulator
 
-    public init() {}
+    public init(
+        configuration: PromptTranscriptAccumulator.Configuration = .init(toolOutputPolicy: .tombstone)
+    ) {
+        transcriptAccumulator = PromptTranscriptAccumulator(configuration: configuration)
+    }
 
     public func handle(_ event: PromptStreamEvent) {
         lock.lock()

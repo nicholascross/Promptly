@@ -27,7 +27,16 @@ public struct PromptSessionRunner {
         messages: [ChatMessage],
         onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
     ) async throws -> PromptSessionResult {
-        var turn = try await endpoint.start(messages: messages, onEvent: onEvent)
+        let transcriptRecorder = TranscriptRecorder(
+            configuration: .init(toolOutputPolicy: .include)
+        )
+
+        let eventHandler: @Sendable (PromptStreamEvent) -> Void = { event in
+            transcriptRecorder.handle(event)
+            onEvent(event)
+        }
+
+        var turn = try await endpoint.start(messages: messages, onEvent: eventHandler)
 
         var toolIterations = 0
         while !turn.toolCalls.isEmpty {
@@ -38,7 +47,7 @@ public struct PromptSessionRunner {
 
             let toolOutputs = try await executeTools(
                 toolCalls: turn.toolCalls,
-                onEvent: onEvent
+                onEvent: eventHandler
             )
 
             guard let continuation = turn.continuation else {
@@ -48,11 +57,16 @@ public struct PromptSessionRunner {
             turn = try await endpoint.continueSession(
                 continuation: continuation,
                 toolOutputs: toolOutputs,
-                onEvent: onEvent
+                onEvent: eventHandler
             )
         }
 
-        return PromptSessionResult(finalAssistantText: turn.finalAssistantText)
+        let promptTranscript = transcriptRecorder.finishTranscript(finalAssistantText: turn.finalAssistantText)
+        return PromptSessionResult(
+            finalAssistantText: turn.finalAssistantText,
+            finalTurn: turn,
+            promptTranscript: promptTranscript
+        )
     }
 
     private func executeTools(
@@ -75,6 +89,8 @@ public struct PromptSessionRunner {
 
 public struct PromptSessionResult: Sendable {
     public let finalAssistantText: String?
+    public let finalTurn: PromptTurn
+    public let promptTranscript: PromptTranscript
 }
 
 public enum PromptSessionRunnerError: Error, LocalizedError, Sendable {

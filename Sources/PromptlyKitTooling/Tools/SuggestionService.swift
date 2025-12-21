@@ -4,16 +4,12 @@ import PromptlyKitUtils
 
 /// A service that suggests regular expression patterns by querying a language model.
 public struct SuggestionService {
-    private let client: any AIClient
+    private let coordinator: PrompterCoordinator
 
     public init(
         config: Config
     ) throws {
-        self.client = try Prompter(
-            config: config,
-            output: { _ in }, // silence output
-            toolOutput: { _ in } // silence tool output
-        )
+        coordinator = try PrompterCoordinator(config: config)
     }
 
     public func suggestPatterns(
@@ -39,7 +35,15 @@ public struct SuggestionService {
             ChatMessage(role: .user, content: .text(userPrompt))
         ]
 
-        let suggestion = try await client.complete(messages: messages)
+        let result = try await coordinator.run(
+            messages: messages,
+            onEvent: { _ in }
+        )
+
+        guard let suggestion = result.finalAssistantText else {
+            return []
+        }
+
         return extractPatterns(from: suggestion)
     }
 
