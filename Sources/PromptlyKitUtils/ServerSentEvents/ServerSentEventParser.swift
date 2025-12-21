@@ -38,6 +38,7 @@ public struct ServerSentEventParser {
 
         if line.hasPrefix("data:") {
             dataLines.append(cleanedValue(from: line, prefix: "data:"))
+            return flush()
         }
         return nil
     }
