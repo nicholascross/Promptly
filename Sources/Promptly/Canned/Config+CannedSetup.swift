@@ -1,6 +1,7 @@
 import Foundation
+import PromptlyKit
 
-public extension Config {
+extension Config {
     /// Install the default set of canned prompts into the global config directory.
     /// - Parameter overwrite: When true, existing canned prompts with the same name are replaced.
     static func setupCannedPrompts(overwrite: Bool) throws {
