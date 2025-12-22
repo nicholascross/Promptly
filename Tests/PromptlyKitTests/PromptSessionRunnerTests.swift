@@ -7,8 +7,8 @@ struct PromptSessionRunnerTests {
     @Test
     func executesToolCallsAndContinuesUntilComplete() async throws {
         let endpoint = FakePromptEndpoint()
-        let toolGateway = FakeToolGateway()
-        let runner = PromptSessionRunner(endpoint: endpoint, toolGateway: toolGateway)
+        let tool = StaticTool(output: .string("tool-output"))
+        let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
         let result = try await runner.run(
@@ -46,9 +46,15 @@ struct PromptSessionRunnerTests {
     }
 }
 
-private struct FakeToolGateway: ToolExecutionGateway {
-    func executeToolCall(name: String, arguments: JSONValue) async throws -> JSONValue {
-        .string("tool-output")
+private struct StaticTool: ExecutableTool {
+    let output: JSONValue
+
+    let name: String = "Echo"
+    let description: String = "Static tool for testing."
+    let parameters: JSONSchema = .object(requiredProperties: [:], optionalProperties: [:], description: nil)
+
+    func execute(arguments: JSONValue) async throws -> JSONValue {
+        output
     }
 }
 

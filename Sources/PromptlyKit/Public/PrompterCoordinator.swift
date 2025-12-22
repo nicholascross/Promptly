@@ -50,8 +50,7 @@ public struct PrompterCoordinator {
             endpoint = ChatCompletionsPromptEndpoint(factory: factory, transport: transport, encoder: encoder)
         }
 
-        let toolGateway = ToolRegistryGateway(tools: tools)
-        runner = PromptSessionRunner(endpoint: endpoint, toolGateway: toolGateway)
+        runner = PromptSessionRunner(endpoint: endpoint, tools: tools)
     }
 
     public func run(

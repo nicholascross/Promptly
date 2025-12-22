@@ -7,8 +7,8 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
     @Test
     func includesFinalAssistantTextWhenNotStreamedAfterToolCalls() async throws {
         let endpoint = FinalTextOnlyAfterToolCallEndpoint()
-        let toolGateway = StaticToolGateway(output: .string("tool-output"))
-        let runner = PromptSessionRunner(endpoint: endpoint, toolGateway: toolGateway)
+        let tool = StaticTool(output: .string("tool-output"))
+        let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
 
@@ -59,8 +59,8 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
     @Test
     func doesNotDuplicateFinalAssistantTextWhenAlreadyStreamed() async throws {
         let endpoint = StreamedFinalTextEndpoint()
-        let toolGateway = StaticToolGateway(output: .string("tool-output"))
-        let runner = PromptSessionRunner(endpoint: endpoint, toolGateway: toolGateway)
+        let tool = StaticTool(output: .string("tool-output"))
+        let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
 
@@ -101,10 +101,14 @@ private actor EventCollector {
     }
 }
 
-private struct StaticToolGateway: ToolExecutionGateway {
+private struct StaticTool: ExecutableTool {
     let output: JSONValue
 
-    func executeToolCall(name: String, arguments: JSONValue) async throws -> JSONValue {
+    let name: String = "Echo"
+    let description: String = "Static tool for testing."
+    let parameters: JSONSchema = .object(requiredProperties: [:], optionalProperties: [:], description: nil)
+
+    func execute(arguments: JSONValue) async throws -> JSONValue {
         output
     }
 }

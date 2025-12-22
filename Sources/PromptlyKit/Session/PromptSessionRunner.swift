@@ -10,16 +10,16 @@ public struct PromptSessionRunner {
     }
 
     private let endpoint: any PromptEndpoint
-    private let toolGateway: any ToolExecutionGateway
+    private let tools: [any ExecutableTool]
     private let configuration: Configuration
 
     public init(
         endpoint: any PromptEndpoint,
-        toolGateway: any ToolExecutionGateway,
+        tools: [any ExecutableTool],
         configuration: Configuration = Configuration()
     ) {
         self.endpoint = endpoint
-        self.toolGateway = toolGateway
+        self.tools = tools
         self.configuration = configuration
     }
 
@@ -78,7 +78,7 @@ public struct PromptSessionRunner {
 
         for call in toolCalls {
             await onEvent(.toolCallRequested(id: call.id, name: call.name, arguments: call.arguments))
-            let output = try await toolGateway.executeToolCall(name: call.name, arguments: call.arguments)
+            let output = try await tools.executeTool(name: call.name, arguments: call.arguments)
             await onEvent(.toolCallCompleted(id: call.id, name: call.name, output: output))
             outputs.append(ToolCallOutput(id: call.id, output: output))
         }
