@@ -90,23 +90,10 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
         switch response.status {
         case .completed:
             let combined = response.combinedOutputText()
-            let streamedText = result.streamedOutputs
-                .keys
-                .sorted()
-                .map { result.streamedOutputs[$0] ?? "" }
-                .joined()
-            let finalText: String?
-            if let combined, !combined.isEmpty {
-                finalText = combined
-            } else if !streamedText.isEmpty {
-                finalText = streamedText
-            } else {
-                finalText = combined
-            }
             return PromptTurn(
                 continuation: nil,
                 toolCalls: [],
-                finalAssistantText: finalText
+                finalAssistantText: (combined?.isEmpty == false) ? combined : nil
             )
 
         case .requiresAction:
