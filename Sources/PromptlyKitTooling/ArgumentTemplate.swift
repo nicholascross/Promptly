@@ -5,23 +5,26 @@ import PromptlyKitUtils
 actor ArgumentTemplate {
     private let tokens: [ArgumentTemplateToken]
 
-    private static let lexer = Lexer<ArgumentTemplateToken> {
-        TokenRule(/\{\{([^}]+)\}\}/) { match in
-            ArgumentTemplateToken.argument(String(match.output.1))
-        }
-        TokenRule(/\{\(([^)]+)\)\}/) { match in
-            ArgumentTemplateToken.path(String(match.output.1))
-        }
-        TokenRule(/[^{}()]+/) { match in
-            ArgumentTemplateToken.other(String(match.output))
-        }
-        TokenRule(/./) { match in
-            ArgumentTemplateToken.other(String(match.output))
+    private static func makeLexer() -> Lexer<ArgumentTemplateToken> {
+        Lexer {
+            TokenRule(/\{\{([^}]+)\}\}/) { match in
+                ArgumentTemplateToken.argument(String(match.output.1))
+            }
+            TokenRule(/\{\(([^)]+)\)\}/) { match in
+                ArgumentTemplateToken.path(String(match.output.1))
+            }
+            TokenRule(/[^{}()]+/) { match in
+                ArgumentTemplateToken.other(String(match.output))
+            }
+            TokenRule(/./) { match in
+                ArgumentTemplateToken.other(String(match.output))
+            }
         }
     }
 
     init(string: String) throws {
-        tokens = try Self.lexer.scan(string)
+        let lexer = Self.makeLexer()
+        tokens = try lexer.scan(string)
     }
 
     func resolveArguments(
