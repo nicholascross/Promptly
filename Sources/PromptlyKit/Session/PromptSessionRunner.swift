@@ -25,15 +25,15 @@ public struct PromptSessionRunner {
 
     public func run(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
         let transcriptRecorder = TranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
 
-        let eventHandler: @Sendable (PromptStreamEvent) -> Void = { event in
-            transcriptRecorder.handle(event)
-            onEvent(event)
+        let eventHandler: @Sendable (PromptStreamEvent) async -> Void = { event in
+            await transcriptRecorder.handle(event)
+            await onEvent(event)
         }
 
         var turn = try await endpoint.start(messages: messages, onEvent: eventHandler)
@@ -61,7 +61,7 @@ public struct PromptSessionRunner {
             )
         }
 
-        let promptTranscript = transcriptRecorder.finishTranscript(finalAssistantText: turn.finalAssistantText)
+        let promptTranscript = await transcriptRecorder.finishTranscript(finalAssistantText: turn.finalAssistantText)
         return PromptSessionResult(
             finalAssistantText: turn.finalAssistantText,
             finalTurn: turn,
@@ -71,15 +71,15 @@ public struct PromptSessionRunner {
 
     private func executeTools(
         toolCalls: [ToolCallRequest],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> [ToolCallOutput] {
         var outputs: [ToolCallOutput] = []
         outputs.reserveCapacity(toolCalls.count)
 
         for call in toolCalls {
-            onEvent(.toolCallRequested(id: call.id, name: call.name, arguments: call.arguments))
+            await onEvent(.toolCallRequested(id: call.id, name: call.name, arguments: call.arguments))
             let output = try await toolGateway.executeToolCall(name: call.name, arguments: call.arguments)
-            onEvent(.toolCallCompleted(id: call.id, name: call.name, output: output))
+            await onEvent(.toolCallCompleted(id: call.id, name: call.name, output: output))
             outputs.append(ToolCallOutput(id: call.id, output: output))
         }
 

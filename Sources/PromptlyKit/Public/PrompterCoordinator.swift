@@ -56,7 +56,7 @@ public struct PrompterCoordinator {
 
     public func run(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
         try await runner.run(messages: messages, onEvent: onEvent)
     }

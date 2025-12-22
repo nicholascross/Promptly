@@ -15,14 +15,14 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
         let result = try await runner.run(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
             onEvent: { event in
-                events.append(event)
+                await events.append(event)
             }
         )
 
         var transcriptAccumulator = PromptTranscriptAccumulator(
             configuration: .init(toolOutputPolicy: .include)
         )
-        for event in events.snapshot() {
+        for event in await events.snapshot() {
             transcriptAccumulator.handle(event)
         }
 
@@ -67,14 +67,14 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
         let result = try await runner.run(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
             onEvent: { event in
-                events.append(event)
+                await events.append(event)
             }
         )
 
         var transcriptAccumulator = PromptTranscriptAccumulator(
             configuration: .init(toolOutputPolicy: .include)
         )
-        for event in events.snapshot() {
+        for event in await events.snapshot() {
             transcriptAccumulator.handle(event)
         }
 
@@ -89,21 +89,15 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
     }
 }
 
-private final class EventCollector: @unchecked Sendable {
-    private let lock = NSLock()
+private actor EventCollector {
     private var storage: [PromptStreamEvent] = []
 
     func append(_ event: PromptStreamEvent) {
-        lock.lock()
         storage.append(event)
-        lock.unlock()
     }
 
     func snapshot() -> [PromptStreamEvent] {
-        lock.lock()
-        let copy = storage
-        lock.unlock()
-        return copy
+        storage
     }
 }
 
@@ -118,9 +112,9 @@ private struct StaticToolGateway: ToolExecutionGateway {
 private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
     func start(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        onEvent(.assistantTextDelta("Preparing..."))
+        await onEvent(.assistantTextDelta("Preparing..."))
         return PromptTurn(
             continuation: .responses(previousResponseId: "r1"),
             toolCalls: [
@@ -137,7 +131,7 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
     func continueSession(
         continuation: PromptContinuation,
         toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         PromptTurn(
             continuation: nil,
@@ -150,9 +144,9 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
 private final class StreamedFinalTextEndpoint: PromptEndpoint {
     func start(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        onEvent(.assistantTextDelta("Preparing..."))
+        await onEvent(.assistantTextDelta("Preparing..."))
         return PromptTurn(
             continuation: .responses(previousResponseId: "r1"),
             toolCalls: [
@@ -169,9 +163,9 @@ private final class StreamedFinalTextEndpoint: PromptEndpoint {
     func continueSession(
         continuation: PromptContinuation,
         toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        onEvent(.assistantTextDelta("All done."))
+        await onEvent(.assistantTextDelta("All done."))
         return PromptTurn(
             continuation: nil,
             toolCalls: [],

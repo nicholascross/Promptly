@@ -29,7 +29,7 @@ struct ResponsesClientStreamRetrievalTests {
     }
 }
 
-private final class TestResponsesClientTransport: NetworkTransport, @unchecked Sendable {
+private final class TestResponsesClientTransport: NetworkTransport, Sendable {
     private let streamLines: [String]
     private let retrievedResponseBody: String
 
@@ -67,4 +67,3 @@ private final class TestResponsesClientTransport: NetworkTransport, @unchecked S
         return (stream, response)
     }
 }
-

@@ -18,7 +18,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
 
     func start(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         try await runOnce(messages: messages, onEvent: onEvent)
     }
@@ -26,7 +26,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
     func continueSession(
         continuation: PromptContinuation,
         toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         guard case let .chatCompletions(messages) = continuation else {
             throw PrompterError.invalidConfiguration
@@ -49,7 +49,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
 
     private func runOnce(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         let request = try factory.makeRequest(messages: messages)
         let (lines, response) = try await transport.lineStream(for: request)
@@ -73,7 +73,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
                 switch event {
                 case let .content(text):
                     assistantContent += text
-                    onEvent(.assistantTextDelta(text))
+                    await onEvent(.assistantTextDelta(text))
 
                 case let .toolCall(id, name, args):
                     toolCallRequest = ToolCallRequest(id: id, name: name, arguments: args)

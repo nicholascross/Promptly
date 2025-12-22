@@ -33,13 +33,15 @@ struct ResponsesPromptEndpointTests {
         let events = EventCollector()
         let turn = try await endpoint.start(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
-            onEvent: { events.append($0) }
+            onEvent: { event in
+                await events.append(event)
+            }
         )
 
         #expect(turn.toolCalls.isEmpty)
         #expect(turn.finalAssistantText == "Hello")
 
-        let snapshot = events.snapshot()
+        let snapshot = await events.snapshot()
         #expect(snapshot.contains { event in
             if case let .assistantTextDelta(text) = event { return text == "Hel" || text == "lo" }
             return false
@@ -89,7 +91,7 @@ struct ResponsesPromptEndpointTests {
     }
 }
 
-private final class TestResponsesTransport: NetworkTransport, @unchecked Sendable {
+private final class TestResponsesTransport: NetworkTransport, Sendable {
     private let lineStreamLines: [String]
     private let dataResponseBody: String
 
@@ -127,20 +129,14 @@ private final class TestResponsesTransport: NetworkTransport, @unchecked Sendabl
     }
 }
 
-private final class EventCollector: @unchecked Sendable {
-    private let lock = NSLock()
+private actor EventCollector {
     private var storage: [PromptStreamEvent] = []
 
     func append(_ event: PromptStreamEvent) {
-        lock.lock()
         storage.append(event)
-        lock.unlock()
     }
 
     func snapshot() -> [PromptStreamEvent] {
-        lock.lock()
-        let copy = storage
-        lock.unlock()
-        return copy
+        storage
     }
 }

@@ -13,12 +13,14 @@ struct PromptSessionRunnerTests {
         let events = EventCollector()
         let result = try await runner.run(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
-            onEvent: { events.append($0) }
+            onEvent: { event in
+                await events.append(event)
+            }
         )
 
         #expect(result.finalAssistantText == "Done.")
 
-        let snapshot = events.snapshot()
+        let snapshot = await events.snapshot()
 
         #expect(snapshot.contains { event in
             if case .assistantTextDelta = event { return true }
@@ -50,21 +52,15 @@ private struct FakeToolGateway: ToolExecutionGateway {
     }
 }
 
-private final class EventCollector: @unchecked Sendable {
-    private let lock = NSLock()
+private actor EventCollector {
     private var storage: [PromptStreamEvent] = []
 
     func append(_ event: PromptStreamEvent) {
-        lock.lock()
         storage.append(event)
-        lock.unlock()
     }
 
     func snapshot() -> [PromptStreamEvent] {
-        lock.lock()
-        let copy = storage
-        lock.unlock()
-        return copy
+        storage
     }
 }
 
@@ -73,10 +69,10 @@ private final class FakePromptEndpoint: PromptEndpoint {
 
     func start(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         didStart = true
-        onEvent(.assistantTextDelta("Running..."))
+        await onEvent(.assistantTextDelta("Running..."))
         return PromptTurn(
             continuation: .responses(previousResponseId: "r1"),
             toolCalls: [
@@ -93,11 +89,11 @@ private final class FakePromptEndpoint: PromptEndpoint {
     func continueSession(
         continuation: PromptContinuation,
         toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         #expect(didStart == true)
         #expect(toolOutputs.count == 1)
-        onEvent(.assistantTextDelta("Done."))
+        await onEvent(.assistantTextDelta("Done."))
         return PromptTurn(
             continuation: nil,
             toolCalls: [],

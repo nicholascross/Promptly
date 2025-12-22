@@ -50,7 +50,7 @@ struct ChatCompletionsPromptEndpointTests {
     }
 }
 
-private final class TestNetworkTransport: NetworkTransport, @unchecked Sendable {
+private final class TestNetworkTransport: NetworkTransport, Sendable {
     private let nextLineStream: [String]
 
     init(nextLineStream: [String]) {
@@ -85,4 +85,3 @@ private final class TestNetworkTransport: NetworkTransport, @unchecked Sendable 
         return (stream, response)
     }
 }
-

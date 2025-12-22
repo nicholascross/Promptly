@@ -2,26 +2,26 @@ import Foundation
 
 struct ResponseStreamCollector {
     let decoder: JSONDecoder
-    let onTextStream: (String) -> Void
+    let onTextStream: @Sendable (String) async -> Void
 
     private(set) var streamedOutputs: [Int: String] = [:]
     private var finalResponse: APIResponse?
     private var failure: PrompterError?
     private var responseId: String?
 
-    init(decoder: JSONDecoder, onTextStream: @escaping (String) -> Void) {
+    init(decoder: JSONDecoder, onTextStream: @escaping @Sendable (String) async -> Void) {
         self.decoder = decoder
         self.onTextStream = onTextStream
     }
 
-    mutating func handle(event: String?, data: String) throws {
+    mutating func handle(event: String?, data: String) async throws {
         guard data != "[DONE]" else { return }
 
         guard let payloadData = data.data(using: .utf8) else { return }
 
         do {
             let payload = try decoder.decode(ResponseStreamPayload.self, from: payloadData)
-            try process(payload: payload)
+            try await process(payload: payload)
         } catch {
             let segments = data
                 .split(whereSeparator: { $0 == "\n" })
@@ -36,7 +36,7 @@ struct ResponseStreamCollector {
                 guard let segmentData = segment.data(using: .utf8) else { continue }
                 do {
                     let payload = try decoder.decode(ResponseStreamPayload.self, from: segmentData)
-                    try process(payload: payload)
+                    try await process(payload: payload)
                 } catch {
                     // TODO: swallowed error, consider logging
                 }
@@ -65,7 +65,7 @@ struct ResponseStreamCollector {
     }
 
     // swiftlint:disable:next cyclomatic_complexity
-    private mutating func process(payload: ResponseStreamPayload) throws {
+    private mutating func process(payload: ResponseStreamPayload) async throws {
         if let id = payload.response?.id ?? payload.responseId {
             responseId = id
         }
@@ -73,7 +73,7 @@ struct ResponseStreamCollector {
         switch payload.type {
         case "response.output_text.delta", "response.message.delta":
             if let text = payload.delta?.textFragment, !text.isEmpty {
-                onTextStream(text)
+                await onTextStream(text)
                 let index = payload.outputIndex ?? 0
                 streamedOutputs[index, default: ""] += text
             }

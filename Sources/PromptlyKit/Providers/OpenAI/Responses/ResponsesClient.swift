@@ -19,7 +19,7 @@ struct ResponsesClient {
     func createResponse(
         items: [RequestItem],
         previousResponseId: String? = nil,
-        onTextStream: ((String) -> Void)? = nil
+        onTextStream: (@Sendable (String) async -> Void)? = nil
     ) async throws -> ResponseResult {
         let request = try factory.makeCreateRequest(
             items: items,
@@ -59,7 +59,7 @@ struct ResponsesClient {
 
     private func sendStream(
         _ request: URLRequest,
-        onTextStream: @escaping (String) -> Void
+        onTextStream: @escaping @Sendable (String) async -> Void
     ) async throws -> ResponseResult {
         let (lines, response) = try await transport.lineStream(for: request)
         guard let http = response as? HTTPURLResponse else {
@@ -84,11 +84,11 @@ struct ResponsesClient {
 
         for try await line in lines {
             if let parsed = parser.feed(line) {
-                try collector.handle(event: parsed.event, data: parsed.data)
+                try await collector.handle(event: parsed.event, data: parsed.data)
             }
         }
         if let parsed = parser.finish() {
-            try collector.handle(event: parsed.event, data: parsed.data)
+            try await collector.handle(event: parsed.event, data: parsed.data)
         }
 
         let completion = try collector.finish()

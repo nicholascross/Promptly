@@ -84,23 +84,24 @@ public struct PromptCommandLineRunner {
         let result = try await coordinator.run(
             messages: conversation,
             onEvent: { event in
-                transcriptRecorder.handle(event)
-                outputSink.handle(event)
+                await transcriptRecorder.handle(event)
+                await outputSink.handle(event)
             }
         )
 
-        let transcript = transcriptRecorder.finishTranscript(finalAssistantText: result.finalAssistantText)
+        let transcript = await transcriptRecorder.finishTranscript(finalAssistantText: result.finalAssistantText)
 
         var updatedConversation = conversation
         if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
             updatedConversation.append(ChatMessage(role: .assistant, content: .text(assistantText)))
         }
 
-        if let assistantText = result.finalAssistantText, !assistantText.isEmpty, !outputSink.didStreamAssistantText {
+        let didStreamAssistantText = await outputSink.didStreamAssistantText
+        if let assistantText = result.finalAssistantText, !assistantText.isEmpty, !didStreamAssistantText {
             fputs(assistantText, stdout)
             fputs("\n", stdout)
             fflush(stdout)
-        } else if outputSink.didStreamAssistantText {
+        } else if didStreamAssistantText {
             fputs("\n", stdout)
             fflush(stdout)
         }

@@ -18,7 +18,7 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
 
     func start(
         messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         try await runOnce(
             items: messages.map(RequestItem.message),
@@ -30,7 +30,7 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
     func continueSession(
         continuation: PromptContinuation,
         toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         guard case let .responses(previousResponseId) = continuation else {
             throw PrompterError.invalidConfiguration
@@ -53,15 +53,13 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
     private func runOnce(
         items: [RequestItem],
         previousResponseId: String?,
-        onEvent: @escaping @Sendable (PromptStreamEvent) -> Void
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        var streamedText = ""
         var result = try await client.createResponse(
             items: items,
             previousResponseId: previousResponseId,
             onTextStream: { fragment in
-                streamedText += fragment
-                onEvent(.assistantTextDelta(fragment))
+                await onEvent(.assistantTextDelta(fragment))
             }
         )
 
@@ -92,6 +90,11 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
         switch response.status {
         case .completed:
             let combined = response.combinedOutputText()
+            let streamedText = result.streamedOutputs
+                .keys
+                .sorted()
+                .map { result.streamedOutputs[$0] ?? "" }
+                .joined()
             let finalText: String?
             if let combined, !combined.isEmpty {
                 finalText = combined

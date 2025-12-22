@@ -1,25 +1,19 @@
 import Darwin
 import Foundation
 
-public final class StreamingOutputSink: @unchecked Sendable {
-    private let lock = NSLock()
+public actor StreamingOutputSink {
     private var streamedAssistantText = false
 
     public init() {}
 
     public var didStreamAssistantText: Bool {
-        lock.lock()
-        let value = streamedAssistantText
-        lock.unlock()
-        return value
+        streamedAssistantText
     }
 
     public func handle(_ event: PromptStreamEvent) {
         switch event {
         case let .assistantTextDelta(text):
-            lock.lock()
             streamedAssistantText = true
-            lock.unlock()
             fputs(text, stdout)
             fflush(stdout)
         case let .toolCallRequested(_, name, _):

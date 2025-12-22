@@ -1,7 +1,6 @@
 import Foundation
 
-public final class TranscriptRecorder: @unchecked Sendable {
-    private let lock = NSLock()
+public actor TranscriptRecorder {
     private var transcriptAccumulator: PromptTranscriptAccumulator
 
     public init(
@@ -11,15 +10,11 @@ public final class TranscriptRecorder: @unchecked Sendable {
     }
 
     public func handle(_ event: PromptStreamEvent) {
-        lock.lock()
         transcriptAccumulator.handle(event)
-        lock.unlock()
     }
 
     public func finishTranscript(finalAssistantText: String?) -> PromptTranscript {
-        lock.lock()
         let transcript = transcriptAccumulator.finish(finalAssistantText: finalAssistantText)
-        lock.unlock()
         return transcript
     }
 }
