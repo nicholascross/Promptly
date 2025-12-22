@@ -1,7 +1,8 @@
 import Foundation
+import PromptlyKit
 import PromptlyKitUtils
 
-public extension Config {
+extension Config {
     static func setupToken(configURL: URL) async throws {
         Logger.prompt("Enter a name for your token: ")
         guard let tokenName = readLine(strippingNewline: true), !tokenName.isEmpty else {

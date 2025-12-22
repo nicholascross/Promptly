@@ -1,10 +1,10 @@
 import Foundation
 
-public struct PromptSessionRunner {
-    public struct Configuration: Sendable {
-        public let maximumToolIterations: Int
+struct PromptSessionRunner {
+    struct Configuration: Sendable {
+        let maximumToolIterations: Int
 
-        public init(maximumToolIterations: Int = 8) {
+        init(maximumToolIterations: Int = 8) {
             self.maximumToolIterations = max(0, maximumToolIterations)
         }
     }
@@ -13,7 +13,7 @@ public struct PromptSessionRunner {
     private let tools: [any ExecutableTool]
     private let configuration: Configuration
 
-    public init(
+    init(
         endpoint: any PromptEndpoint,
         tools: [any ExecutableTool],
         configuration: Configuration = Configuration()
@@ -23,7 +23,7 @@ public struct PromptSessionRunner {
         self.configuration = configuration
     }
 
-    public func run(
+    func run(
         messages: [ChatMessage],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
@@ -64,7 +64,6 @@ public struct PromptSessionRunner {
         let promptTranscript = await transcriptRecorder.finishTranscript(finalAssistantText: turn.finalAssistantText)
         return PromptSessionResult(
             finalAssistantText: turn.finalAssistantText,
-            finalTurn: turn,
             promptTranscript: promptTranscript
         )
     }
@@ -84,25 +83,5 @@ public struct PromptSessionRunner {
         }
 
         return outputs
-    }
-}
-
-public struct PromptSessionResult: Sendable {
-    public let finalAssistantText: String?
-    public let finalTurn: PromptTurn
-    public let promptTranscript: PromptTranscript
-}
-
-public enum PromptSessionRunnerError: Error, LocalizedError, Sendable {
-    case toolIterationLimitExceeded(limit: Int)
-    case missingContinuationToken
-
-    public var errorDescription: String? {
-        switch self {
-        case let .toolIterationLimitExceeded(limit):
-            return "Tool iteration limit exceeded (\(limit))."
-        case .missingContinuationToken:
-            return "Missing continuation token for tool call continuation."
-        }
     }
 }

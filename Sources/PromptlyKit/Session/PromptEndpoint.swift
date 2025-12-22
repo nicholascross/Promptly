@@ -1,7 +1,7 @@
 import Foundation
 import PromptlyKitUtils
 
-public struct ToolCallRequest: Sendable {
+struct ToolCallRequest: Sendable {
     public let id: String
     public let name: String
     public let arguments: JSONValue
@@ -13,7 +13,7 @@ public struct ToolCallRequest: Sendable {
     }
 }
 
-public struct ToolCallOutput: Sendable {
+struct ToolCallOutput: Sendable {
     public let id: String
     public let output: JSONValue
 
@@ -23,12 +23,12 @@ public struct ToolCallOutput: Sendable {
     }
 }
 
-public enum PromptContinuation: Sendable {
+enum PromptContinuation: Sendable {
     case responses(previousResponseId: String)
     case chatCompletions(messages: [ChatMessage])
 }
 
-public struct PromptTurn: Sendable {
+struct PromptTurn: Sendable {
     public let continuation: PromptContinuation?
     public let toolCalls: [ToolCallRequest]
     public let finalAssistantText: String?
@@ -48,7 +48,7 @@ public struct PromptTurn: Sendable {
     }
 }
 
-public protocol PromptEndpoint {
+protocol PromptEndpoint {
     func start(
         messages: [ChatMessage],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
