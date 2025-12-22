@@ -13,7 +13,7 @@ struct PromptTerminalUIRunner {
     let apiOverride: Config.API?
     let standardInputHandler: StandardInputHandler
 
-    func run(initialMessages: [ChatMessage]) async throws {
+    func run(initialMessages: [PromptMessage]) async throws {
         standardInputHandler.reopenIfNeeded()
         let controller = PromptlyTerminalUIController(
             config: config,

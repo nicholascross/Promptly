@@ -22,7 +22,7 @@ struct PromptCommand: AsyncParsableCommand {
             excludeTools: promptOptions.excludeTools,
             contextArgument: promptOptions.contextArgument,
             cannedContexts: promptOptions.cannedContexts,
-            explicitMessages: promptOptions.messages.chatMessages,
+            explicitMessages: promptOptions.messages.promptMessages,
             modelOverride: promptOptions.model,
             apiOverride: promptOptions.apiSelection?.configValue
         )

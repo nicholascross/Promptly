@@ -1,11 +1,11 @@
 import Foundation
 import PromptlyKitUtils
 
-public struct InitialMessageComposer {
+struct InitialMessageComposer {
     let cannedPromptLoader: CannedPromptLoader
     let standardInputHandler: StandardInputHandler
 
-    public init(
+    init(
         cannedPromptLoader: CannedPromptLoader,
         standardInputHandler: StandardInputHandler
     ) {
@@ -13,12 +13,12 @@ public struct InitialMessageComposer {
         self.standardInputHandler = standardInputHandler
     }
 
-    public func compose(
+    func compose(
         cannedContexts: [String],
         contextArgument: String?,
-        explicitMessages: [ChatMessage]
-    ) throws -> [ChatMessage] {
-        var initialMessages: [ChatMessage] = []
+        explicitMessages: [PromptMessage]
+    ) throws -> [PromptMessage] {
+        var initialMessages: [PromptMessage] = []
         for name in cannedContexts {
             let canned = try cannedPromptLoader.load(name: name)
             initialMessages.append(.init(role: .system, content: .text(canned)))

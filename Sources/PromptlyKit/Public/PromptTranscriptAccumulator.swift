@@ -15,9 +15,6 @@ public enum PromptTranscriptEntry: Sendable {
 }
 
 /// Accumulates a deterministic transcript from a stream of provider-neutral events.
-///
-/// The accumulator is UI/transport agnostic and can be used in unit tests to validate
-/// multi-turn sessions without relying on stdout streaming.
 public struct PromptTranscriptAccumulator {
     public struct Configuration: Sendable {
         public enum ToolOutputPolicy: Sendable {

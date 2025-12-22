@@ -5,7 +5,7 @@ public struct PromptSessionInput {
     public let excludeTools: [String]
     public let contextArgument: String?
     public let cannedContexts: [String]
-    public let explicitMessages: [ChatMessage]
+    public let explicitMessages: [PromptMessage]
     public let modelOverride: String?
     public let apiOverride: Config.API?
 
@@ -16,7 +16,7 @@ public struct PromptSessionInput {
         excludeTools: [String],
         contextArgument: String?,
         cannedContexts: [String],
-        explicitMessages: [ChatMessage],
+        explicitMessages: [PromptMessage],
         modelOverride: String?,
         apiOverride: Config.API?
     ) {

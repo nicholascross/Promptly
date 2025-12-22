@@ -31,8 +31,8 @@ public struct SuggestionService {
         )
 
         let messages = [
-            ChatMessage(role: .system, content: .text(systemPrompt)),
-            ChatMessage(role: .user, content: .text(userPrompt))
+            PromptMessage(role: .system, content: .text(systemPrompt)),
+            PromptMessage(role: .user, content: .text(userPrompt))
         ]
 
         let result = try await coordinator.run(

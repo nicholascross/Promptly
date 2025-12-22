@@ -20,15 +20,15 @@ enum Message: ExpressibleByArgument {
 }
 
 extension [Message] {
-    var chatMessages: [ChatMessage] {
+    var promptMessages: [PromptMessage] {
         map { message in
             switch message {
             case let .user(content):
-                return ChatMessage(role: .user, content: .text(content))
+                return PromptMessage(role: .user, content: .text(content))
             case let .system(content):
-                return ChatMessage(role: .system, content: .text(content))
+                return PromptMessage(role: .system, content: .text(content))
             case let .assistant(content):
-                return ChatMessage(role: .assistant, content: .text(content))
+                return PromptMessage(role: .assistant, content: .text(content))
             }
         }
     }

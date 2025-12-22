@@ -10,9 +10,9 @@ final class PromptlyTerminalUIController {
     private let includeTools: [String]
     private let excludeTools: [String]
     private let modelOverride: String?
-    private let initialMessages: [ChatMessage]
+    private let initialMessages: [PromptMessage]
     private let apiOverride: Config.API?
-    private var conversation: [ChatMessage]
+    private var conversation: [PromptMessage]
     private var transcriptAccumulator = PromptTranscriptAccumulator(
         configuration: .init(toolOutputPolicy: .tombstone)
     )
@@ -29,7 +29,7 @@ final class PromptlyTerminalUIController {
         includeTools: [String] = [],
         excludeTools: [String] = [],
         modelOverride: String?,
-        initialMessages: [ChatMessage],
+        initialMessages: [PromptMessage],
         apiOverride: Config.API?
     ) {
         self.config = config
@@ -81,7 +81,7 @@ final class PromptlyTerminalUIController {
             guard let self else { return }
             Task { @MainActor in
                 toolOutputArea.text = ""
-                conversation.append(ChatMessage(role: .user, content: .text(text)))
+                conversation.append(PromptMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
                 self.transcriptAccumulator = PromptTranscriptAccumulator(
                     configuration: .init(toolOutputPolicy: .tombstone)
@@ -99,9 +99,9 @@ final class PromptlyTerminalUIController {
                 _ = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
                 if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
                     if conversation.last?.role == .assistant {
-                        conversation[conversation.count - 1] = ChatMessage(role: .assistant, content: .text(assistantText))
+                        conversation[conversation.count - 1] = PromptMessage(role: .assistant, content: .text(assistantText))
                     } else {
-                        conversation.append(ChatMessage(role: .assistant, content: .text(assistantText)))
+                        conversation.append(PromptMessage(role: .assistant, content: .text(assistantText)))
                     }
                 }
 
@@ -125,15 +125,13 @@ final class PromptlyTerminalUIController {
     }
 
     /// Updates the conversation display with the latest messages.
-    private func updateConversation(_ conversation: [ChatMessage]) {
+    private func updateConversation(_ conversation: [PromptMessage]) {
         let text = conversation.map { message -> String in
             let role = message.role.rawValue.capitalized
             let content: String
             switch message.content {
             case let .text(str):
                 content = str
-            case let .blocks(blocks):
-                content = blocks.compactMap { $0.text ?? $0.output }.joined()
             case .empty:
                 content = ""
             }
@@ -149,9 +147,9 @@ final class PromptlyTerminalUIController {
         switch event {
         case let .assistantTextDelta(delta):
             if conversation.last?.role != .assistant {
-                conversation.append(ChatMessage(role: .assistant, content: .text(delta)))
+                conversation.append(PromptMessage(role: .assistant, content: .text(delta)))
             } else if case let .text(prev) = conversation[conversation.count - 1].content {
-                conversation[conversation.count - 1] = ChatMessage(
+                conversation[conversation.count - 1] = PromptMessage(
                     role: .assistant,
                     content: .text(prev + delta)
                 )

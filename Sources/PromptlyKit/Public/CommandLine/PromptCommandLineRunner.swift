@@ -25,7 +25,7 @@ public struct PromptCommandLineRunner {
         self.standardInputHandler = standardInputHandler
     }
 
-    public func run(initialMessages: [ChatMessage]) async throws {
+    public func run(initialMessages: [PromptMessage]) async throws {
         let availableTools = try toolProvider()
         let coordinator = try PrompterCoordinator(
             config: config,
@@ -55,7 +55,7 @@ public struct PromptCommandLineRunner {
 
     private func continueInteractivelyIfNeeded(
         coordinator: PrompterCoordinator,
-        initialMessages: [ChatMessage]
+        initialMessages: [PromptMessage]
     ) async throws {
         guard interactive else { return }
         standardInputHandler.reopenIfNeeded()
@@ -64,7 +64,7 @@ public struct PromptCommandLineRunner {
             print("\n> ", terminator: "")
             fflush(stdout)
             guard let line = readLine() else { break }
-            conversation.append(ChatMessage(role: .user, content: .text(line)))
+            conversation.append(PromptMessage(role: .user, content: .text(line)))
 
             let (updatedConversation, _) = try await runOnce(
                 coordinator: coordinator,
@@ -76,8 +76,8 @@ public struct PromptCommandLineRunner {
 
     private func runOnce(
         coordinator: PrompterCoordinator,
-        conversation: [ChatMessage]
-    ) async throws -> (conversation: [ChatMessage], transcript: PromptTranscript) {
+        conversation: [PromptMessage]
+    ) async throws -> (conversation: [PromptMessage], transcript: PromptTranscript) {
         let outputSink = StreamingOutputSink()
         let transcriptRecorder = TranscriptRecorder()
 
@@ -93,7 +93,7 @@ public struct PromptCommandLineRunner {
 
         var updatedConversation = conversation
         if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
-            updatedConversation.append(ChatMessage(role: .assistant, content: .text(assistantText)))
+            updatedConversation.append(PromptMessage(role: .assistant, content: .text(assistantText)))
         }
 
         let didStreamAssistantText = await outputSink.didStreamAssistantText

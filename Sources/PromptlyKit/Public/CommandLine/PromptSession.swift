@@ -8,7 +8,7 @@ public struct PromptSession {
     public let modelOverride: String?
     public let apiOverride: Config.API?
     public let standardInputHandler: StandardInputHandler
-    public let initialMessages: [ChatMessage]
+    public let initialMessages: [PromptMessage]
 
     public init(
         config: Config,
@@ -18,7 +18,7 @@ public struct PromptSession {
         modelOverride: String?,
         apiOverride: Config.API?,
         standardInputHandler: StandardInputHandler,
-        initialMessages: [ChatMessage]
+        initialMessages: [PromptMessage]
     ) {
         self.config = config
         self.toolsFileName = toolsFileName

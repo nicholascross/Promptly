@@ -4,28 +4,37 @@ import PromptlyKitUtils
 public struct PromptSessionBuilder {
     public let input: PromptSessionInput
     private let fileManager: FileManager
-    private let cannedPromptLoader: CannedPromptLoader
+    private let initialMessageComposer: InitialMessageComposer
     private let standardInputHandler: StandardInputHandler
 
-    public init(
+    public init(input: PromptSessionInput) {
+        let standardInputHandler = StandardInputHandler()
+        let initialMessageComposer = InitialMessageComposer(
+            cannedPromptLoader: CannedPromptLoader(),
+            standardInputHandler: standardInputHandler
+        )
+        self.init(
+            input: input,
+            fileManager: .default,
+            initialMessageComposer: initialMessageComposer
+        )
+    }
+
+    init(
         input: PromptSessionInput,
-        fileManager: FileManager = .default,
-        cannedPromptLoader: CannedPromptLoader = CannedPromptLoader(),
-        standardInputHandler: StandardInputHandler = StandardInputHandler()
+        fileManager: FileManager,
+        initialMessageComposer: InitialMessageComposer
     ) {
         self.input = input
         self.fileManager = fileManager
-        self.cannedPromptLoader = cannedPromptLoader
-        self.standardInputHandler = standardInputHandler
+        self.initialMessageComposer = initialMessageComposer
+        self.standardInputHandler = initialMessageComposer.standardInputHandler
     }
 
     public func build() throws -> PromptSession {
         let configURL = try resolveConfigURL()
         let config = try Config.loadConfig(url: configURL)
-        let initialMessages = try InitialMessageComposer(
-            cannedPromptLoader: cannedPromptLoader,
-            standardInputHandler: standardInputHandler
-        ).compose(
+        let initialMessages = try initialMessageComposer.compose(
             cannedContexts: input.cannedContexts,
             contextArgument: input.contextArgument,
             explicitMessages: input.explicitMessages

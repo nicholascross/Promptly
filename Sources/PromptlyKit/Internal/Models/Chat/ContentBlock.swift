@@ -1,19 +1,19 @@
 import Foundation
 
-public struct ContentBlock: Codable, Sendable {
-    public let type: String
-    public let text: String?
-    public let id: String?
-    public let output: String?
-    public let isError: Bool?
-    public let name: String?
-    public let arguments: String?
+struct ContentBlock: Codable, Sendable {
+    let type: String
+    let text: String?
+    let id: String?
+    let output: String?
+    let isError: Bool?
+    let name: String?
+    let arguments: String?
     enum CodingKeys: String, CodingKey {
         case type, text, id, output, name, arguments
         case isError = "is_error"
     }
 
-    public init(
+    init(
         type: String,
         text: String? = nil,
         id: String? = nil,

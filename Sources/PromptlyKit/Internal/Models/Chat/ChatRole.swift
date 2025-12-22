@@ -1,5 +1,5 @@
 import Foundation
 
-public enum ChatRole: String, Codable, Sendable {
+enum ChatRole: String, Codable, Sendable {
     case system, user, assistant, tool
 }

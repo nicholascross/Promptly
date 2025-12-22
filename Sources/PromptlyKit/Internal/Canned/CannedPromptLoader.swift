@@ -1,11 +1,11 @@
 import Foundation
 import PromptlyKitUtils
 
-public struct CannedPromptLoader {
+struct CannedPromptLoader {
     private let fileManager: FileManager
     private let baseDirectory: String
 
-    public init(
+    init(
         fileManager: FileManager = .default,
         baseDirectory: String = "~/.config/promptly/canned"
     ) {
@@ -13,7 +13,7 @@ public struct CannedPromptLoader {
         self.baseDirectory = baseDirectory
     }
 
-    public func load(name: String) throws -> String {
+    func load(name: String) throws -> String {
         let cannedURL = URL(fileURLWithPath: "\(baseDirectory)/\(name).txt".expandingTilde)
             .standardizedFileURL
         guard fileManager.fileExists(atPath: cannedURL.path) else {

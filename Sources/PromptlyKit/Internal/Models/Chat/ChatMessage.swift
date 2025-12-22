@@ -1,13 +1,13 @@
 import Foundation
 
-public struct ChatMessage: Codable, Sendable {
-    public let role: ChatRole
-    public let id: String?
-    public let content: Content
-    public let toolCalls: [ChatFunctionCall]?
-    public let toolCallId: String?
+struct ChatMessage: Codable, Sendable {
+    let role: ChatRole
+    let id: String?
+    let content: Content
+    let toolCalls: [ChatFunctionCall]?
+    let toolCallId: String?
 
-    public init(
+    init(
         role: ChatRole,
         id: String? = nil,
         content: Content,
@@ -27,7 +27,7 @@ public struct ChatMessage: Codable, Sendable {
         case toolCallId = "tool_call_id"
     }
 
-    public func encode(to encoder: Encoder) throws {
+    func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         let encodedRole: String
@@ -44,7 +44,7 @@ public struct ChatMessage: Codable, Sendable {
         try container.encode(content.blocks(for: role), forKey: .content)
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         role = try container.decode(ChatRole.self, forKey: .role)
         id = try container.decodeIfPresent(String.self, forKey: .id)
