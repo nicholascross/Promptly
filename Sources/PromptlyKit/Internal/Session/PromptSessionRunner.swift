@@ -61,9 +61,8 @@ struct PromptSessionRunner {
             )
         }
 
-        let promptTranscript = await transcriptRecorder.finish(finalAssistantText: turn.finalAssistantText)
+        let promptTranscript = await transcriptRecorder.finish()
         return PromptSessionResult(
-            finalAssistantText: turn.finalAssistantText,
             promptTranscript: promptTranscript
         )
     }

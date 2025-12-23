@@ -39,7 +39,7 @@ struct ResponsesPromptEndpointTests {
         )
 
         #expect(turn.toolCalls.isEmpty)
-        #expect(turn.finalAssistantText == "Hello")
+        #expect(turn.continuation == nil)
 
         let snapshot = await events.snapshot()
         #expect(snapshot.contains { event in
@@ -78,7 +78,6 @@ struct ResponsesPromptEndpointTests {
             onEvent: { _ in }
         )
 
-        #expect(turn.finalAssistantText == nil)
         #expect(turn.toolCalls.count == 1)
         #expect(turn.toolCalls.first?.id == "call_1")
         #expect(turn.toolCalls.first?.name == "Echo")

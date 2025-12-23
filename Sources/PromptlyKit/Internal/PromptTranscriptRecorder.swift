@@ -69,18 +69,7 @@ actor PromptTranscriptRecorder {
     }
 
     func finish() -> [PromptTranscriptEntry] {
-        finish(finalAssistantText: nil)
-    }
-
-    func finish(finalAssistantText: String?) -> [PromptTranscriptEntry] {
         flushAssistantBufferIfNeeded()
-        if
-            let finalAssistantText,
-            !finalAssistantText.isEmpty,
-            !transcriptEndsWithAssistantMessage()
-        {
-            transcript.append(.assistant(message: finalAssistantText))
-        }
         return transcript
     }
 
@@ -90,13 +79,4 @@ actor PromptTranscriptRecorder {
         assistantBuffer = ""
     }
 
-    private func transcriptEndsWithAssistantMessage() -> Bool {
-        guard let lastEntry = transcript.last else { return false }
-        switch lastEntry {
-        case .assistant:
-            return true
-        case .toolCall:
-            return false
-        }
-    }
 }

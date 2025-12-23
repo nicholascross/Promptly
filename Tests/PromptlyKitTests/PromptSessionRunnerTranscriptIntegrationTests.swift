@@ -5,28 +5,28 @@ import PromptlyKitUtils
 
 struct PromptSessionRunnerTranscriptIntegrationTests {
     @Test
-    func includesFinalAssistantTextWhenNotStreamedAfterToolCalls() async throws {
+    func includesAssistantTextAfterToolCalls() async throws {
         let endpoint = FinalTextOnlyAfterToolCallEndpoint()
         let tool = StaticTool(output: .string("tool-output"))
         let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
 
-        let result = try await runner.run(
+        _ = try await runner.run(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
             onEvent: { event in
                 await events.append(event)
             }
         )
 
-        var transcriptAccumulator = PromptTranscriptAccumulator(
+        let transcriptRecorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
         for event in await events.snapshot() {
-            transcriptAccumulator.handle(event)
+            await transcriptRecorder.handle(event)
         }
 
-        let transcript = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
+        let transcript = await transcriptRecorder.finish()
 
         #expect(transcript.count == 3)
 
@@ -57,28 +57,28 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
     }
 
     @Test
-    func doesNotDuplicateFinalAssistantTextWhenAlreadyStreamed() async throws {
+    func doesNotDuplicateAssistantTextWhenStreamed() async throws {
         let endpoint = StreamedFinalTextEndpoint()
         let tool = StaticTool(output: .string("tool-output"))
         let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
 
-        let result = try await runner.run(
+        _ = try await runner.run(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
             onEvent: { event in
                 await events.append(event)
             }
         )
 
-        var transcriptAccumulator = PromptTranscriptAccumulator(
+        let transcriptRecorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
         for event in await events.snapshot() {
-            transcriptAccumulator.handle(event)
+            await transcriptRecorder.handle(event)
         }
 
-        let transcript = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
+        let transcript = await transcriptRecorder.finish()
 
         let assistantMessages = transcript.compactMap { entry -> String? in
             if case let .assistant(message) = entry { return message }
@@ -127,8 +127,7 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
                     name: "Echo",
                     arguments: .object(["text": .string("hello")])
                 )
-            ],
-            finalAssistantText: nil
+            ]
         )
     }
 
@@ -137,10 +136,10 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
         toolOutputs: [ToolCallOutput],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        PromptTurn(
+        await onEvent(.assistantTextDelta("All done."))
+        return PromptTurn(
             continuation: nil,
-            toolCalls: [],
-            finalAssistantText: "All done."
+            toolCalls: []
         )
     }
 }
@@ -159,8 +158,7 @@ private final class StreamedFinalTextEndpoint: PromptEndpoint {
                     name: "Echo",
                     arguments: .object(["text": .string("hello")])
                 )
-            ],
-            finalAssistantText: nil
+            ]
         )
     }
 
@@ -172,8 +170,7 @@ private final class StreamedFinalTextEndpoint: PromptEndpoint {
         await onEvent(.assistantTextDelta("All done."))
         return PromptTurn(
             continuation: nil,
-            toolCalls: [],
-            finalAssistantText: "All done."
+            toolCalls: []
         )
     }
 }

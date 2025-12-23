@@ -31,20 +31,17 @@ enum PromptContinuation: Sendable {
 struct PromptTurn: Sendable {
     public let continuation: PromptContinuation?
     public let toolCalls: [ToolCallRequest]
-    public let finalAssistantText: String?
 
     public var isComplete: Bool {
-        toolCalls.isEmpty && finalAssistantText != nil
+        toolCalls.isEmpty && continuation == nil
     }
 
     public init(
         continuation: PromptContinuation?,
-        toolCalls: [ToolCallRequest],
-        finalAssistantText: String?
+        toolCalls: [ToolCallRequest]
     ) {
         self.continuation = continuation
         self.toolCalls = toolCalls
-        self.finalAssistantText = finalAssistantText
     }
 }
 

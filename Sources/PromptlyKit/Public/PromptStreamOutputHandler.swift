@@ -18,20 +18,14 @@ public actor PromptStreamOutputHandler {
     }
 
     private let output: Output
-    private var streamedAssistantText = false
 
     public init(output: Output) {
         self.output = output
     }
 
-    public var didStreamAssistantText: Bool {
-        streamedAssistantText
-    }
-
     public func handle(_ event: PromptStreamEvent) async {
         switch event {
         case let .assistantTextDelta(text):
-            streamedAssistantText = true
             await output.onAssistantText(text)
         case let .toolCallRequested(_, name, _):
             await output.onToolCallRequested("Calling tool \(name)\n")

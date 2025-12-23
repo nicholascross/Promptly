@@ -40,7 +40,7 @@ public struct SuggestionService {
             onEvent: { _ in }
         )
 
-        guard let suggestion = result.finalAssistantText else {
+        guard let suggestion = latestAssistantMessage(from: result.promptTranscript) else {
             return []
         }
 
@@ -103,5 +103,14 @@ public struct SuggestionService {
         }
 
         return patterns
+    }
+
+    private func latestAssistantMessage(from transcript: [PromptTranscriptEntry]) -> String? {
+        for entry in transcript.reversed() {
+            if case let .assistant(message) = entry {
+                return message
+            }
+        }
+        return nil
     }
 }

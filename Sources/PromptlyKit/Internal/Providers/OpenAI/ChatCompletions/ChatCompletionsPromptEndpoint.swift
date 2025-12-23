@@ -63,7 +63,6 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
 
         let processor = ChatCompletionsResponseProcessor()
 
-        var assistantContent = ""
         var toolCallRequest: ToolCallRequest?
         var assistantToolCallMessage: ChatMessage?
 
@@ -72,7 +71,6 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
             for event in events {
                 switch event {
                 case let .content(text):
-                    assistantContent += text
                     await onEvent(.assistantTextDelta(text))
 
                 case let .toolCall(id, name, args):
@@ -94,8 +92,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
                 case .stop:
                     return PromptTurn(
                         continuation: nil,
-                        toolCalls: [],
-                        finalAssistantText: assistantContent
+                        toolCalls: []
                     )
                 }
             }
@@ -104,15 +101,13 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
         if let toolCallRequest, let assistantToolCallMessage {
             return PromptTurn(
                 continuation: .chatCompletions(messages: messages + [assistantToolCallMessage]),
-                toolCalls: [toolCallRequest],
-                finalAssistantText: nil
+                toolCalls: [toolCallRequest]
             )
         }
 
         return PromptTurn(
             continuation: nil,
-            toolCalls: [],
-            finalAssistantText: assistantContent.isEmpty ? nil : assistantContent
+            toolCalls: []
         )
     }
 

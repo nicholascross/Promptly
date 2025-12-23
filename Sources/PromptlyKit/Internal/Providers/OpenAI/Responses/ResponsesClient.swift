@@ -102,15 +102,24 @@ struct ResponsesClient {
 
             if !responseIsUseful, let responseId = completion.responseId {
                 let retrieved = try await retrieveResponse(id: responseId)
-                return ResponseResult(response: retrieved, streamedOutputs: completion.streamedOutputs)
+                return ResponseResult(
+                    response: retrieved,
+                    streamedOutputs: completion.streamedOutputs
+                )
             }
 
-            return ResponseResult(response: response, streamedOutputs: completion.streamedOutputs)
+            return ResponseResult(
+                response: response,
+                streamedOutputs: completion.streamedOutputs
+            )
         }
 
         if let responseId = completion.responseId {
             let response = try await retrieveResponse(id: responseId)
-            return ResponseResult(response: response, streamedOutputs: completion.streamedOutputs)
+            return ResponseResult(
+                response: response,
+                streamedOutputs: completion.streamedOutputs
+            )
         }
 
         throw PrompterError.apiError("Streaming response missing terminal event.")

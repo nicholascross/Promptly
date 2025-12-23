@@ -8,8 +8,4 @@ struct ResponseResult {
         self.response = response
         self.streamedOutputs = streamedOutputs
     }
-
-    var didStream: Bool {
-        streamedOutputs.values.contains { !$0.isEmpty }
-    }
 }

@@ -33,7 +33,6 @@ struct ChatCompletionsPromptEndpointTests {
             onEvent: { _ in }
         )
 
-        #expect(turn.finalAssistantText == nil)
         #expect(turn.toolCalls.count == 1)
         #expect(turn.toolCalls.first?.id == "call_1")
         #expect(turn.toolCalls.first?.name == "MyTool")

@@ -18,7 +18,11 @@ struct PromptSessionRunnerTests {
             }
         )
 
-        #expect(result.finalAssistantText == "Done.")
+        let assistantMessages = result.promptTranscript.compactMap { entry -> String? in
+            if case let .assistant(message) = entry { return message }
+            return nil
+        }
+        #expect(assistantMessages.last == "Done.")
 
         let snapshot = await events.snapshot()
 
@@ -87,8 +91,7 @@ private final class FakePromptEndpoint: PromptEndpoint {
                     name: "Echo",
                     arguments: .object(["text": .string("hello")])
                 )
-            ],
-            finalAssistantText: nil
+            ]
         )
     }
 
@@ -102,8 +105,7 @@ private final class FakePromptEndpoint: PromptEndpoint {
         await onEvent(.assistantTextDelta("Done."))
         return PromptTurn(
             continuation: nil,
-            toolCalls: [],
-            finalAssistantText: "Done."
+            toolCalls: []
         )
     }
 }

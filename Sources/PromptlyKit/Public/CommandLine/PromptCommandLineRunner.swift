@@ -97,16 +97,14 @@ public struct PromptCommandLineRunner {
         )
 
         var updatedConversation = conversation
-        if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
-            updatedConversation.append(PromptMessage(role: .assistant, content: .text(assistantText)))
+        let assistantMessages = result.promptTranscript.compactMap { entry -> String? in
+            guard case let .assistant(message) = entry else { return nil }
+            return message
         }
-
-        let didStreamAssistantText = await outputHandler.didStreamAssistantText
-        if let assistantText = result.finalAssistantText, !assistantText.isEmpty, !didStreamAssistantText {
-            fputs(assistantText, stdout)
-            fputs("\n", stdout)
-            fflush(stdout)
-        } else if didStreamAssistantText {
+        if !assistantMessages.isEmpty {
+            for message in assistantMessages {
+                updatedConversation.append(PromptMessage(role: .assistant, content: .text(message)))
+            }
             fputs("\n", stdout)
             fflush(stdout)
         }

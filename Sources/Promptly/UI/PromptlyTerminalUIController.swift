@@ -98,22 +98,12 @@ final class PromptlyTerminalUIController {
                 toolOutputArea.text = ""
                 conversation.append(PromptMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
-                let result = try await coordinator.run(
+                _ = try await coordinator.run(
                     messages: conversation,
                     onEvent: { [weak self] event in
                         await self?.handle(event: event)
                     }
                 )
-
-                if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
-                    if conversation.last?.role == .assistant {
-                        conversation[conversation.count - 1] = PromptMessage(role: .assistant, content: .text(assistantText))
-                    } else {
-                        conversation.append(PromptMessage(role: .assistant, content: .text(assistantText)))
-                    }
-                }
-
-                self.updateConversation(conversation)
             }
         }
 

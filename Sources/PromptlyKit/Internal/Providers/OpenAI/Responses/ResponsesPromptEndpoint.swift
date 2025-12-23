@@ -82,25 +82,26 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
 
             return PromptTurn(
                 continuation: .responses(previousResponseId: response.id),
-                toolCalls: requests,
-                finalAssistantText: nil
+                toolCalls: requests
             )
         }
 
         switch response.status {
         case .completed:
             let combined = response.combinedOutputText()
+            let didEmitTextDeltas = result.streamedOutputs.values.contains { !$0.isEmpty }
+            if !didEmitTextDeltas, let combined, !combined.isEmpty {
+                await onEvent(.assistantTextDelta(combined))
+            }
             return PromptTurn(
                 continuation: nil,
-                toolCalls: [],
-                finalAssistantText: (combined?.isEmpty == false) ? combined : nil
+                toolCalls: []
             )
 
         case .requiresAction:
             return PromptTurn(
                 continuation: .responses(previousResponseId: response.id),
-                toolCalls: [],
-                finalAssistantText: nil
+                toolCalls: []
             )
 
         case .failed:

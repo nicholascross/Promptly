@@ -2,14 +2,14 @@ import Foundation
 @testable import PromptlyKit
 import Testing
 
-struct PromptTranscriptAccumulatorTests {
+struct PromptTranscriptRecorderTests {
     @Test
-    func groupsAssistantDeltasIntoSingleMessage() {
-        var accumulator = PromptTranscriptAccumulator()
-        accumulator.handle(.assistantTextDelta("Hel"))
-        accumulator.handle(.assistantTextDelta("lo"))
+    func groupsAssistantDeltasIntoSingleMessage() async {
+        let recorder = PromptTranscriptRecorder()
+        await recorder.handle(.assistantTextDelta("Hel"))
+        await recorder.handle(.assistantTextDelta("lo"))
 
-        let transcript = accumulator.finish()
+        let transcript = await recorder.finish()
         #expect(transcript.count == 1)
 
         guard case let .assistant(message) = transcript.first else {
@@ -20,15 +20,17 @@ struct PromptTranscriptAccumulatorTests {
     }
 
     @Test
-    func flushesAssistantBeforeToolCallAndRecordsToolCallWithOutput() {
-        var accumulator = PromptTranscriptAccumulator()
+    func flushesAssistantBeforeToolCallAndRecordsToolCallWithOutput() async {
+        let recorder = PromptTranscriptRecorder(
+            configuration: .init(toolOutputPolicy: .include)
+        )
 
-        accumulator.handle(.assistantTextDelta("Checking..."))
-        accumulator.handle(.toolCallRequested(id: "call_1", name: "Echo", arguments: .object(["a": .integer(1)])))
-        accumulator.handle(.toolCallCompleted(id: "call_1", name: "Echo", output: .string("ok")))
-        accumulator.handle(.assistantTextDelta("Done."))
+        await recorder.handle(.assistantTextDelta("Checking..."))
+        await recorder.handle(.toolCallRequested(id: "call_1", name: "Echo", arguments: .object(["a": .integer(1)])))
+        await recorder.handle(.toolCallCompleted(id: "call_1", name: "Echo", output: .string("ok")))
+        await recorder.handle(.assistantTextDelta("Done."))
 
-        let transcript = accumulator.finish()
+        let transcript = await recorder.finish()
         #expect(transcript.count == 3)
 
         guard case let .assistant(message1) = transcript[0] else {
@@ -68,15 +70,15 @@ struct PromptTranscriptAccumulatorTests {
     }
 
     @Test
-    func tombstonesToolOutputWhenConfigured() {
-        var accumulator = PromptTranscriptAccumulator(
+    func tombstonesToolOutputWhenConfigured() async {
+        let recorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .tombstone)
         )
 
-        accumulator.handle(.toolCallRequested(id: "call_1", name: "Echo", arguments: .object([:])))
-        accumulator.handle(.toolCallCompleted(id: "call_1", name: "Echo", output: .string("sensitive")))
+        await recorder.handle(.toolCallRequested(id: "call_1", name: "Echo", arguments: .object([:])))
+        await recorder.handle(.toolCallCompleted(id: "call_1", name: "Echo", output: .string("sensitive")))
 
-        let transcript = accumulator.finish()
+        let transcript = await recorder.finish()
         #expect(transcript.count == 1)
 
         guard case let .toolCall(_, _, _, output) = transcript[0] else {
