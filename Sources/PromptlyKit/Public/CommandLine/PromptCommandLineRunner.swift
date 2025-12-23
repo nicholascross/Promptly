@@ -77,7 +77,7 @@ public struct PromptCommandLineRunner {
     private func runOnce(
         coordinator: PrompterCoordinator,
         conversation: [PromptMessage]
-    ) async throws -> (conversation: [PromptMessage], transcript: PromptTranscript) {
+    ) async throws -> (conversation: [PromptMessage], transcript: [PromptTranscriptEntry]) {
         let outputSink = StreamingOutputSink()
         let transcriptRecorder = TranscriptRecorder()
 

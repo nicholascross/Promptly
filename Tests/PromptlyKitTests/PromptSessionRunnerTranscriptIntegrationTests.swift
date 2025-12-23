@@ -28,15 +28,15 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
 
         let transcript = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
 
-        #expect(transcript.entries.count == 3)
+        #expect(transcript.count == 3)
 
-        if case let .assistant(message) = transcript.entries[0] {
+        if case let .assistant(message) = transcript[0] {
             #expect(message == "Preparing...")
         } else {
             Issue.record("Expected assistant message entry.")
         }
 
-        if case let .toolCall(id, name, arguments, output) = transcript.entries[1] {
+        if case let .toolCall(id, name, arguments, output) = transcript[1] {
             #expect(id == "call_1")
             #expect(name == "Echo")
             if case let .object(object)? = arguments {
@@ -49,7 +49,7 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
             Issue.record("Expected tool call entry.")
         }
 
-        if case let .assistant(message) = transcript.entries[2] {
+        if case let .assistant(message) = transcript[2] {
             #expect(message == "All done.")
         } else {
             Issue.record("Expected final assistant message entry.")
@@ -80,7 +80,7 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
 
         let transcript = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
 
-        let assistantMessages = transcript.entries.compactMap { entry -> String? in
+        let assistantMessages = transcript.compactMap { entry -> String? in
             if case let .assistant(message) = entry { return message }
             return nil
         }

@@ -10,9 +10,9 @@ struct PromptTranscriptAccumulatorTests {
         accumulator.handle(.assistantTextDelta("lo"))
 
         let transcript = accumulator.finish()
-        #expect(transcript.entries.count == 1)
+        #expect(transcript.count == 1)
 
-        guard case let .assistant(message) = transcript.entries.first else {
+        guard case let .assistant(message) = transcript.first else {
             Issue.record("Expected assistant transcript entry")
             return
         }
@@ -29,15 +29,15 @@ struct PromptTranscriptAccumulatorTests {
         accumulator.handle(.assistantTextDelta("Done."))
 
         let transcript = accumulator.finish()
-        #expect(transcript.entries.count == 3)
+        #expect(transcript.count == 3)
 
-        guard case let .assistant(message1) = transcript.entries[0] else {
+        guard case let .assistant(message1) = transcript[0] else {
             Issue.record("Expected assistant message before tool call")
             return
         }
         #expect(message1 == "Checking...")
 
-        guard case let .toolCall(id, name, args, output) = transcript.entries[1] else {
+        guard case let .toolCall(id, name, args, output) = transcript[1] else {
             Issue.record("Expected tool call entry")
             return
         }
@@ -60,7 +60,7 @@ struct PromptTranscriptAccumulatorTests {
         }
         #expect(text == "ok")
 
-        guard case let .assistant(message2) = transcript.entries[2] else {
+        guard case let .assistant(message2) = transcript[2] else {
             Issue.record("Expected assistant message after tool call")
             return
         }
@@ -77,9 +77,9 @@ struct PromptTranscriptAccumulatorTests {
         accumulator.handle(.toolCallCompleted(id: "call_1", name: "Echo", output: .string("sensitive")))
 
         let transcript = accumulator.finish()
-        #expect(transcript.entries.count == 1)
+        #expect(transcript.count == 1)
 
-        guard case let .toolCall(_, _, _, output) = transcript.entries[0] else {
+        guard case let .toolCall(_, _, _, output) = transcript[0] else {
             Issue.record("Expected tool call entry")
             return
         }
@@ -91,4 +91,3 @@ struct PromptTranscriptAccumulatorTests {
         #expect(text == "[tool output omitted]")
     }
 }
-

@@ -13,7 +13,7 @@ actor TranscriptRecorder {
         transcriptAccumulator.handle(event)
     }
 
-    func finishTranscript(finalAssistantText: String?) -> PromptTranscript {
+    func finishTranscript(finalAssistantText: String?) -> [PromptTranscriptEntry] {
         let transcript = transcriptAccumulator.finish(finalAssistantText: finalAssistantText)
         return transcript
     }

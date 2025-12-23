@@ -1,19 +1,6 @@
 import Foundation
 import PromptlyKitUtils
 
-public struct PromptTranscript: Sendable {
-    public var entries: [PromptTranscriptEntry]
-
-    public init(entries: [PromptTranscriptEntry] = []) {
-        self.entries = entries
-    }
-}
-
-public enum PromptTranscriptEntry: Sendable {
-    case assistant(message: String)
-    case toolCall(id: String?, name: String, arguments: JSONValue?, output: JSONValue?)
-}
-
 /// Accumulates a deterministic transcript from a stream of provider-neutral events.
 public struct PromptTranscriptAccumulator {
     public struct Configuration: Sendable {
@@ -38,11 +25,11 @@ public struct PromptTranscriptAccumulator {
     private var configuration: Configuration
     private var assistantBuffer = ""
     private var pendingToolCallsById: [String: PendingToolCall] = [:]
-    private var transcript: PromptTranscript
+    private var transcript: [PromptTranscriptEntry]
 
     public init(
         configuration: Configuration = Configuration(),
-        initialTranscript: PromptTranscript = PromptTranscript()
+        initialTranscript: [PromptTranscriptEntry] = []
     ) {
         self.configuration = configuration
         transcript = initialTranscript
@@ -59,7 +46,7 @@ public struct PromptTranscriptAccumulator {
             if let id {
                 pendingToolCallsById[id] = pending
             } else {
-                transcript.entries.append(.toolCall(id: nil, name: name, arguments: arguments, output: nil))
+                transcript.append(.toolCall(id: nil, name: name, arguments: arguments, output: nil))
             }
 
         case let .toolCallCompleted(id, name, output):
@@ -71,41 +58,41 @@ public struct PromptTranscriptAccumulator {
             }
 
             if let id, let pending = pendingToolCallsById.removeValue(forKey: id) {
-                transcript.entries.append(
+                transcript.append(
                     .toolCall(id: id, name: pending.name, arguments: pending.arguments, output: persistedOutput)
                 )
             } else {
-                transcript.entries.append(
+                transcript.append(
                     .toolCall(id: id, name: name, arguments: nil, output: persistedOutput)
                 )
             }
         }
     }
 
-    public mutating func finish() -> PromptTranscript {
+    public mutating func finish() -> [PromptTranscriptEntry] {
         finish(finalAssistantText: nil)
     }
 
-    public mutating func finish(finalAssistantText: String?) -> PromptTranscript {
+    public mutating func finish(finalAssistantText: String?) -> [PromptTranscriptEntry] {
         flushAssistantBufferIfNeeded()
         if
             let finalAssistantText,
             !finalAssistantText.isEmpty,
             !transcriptEndsWithAssistantMessage()
         {
-            transcript.entries.append(.assistant(message: finalAssistantText))
+            transcript.append(.assistant(message: finalAssistantText))
         }
         return transcript
     }
 
     private mutating func flushAssistantBufferIfNeeded() {
         guard !assistantBuffer.isEmpty else { return }
-        transcript.entries.append(.assistant(message: assistantBuffer))
+        transcript.append(.assistant(message: assistantBuffer))
         assistantBuffer = ""
     }
 
     private func transcriptEndsWithAssistantMessage() -> Bool {
-        guard let lastEntry = transcript.entries.last else { return false }
+        guard let lastEntry = transcript.last else { return false }
         switch lastEntry {
         case .assistant:
             return true
