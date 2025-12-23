@@ -1,17 +1,16 @@
 import Foundation
 import PromptlyKitUtils
 
-/// Accumulates a deterministic transcript from a stream of provider-neutral events.
-public struct PromptTranscriptAccumulator {
-    public struct Configuration: Sendable {
-        public enum ToolOutputPolicy: Sendable {
+actor PromptTranscriptRecorder {
+    struct Configuration: Sendable {
+        enum ToolOutputPolicy: Sendable {
             case include
             case tombstone
         }
 
-        public var toolOutputPolicy: ToolOutputPolicy
+        var toolOutputPolicy: ToolOutputPolicy
 
-        public init(toolOutputPolicy: ToolOutputPolicy = .include) {
+        init(toolOutputPolicy: ToolOutputPolicy = .tombstone) {
             self.toolOutputPolicy = toolOutputPolicy
         }
     }
@@ -27,15 +26,15 @@ public struct PromptTranscriptAccumulator {
     private var pendingToolCallsById: [String: PendingToolCall] = [:]
     private var transcript: [PromptTranscriptEntry]
 
-    public init(
-        configuration: Configuration = Configuration(),
+    init(
+        configuration: Configuration = .init(),
         initialTranscript: [PromptTranscriptEntry] = []
     ) {
         self.configuration = configuration
         transcript = initialTranscript
     }
 
-    public mutating func handle(_ event: PromptStreamEvent) {
+    func handle(_ event: PromptStreamEvent) {
         switch event {
         case let .assistantTextDelta(text):
             assistantBuffer += text
@@ -69,11 +68,11 @@ public struct PromptTranscriptAccumulator {
         }
     }
 
-    public mutating func finish() -> [PromptTranscriptEntry] {
+    func finish() -> [PromptTranscriptEntry] {
         finish(finalAssistantText: nil)
     }
 
-    public mutating func finish(finalAssistantText: String?) -> [PromptTranscriptEntry] {
+    func finish(finalAssistantText: String?) -> [PromptTranscriptEntry] {
         flushAssistantBufferIfNeeded()
         if
             let finalAssistantText,
@@ -85,7 +84,7 @@ public struct PromptTranscriptAccumulator {
         return transcript
     }
 
-    private mutating func flushAssistantBufferIfNeeded() {
+    private func flushAssistantBufferIfNeeded() {
         guard !assistantBuffer.isEmpty else { return }
         transcript.append(.assistant(message: assistantBuffer))
         assistantBuffer = ""

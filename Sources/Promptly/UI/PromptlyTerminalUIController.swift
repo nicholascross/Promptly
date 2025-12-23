@@ -13,9 +13,24 @@ final class PromptlyTerminalUIController {
     private let initialMessages: [PromptMessage]
     private let apiOverride: Config.API?
     private var conversation: [PromptMessage]
-    private var transcriptAccumulator = PromptTranscriptAccumulator(
-        configuration: .init(toolOutputPolicy: .tombstone)
-    )
+    private lazy var outputHandler: PromptStreamOutputHandler = {
+        PromptStreamOutputHandler(
+            output: .init(
+                onAssistantText: { [weak self] text in
+                    guard let self else { return }
+                    await self.appendAssistantDelta(text)
+                },
+                onToolCallRequested: { [weak self] text in
+                    guard let self else { return }
+                    await self.appendToolOutput(text)
+                },
+                onToolCallCompleted: { [weak self] text in
+                    guard let self else { return }
+                    await self.appendToolOutput(text)
+                }
+            )
+        )
+    }()
 
     // UI components
     private let terminal: Terminal
@@ -83,20 +98,13 @@ final class PromptlyTerminalUIController {
                 toolOutputArea.text = ""
                 conversation.append(PromptMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
-                self.transcriptAccumulator = PromptTranscriptAccumulator(
-                    configuration: .init(toolOutputPolicy: .tombstone)
-                )
-
                 let result = try await coordinator.run(
                     messages: conversation,
-                    onEvent: { event in
-                        Task { @MainActor [weak self] in
-                            self?.handle(event: event)
-                        }
+                    onEvent: { [weak self] event in
+                        await self?.handle(event: event)
                     }
                 )
 
-                _ = transcriptAccumulator.finish(finalAssistantText: result.finalAssistantText)
                 if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
                     if conversation.last?.role == .assistant {
                         conversation[conversation.count - 1] = PromptMessage(role: .assistant, content: .text(assistantText))
@@ -142,29 +150,24 @@ final class PromptlyTerminalUIController {
         }
     }
 
-    private func handle(event: PromptStreamEvent) {
-        transcriptAccumulator.handle(event)
-        switch event {
-        case let .assistantTextDelta(delta):
-            if conversation.last?.role != .assistant {
-                conversation.append(PromptMessage(role: .assistant, content: .text(delta)))
-            } else if case let .text(prev) = conversation[conversation.count - 1].content {
-                conversation[conversation.count - 1] = PromptMessage(
-                    role: .assistant,
-                    content: .text(prev + delta)
-                )
-            }
-            updateConversation(conversation)
+    private func handle(event: PromptStreamEvent) async {
+        await outputHandler.handle(event)
+    }
 
-        case let .toolCallRequested(_, name, _):
-            toolOutputArea.text += "Calling tool \(name)\n"
-
-        case let .toolCallCompleted(_, _, output):
-            let encoder = JSONEncoder()
-            if let encoded = try? String(data: encoder.encode(output), encoding: .utf8) {
-                toolOutputArea.text += encoded + "\n"
-            }
+    private func appendAssistantDelta(_ delta: String) {
+        if conversation.last?.role != .assistant {
+            conversation.append(PromptMessage(role: .assistant, content: .text(delta)))
+        } else if case let .text(prev) = conversation[conversation.count - 1].content {
+            conversation[conversation.count - 1] = PromptMessage(
+                role: .assistant,
+                content: .text(prev + delta)
+            )
         }
+        updateConversation(conversation)
+    }
+
+    private func appendToolOutput(_ text: String) {
+        toolOutputArea.text += text
     }
 
     /// Returns a handler that appends tool output to the tool output area.

@@ -40,7 +40,7 @@ public struct PromptCommandLineRunner {
 
         var conversation = initialMessages
         if !conversation.isEmpty {
-            let (updatedConversation, _) = try await runOnce(
+            let updatedConversation = try await runOnce(
                 coordinator: coordinator,
                 conversation: conversation
             )
@@ -66,7 +66,7 @@ public struct PromptCommandLineRunner {
             guard let line = readLine() else { break }
             conversation.append(PromptMessage(role: .user, content: .text(line)))
 
-            let (updatedConversation, _) = try await runOnce(
+            let updatedConversation = try await runOnce(
                 coordinator: coordinator,
                 conversation: conversation
             )
@@ -77,26 +77,31 @@ public struct PromptCommandLineRunner {
     private func runOnce(
         coordinator: PrompterCoordinator,
         conversation: [PromptMessage]
-    ) async throws -> (conversation: [PromptMessage], transcript: [PromptTranscriptEntry]) {
-        let outputSink = StreamingOutputSink()
-        let transcriptRecorder = TranscriptRecorder()
-
+    ) async throws -> [PromptMessage] {
+        let writeToStandardOutput: @Sendable (String) async -> Void = { text in
+            fputs(text, stdout)
+            fflush(stdout)
+        }
+        let outputHandler = PromptStreamOutputHandler(
+            output: .init(
+                onAssistantText: writeToStandardOutput,
+                onToolCallRequested: writeToStandardOutput,
+                onToolCallCompleted: writeToStandardOutput
+            )
+        )
         let result = try await coordinator.run(
             messages: conversation,
             onEvent: { event in
-                await transcriptRecorder.handle(event)
-                await outputSink.handle(event)
+                await outputHandler.handle(event)
             }
         )
-
-        let transcript = await transcriptRecorder.finishTranscript(finalAssistantText: result.finalAssistantText)
 
         var updatedConversation = conversation
         if let assistantText = result.finalAssistantText, !assistantText.isEmpty {
             updatedConversation.append(PromptMessage(role: .assistant, content: .text(assistantText)))
         }
 
-        let didStreamAssistantText = await outputSink.didStreamAssistantText
+        let didStreamAssistantText = await outputHandler.didStreamAssistantText
         if let assistantText = result.finalAssistantText, !assistantText.isEmpty, !didStreamAssistantText {
             fputs(assistantText, stdout)
             fputs("\n", stdout)
@@ -106,6 +111,6 @@ public struct PromptCommandLineRunner {
             fflush(stdout)
         }
 
-        return (updatedConversation, transcript)
+        return updatedConversation
     }
 }

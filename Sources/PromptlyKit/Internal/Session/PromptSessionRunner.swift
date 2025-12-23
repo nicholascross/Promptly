@@ -27,7 +27,7 @@ struct PromptSessionRunner {
         messages: [ChatMessage],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
-        let transcriptRecorder = TranscriptRecorder(
+        let transcriptRecorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
 
@@ -61,7 +61,7 @@ struct PromptSessionRunner {
             )
         }
 
-        let promptTranscript = await transcriptRecorder.finishTranscript(finalAssistantText: turn.finalAssistantText)
+        let promptTranscript = await transcriptRecorder.finish(finalAssistantText: turn.finalAssistantText)
         return PromptSessionResult(
             finalAssistantText: turn.finalAssistantText,
             promptTranscript: promptTranscript
