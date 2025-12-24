@@ -10,10 +10,18 @@ public struct SubAgentToolFactory {
 
     public func makeTools(
         configurationFileURL: URL,
+        toolsFileName: String = "tools",
+        includeTools: [String] = [],
+        excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
         let agentURLs = try configurationLoader.discoverAgentConfigurationURLs(
             configFileURL: configurationFileURL
+        )
+        let toolDefaults = SubAgentToolDefaults(
+            toolsFileName: toolsFileName,
+            includeTools: includeTools,
+            excludeTools: excludeTools
         )
 
         var tools: [any ExecutableTool] = []
@@ -28,12 +36,16 @@ public struct SubAgentToolFactory {
             let agentName = agentConfiguration.definition.name
             let toolName = toolName(for: agentName)
             let description = agentConfiguration.definition.description
+            let runner = SubAgentRunner(
+                configuration: agentConfiguration,
+                toolDefaults: toolDefaults,
+                toolOutput: toolOutput
+            )
             let tool = SubAgentTool(
                 name: toolName,
                 description: description,
-                executeHandler: { _ in
-                    toolOutput("[sub-agent:\(agentName)] Execution not available yet.\n")
-                    throw SubAgentToolError.executionUnavailable(agentName: agentName)
+                executeHandler: { request in
+                    try await runner.run(request: request)
                 }
             )
 

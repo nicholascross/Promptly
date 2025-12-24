@@ -2,7 +2,9 @@ import PromptlyKit
 import PromptlyKitUtils
 
 struct ReturnToSupervisorTool: ExecutableTool, Sendable {
-    let name = "ReturnToSupervisor"
+    static let toolName = "ReturnToSupervisor"
+
+    let name = ReturnToSupervisorTool.toolName
     let description = "Return the final sub agent payload to the supervisor."
     let parameters: JSONSchema = ReturnToSupervisorTool.parameterSchema
 

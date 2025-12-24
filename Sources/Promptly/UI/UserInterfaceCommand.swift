@@ -41,6 +41,9 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             )
             let subAgentTools = try subAgentToolFactory.makeTools(
                 configurationFileURL: configurationFileURL,
+                toolsFileName: session.toolsFileName,
+                includeTools: session.includeTools,
+                excludeTools: session.excludeTools,
                 toolOutput: toolOutput
             )
             return shellTools + subAgentTools

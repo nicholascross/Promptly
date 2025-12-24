@@ -1,12 +1,12 @@
 import Foundation
 
 enum SubAgentToolError: Error, LocalizedError {
-    case executionUnavailable(agentName: String)
+    case missingReturnPayload(agentName: String)
 
     var errorDescription: String? {
         switch self {
-        case let .executionUnavailable(agentName):
-            return "Sub agent execution is not available yet for \(agentName)."
+        case let .missingReturnPayload(agentName):
+            return "Sub agent \(agentName) did not return a payload."
         }
     }
 }

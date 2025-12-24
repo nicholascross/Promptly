@@ -2,7 +2,9 @@ import PromptlyKit
 import PromptlyKitUtils
 
 struct ReportProgressToSupervisorTool: ExecutableTool, Sendable {
-    let name = "ReportProgressToSupervisor"
+    static let toolName = "ReportProgressToSupervisor"
+
+    let name = ReportProgressToSupervisorTool.toolName
     let description = "Report a progress update for the supervisor without ending the session."
     let parameters: JSONSchema = ReportProgressToSupervisorTool.parameterSchema
 

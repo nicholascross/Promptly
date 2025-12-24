@@ -44,7 +44,10 @@ struct PromptCommand: AsyncParsableCommand {
                     excludeTools: session.excludeTools
                 )
                 let subAgentTools = try subAgentToolFactory.makeTools(
-                    configurationFileURL: configurationFileURL
+                    configurationFileURL: configurationFileURL,
+                    toolsFileName: session.toolsFileName,
+                    includeTools: session.includeTools,
+                    excludeTools: session.excludeTools
                 )
                 return shellTools + subAgentTools
             },
