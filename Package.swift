@@ -20,6 +20,10 @@ let package = Package(
         .library(
             name: "PromptlyKitTooling",
             targets: ["PromptlyKitTooling"]
+        ),
+        .library(
+            name: "PromptlySubAgents",
+            targets: ["PromptlySubAgents"]
         )
     ],
     dependencies: [
@@ -55,6 +59,14 @@ let package = Package(
         .target(
             name: "PromptlyKitUtils",
             dependencies: []
+        ),
+        .target(
+            name: "PromptlySubAgents",
+            dependencies: [
+                "PromptlyKit",
+                "PromptlyKitTooling",
+                "PromptlyKitUtils"
+            ]
         ),
         .testTarget(
             name: "PromptlyKitTests",

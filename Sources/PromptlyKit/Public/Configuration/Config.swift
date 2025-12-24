@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Config: Decodable {
+public struct Config: Decodable, Sendable {
     /// Model identifier to use for completions.
     public let model: String?
     /// Optional mapping of alias names to model identifiers.
@@ -69,7 +69,7 @@ public struct Config: Decodable {
 }
 
 public extension Config {
-    enum API: Decodable {
+    enum API: Decodable, Sendable {
         case responses
         case chatCompletions
 
