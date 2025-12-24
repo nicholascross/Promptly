@@ -1,14 +1,10 @@
 import PromptlyKit
-import PromptlyKitTooling
 import PromptlyKitUtils
-import TerminalUI
 
 @MainActor
 struct PromptTerminalUIRunner {
     let config: Config
-    let toolFactory: ToolFactory
-    let includeTools: [String]
-    let excludeTools: [String]
+    let toolProvider: (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool]
     let modelOverride: String?
     let apiOverride: Config.API?
     let standardInputHandler: StandardInputHandler
@@ -17,9 +13,7 @@ struct PromptTerminalUIRunner {
         standardInputHandler.reopenIfNeeded()
         let controller = PromptlyTerminalUIController(
             config: config,
-            toolFactory: toolFactory,
-            includeTools: includeTools,
-            excludeTools: excludeTools,
+            toolProvider: toolProvider,
             modelOverride: modelOverride,
             initialMessages: initialMessages,
             apiOverride: apiOverride

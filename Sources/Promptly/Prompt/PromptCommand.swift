@@ -1,6 +1,9 @@
 import ArgumentParser
+import Foundation
 import PromptlyKit
 import PromptlyKitTooling
+import PromptlyKitUtils
+import PromptlySubAgents
 
 struct PromptCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -15,6 +18,9 @@ struct PromptCommand: AsyncParsableCommand {
     private var interactive: Bool = false
 
     mutating func run() async throws {
+        let configurationFileURL = URL(
+            fileURLWithPath: promptOptions.configFile.expandingTilde
+        ).standardizedFileURL
         let sessionInput = PromptSessionInput(
             configFilePath: promptOptions.configFile,
             toolsFileName: promptOptions.tools,
@@ -28,14 +34,19 @@ struct PromptCommand: AsyncParsableCommand {
         )
         let session = try PromptSessionBuilder(input: sessionInput).build()
         let toolFactory = ToolFactory(toolsFileName: session.toolsFileName)
+        let subAgentToolFactory = SubAgentToolFactory()
         let runner = PromptCommandLineRunner(
             config: session.config,
             toolProvider: {
-                try toolFactory.makeTools(
+                let shellTools = try toolFactory.makeTools(
                     config: session.config,
                     includeTools: session.includeTools,
                     excludeTools: session.excludeTools
                 )
+                let subAgentTools = try subAgentToolFactory.makeTools(
+                    configurationFileURL: configurationFileURL
+                )
+                return shellTools + subAgentTools
             },
             modelOverride: session.modelOverride,
             apiOverride: session.apiOverride,

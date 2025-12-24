@@ -1,14 +1,11 @@
 import Foundation
 import PromptlyKit
-import PromptlyKitTooling
 import TerminalUI
 
 @MainActor
 final class PromptlyTerminalUIController {
     private let config: Config
-    private let toolFactory: ToolFactory
-    private let includeTools: [String]
-    private let excludeTools: [String]
+    private let toolProvider: (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool]
     private let modelOverride: String?
     private let initialMessages: [PromptMessage]
     private let apiOverride: Config.API?
@@ -40,17 +37,13 @@ final class PromptlyTerminalUIController {
 
     init(
         config: Config,
-        toolFactory: ToolFactory,
-        includeTools: [String] = [],
-        excludeTools: [String] = [],
+        toolProvider: @escaping (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool],
         modelOverride: String?,
         initialMessages: [PromptMessage],
         apiOverride: Config.API?
     ) {
         self.config = config
-        self.toolFactory = toolFactory
-        self.includeTools = includeTools
-        self.excludeTools = excludeTools
+        self.toolProvider = toolProvider
         self.modelOverride = modelOverride
         self.initialMessages = initialMessages
         self.apiOverride = apiOverride
@@ -77,13 +70,7 @@ final class PromptlyTerminalUIController {
 
         updateConversation(conversation)
 
-        // Create shell-command tools with UI streaming handler
-        let tools = try toolFactory.makeTools(
-            config: config,
-            includeTools: includeTools,
-            excludeTools: excludeTools,
-            toolOutput: toolOutputHandler
-        )
+        let tools = try toolProvider(toolOutputHandler)
 
         let coordinator = try PrompterCoordinator(
             config: config,

@@ -39,6 +39,7 @@ let package = Package(
                 "PromptlyKit",
                 "PromptlyKitTooling",
                 "PromptlyKitUtils",
+                "PromptlySubAgents",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SwiftTokenizer", package: "SwiftTokenizer"),
                 .product(name: "TerminalUI", package: "TerminalUI")
