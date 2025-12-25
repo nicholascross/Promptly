@@ -30,7 +30,19 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             apiOverride: promptOptions.apiSelection?.configValue
         )
         let session = try PromptSessionBuilder(input: sessionInput).build()
-        let toolFactory = ToolFactory(toolsFileName: session.toolsFileName)
+        let fileManager = FileManager.default
+        let defaultToolsConfigURL = ToolFactory.defaultToolsConfigURL(
+            fileManager: fileManager,
+            toolsFileName: session.toolsFileName
+        )
+        let localToolsConfigURL = ToolFactory.localToolsConfigURL(
+            fileManager: fileManager,
+            toolsFileName: session.toolsFileName
+        )
+        let toolFactory = ToolFactory(
+            defaultToolsConfigURL: defaultToolsConfigURL,
+            localToolsConfigURL: localToolsConfigURL
+        )
         let subAgentToolFactory = SubAgentToolFactory()
         let toolProvider: (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool] = { toolOutput in
             let shellTools = try toolFactory.makeTools(
@@ -41,7 +53,8 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             )
             let subAgentTools = try subAgentToolFactory.makeTools(
                 configurationFileURL: configurationFileURL,
-                toolsFileName: session.toolsFileName,
+                defaultToolsConfigURL: defaultToolsConfigURL,
+                localToolsConfigURL: localToolsConfigURL,
                 includeTools: session.includeTools,
                 excludeTools: session.excludeTools,
                 toolOutput: toolOutput

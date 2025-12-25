@@ -10,7 +10,8 @@ public struct SubAgentToolFactory {
 
     public func makeTools(
         configurationFileURL: URL,
-        toolsFileName: String = "tools",
+        defaultToolsConfigURL: URL,
+        localToolsConfigURL: URL,
         includeTools: [String] = [],
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
@@ -18,8 +19,9 @@ public struct SubAgentToolFactory {
         let agentURLs = try configurationLoader.discoverAgentConfigurationURLs(
             configFileURL: configurationFileURL
         )
-        let toolDefaults = SubAgentToolDefaults(
-            toolsFileName: toolsFileName,
+        let toolDefaults = SubAgentToolSettings(
+            defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
+            localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -36,9 +38,18 @@ public struct SubAgentToolFactory {
             let agentName = agentConfiguration.definition.name
             let toolName = toolName(for: agentName)
             let description = agentConfiguration.definition.description
+            let toolSettings = resolveToolSettings(
+                defaults: toolDefaults,
+                overrides: agentConfiguration.definition.tools
+            )
+            let logsDirectoryURL = agentLogsDirectoryURL(
+                configurationFileURL: configurationFileURL,
+                agentName: agentName
+            )
             let runner = SubAgentRunner(
                 configuration: agentConfiguration,
-                toolDefaults: toolDefaults,
+                toolSettings: toolSettings,
+                logDirectoryURL: logsDirectoryURL,
                 toolOutput: toolOutput
             )
             let tool = SubAgentTool(
@@ -78,5 +89,68 @@ public struct SubAgentToolFactory {
 
         let trimmedSeparators = normalized.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         return trimmedSeparators.isEmpty ? "agent" : trimmedSeparators
+    }
+
+    private func resolveToolSettings(
+        defaults: SubAgentToolSettings,
+        overrides: SubAgentToolConfiguration?
+    ) -> SubAgentToolSettings {
+        guard let overrides else {
+            return defaults
+        }
+
+        let includeTools = overrides.include ?? defaults.includeTools
+        let excludeTools = overrides.exclude ?? defaults.excludeTools
+
+        guard let toolsFileName = overrides.toolsFileName else {
+            return SubAgentToolSettings(
+                defaultToolsConfigURL: defaults.defaultToolsConfigURL,
+                localToolsConfigURL: defaults.localToolsConfigURL,
+                includeTools: includeTools,
+                excludeTools: excludeTools
+            )
+        }
+
+        let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
+        let defaultToolsDirectoryURL = defaults.defaultToolsConfigURL.deletingLastPathComponent()
+        let localToolsDirectoryURL = defaults.localToolsConfigURL.deletingLastPathComponent()
+
+        return SubAgentToolSettings(
+            defaultToolsConfigURL: defaultToolsDirectoryURL
+                .appendingPathComponent(normalizedToolsFileName)
+                .standardizedFileURL,
+            localToolsConfigURL: localToolsDirectoryURL
+                .appendingPathComponent(normalizedToolsFileName)
+                .standardizedFileURL,
+            includeTools: includeTools,
+            excludeTools: excludeTools
+        )
+    }
+
+    private func agentLogsDirectoryURL(
+        configurationFileURL: URL,
+        agentName: String
+    ) -> URL {
+        let sanitizedAgentName = sanitizedAgentDirectoryName(agentName)
+        return configurationFileURL.standardizedFileURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("agents", isDirectory: true)
+            .appendingPathComponent("logs", isDirectory: true)
+            .appendingPathComponent(sanitizedAgentName, isDirectory: true)
+    }
+
+    private func sanitizedAgentDirectoryName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let invalidCharacters = CharacterSet(charactersIn: "/\\")
+        let components = trimmed.components(separatedBy: invalidCharacters)
+        let joined = components.filter { !$0.isEmpty }.joined(separator: "-")
+        return joined.isEmpty ? "agent" : joined
+    }
+
+    private func normalizedToolsFileName(_ toolsFileName: String) -> String {
+        if toolsFileName.hasSuffix(".json") {
+            return toolsFileName
+        }
+        return "\(toolsFileName).json"
     }
 }

@@ -4,15 +4,33 @@ import PromptlyKitUtils
 
 public struct ToolFactory {
     private let fileManager: FileManagerProtocol
-    private let toolsFileName: String
+    private let defaultToolsConfigURL: URL
+    private let localToolsConfigURL: URL
 
-    public init(fileManager: FileManagerProtocol = FileManager(), toolsFileName: String = "tools.json") {
+    public init(
+        fileManager: FileManagerProtocol = FileManager(),
+        toolsFileName: String = "tools.json"
+    ) {
         self.fileManager = fileManager
-        if toolsFileName.hasSuffix(".json") {
-            self.toolsFileName = toolsFileName
-        } else {
-            self.toolsFileName = "\(toolsFileName).json"
-        }
+        let normalizedToolsFileName = Self.normalizedToolsFileName(toolsFileName)
+        self.defaultToolsConfigURL = Self.defaultToolsConfigURL(
+            fileManager: fileManager,
+            toolsFileName: normalizedToolsFileName
+        )
+        self.localToolsConfigURL = Self.localToolsConfigURL(
+            fileManager: fileManager,
+            toolsFileName: normalizedToolsFileName
+        )
+    }
+
+    public init(
+        fileManager: FileManagerProtocol = FileManager(),
+        defaultToolsConfigURL: URL,
+        localToolsConfigURL: URL
+    ) {
+        self.fileManager = fileManager
+        self.defaultToolsConfigURL = defaultToolsConfigURL.standardizedFileURL
+        self.localToolsConfigURL = localToolsConfigURL.standardizedFileURL
     }
 
     /// Create executable tools from configuration and wrap shell-command tools with log-slicing middleware.
@@ -40,7 +58,7 @@ public struct ToolFactory {
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
         let defaultTools = try loadShellCommandConfig(
-            configURL: toolsConfigURL,
+            configURL: defaultToolsConfigURL,
             config: config,
             includeTools: includeTools,
             headLines: headLines,
@@ -88,20 +106,10 @@ public struct ToolFactory {
         if let path = override {
             return URL(fileURLWithPath: path).standardizedFileURL
         }
-
-        let local = URL(
-            fileURLWithPath: "tools.json",
-            relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-        ).standardizedFileURL
-
-        if fileManager.fileExists(atPath: local.path) {
-            return local
+        if fileManager.fileExists(atPath: localToolsConfigURL.path) {
+            return localToolsConfigURL
         }
-
-        return URL(
-            fileURLWithPath: ".config/promptly/tools.json",
-            relativeTo: fileManager.homeDirectoryForCurrentUser
-        ).standardizedFileURL
+        return defaultToolsConfigURL
     }
 
     /// Load and merge shell command config entries from an optional override config file,
@@ -115,7 +123,7 @@ public struct ToolFactory {
         }
 
         let defaultEntries: [ShellCommandConfigEntry] = {
-            guard let config = try? decodeShellCommandConfig(from: toolsConfigURL) else { return [] }
+            guard let config = try? decodeShellCommandConfig(from: defaultToolsConfigURL) else { return [] }
             return config.shellCommands
         }()
 
@@ -177,20 +185,26 @@ public struct ToolFactory {
         }
     }
 
-    private var localToolsConfigURL: URL {
-        URL(
-            fileURLWithPath: toolsFileName,
-            relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
-        )
-        .standardizedFileURL
+    public static func defaultToolsConfigURL(
+        fileManager: FileManagerProtocol = FileManager(),
+        toolsFileName: String
+    ) -> URL {
+        let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
+        return URL(
+            fileURLWithPath: ".config/promptly/\(normalizedToolsFileName)",
+            relativeTo: fileManager.homeDirectoryForCurrentUser
+        ).standardizedFileURL
     }
 
-    private var toolsConfigURL: URL {
-        URL(
-            fileURLWithPath: ".config/promptly/\(toolsFileName)",
-            relativeTo: fileManager.homeDirectoryForCurrentUser
-        )
-        .standardizedFileURL
+    public static func localToolsConfigURL(
+        fileManager: FileManagerProtocol = FileManager(),
+        toolsFileName: String
+    ) -> URL {
+        let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
+        return URL(
+            fileURLWithPath: normalizedToolsFileName,
+            relativeTo: URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
+        ).standardizedFileURL
     }
 
     private func builtinTools(toolOutput: @Sendable @escaping (String) -> Void) -> [any ExecutableTool] {
@@ -206,10 +220,16 @@ public struct ToolFactory {
         URL(fileURLWithPath: fileManager.currentDirectoryPath, isDirectory: true)
     }
 
+    private static func normalizedToolsFileName(_ toolsFileName: String) -> String {
+        if toolsFileName.hasSuffix(".json") {
+            return toolsFileName
+        }
+        return "\(toolsFileName).json"
+    }
+
     /// Decode a shell-command config from JSON at the given URL.
     private func decodeShellCommandConfig(from url: URL) throws -> ShellCommandConfig {
         let data = try Data(contentsOf: url)
         return try JSONDecoder().decode(ShellCommandConfig.self, from: data)
     }
 }
-

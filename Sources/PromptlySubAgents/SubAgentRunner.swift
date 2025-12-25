@@ -3,19 +3,14 @@ import PromptlyKit
 import PromptlyKitTooling
 import PromptlyKitUtils
 
-struct SubAgentToolDefaults: Sendable {
-    let toolsFileName: String
+struct SubAgentToolSettings: Sendable {
+    let defaultToolsConfigURL: URL
+    let localToolsConfigURL: URL
     let includeTools: [String]
     let excludeTools: [String]
 }
 
 struct SubAgentRunner: Sendable {
-    private struct ToolSettings: Sendable {
-        let toolsFileName: String
-        let includeTools: [String]
-        let excludeTools: [String]
-    }
-
     private static let baseSystemPrompt = """
 You are a Promptly sub agent running in an isolated session.
 Follow the system guidance and the user request.
@@ -25,38 +20,65 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
 """
 
     private let configuration: SubAgentConfiguration
-    private let toolDefaults: SubAgentToolDefaults
+    private let toolSettings: SubAgentToolSettings
+    private let logDirectoryURL: URL
     private let toolOutput: @Sendable (String) -> Void
 
     init(
         configuration: SubAgentConfiguration,
-        toolDefaults: SubAgentToolDefaults,
+        toolSettings: SubAgentToolSettings,
+        logDirectoryURL: URL,
         toolOutput: @Sendable @escaping (String) -> Void
     ) {
         self.configuration = configuration
-        self.toolDefaults = toolDefaults
+        self.toolSettings = toolSettings
+        self.logDirectoryURL = logDirectoryURL.standardizedFileURL
         self.toolOutput = toolOutput
     }
 
     func run(request: SubAgentToolRequest) async throws -> JSONValue {
+        let transcriptLogger = try? SubAgentTranscriptLogger(
+            logsDirectoryURL: logDirectoryURL
+        )
+        var didFinishLogging = false
+
         let messages = buildMessages(for: request)
-        let tools = try makeTools()
+        let tools = try makeTools(transcriptLogger: transcriptLogger)
 
         let coordinator = try PrompterCoordinator(
             config: configuration.configuration,
             tools: tools
         )
 
-        let result = try await coordinator.run(
-            messages: messages,
-            onEvent: { _ in }
-        )
+        do {
+            let result = try await coordinator.run(
+                messages: messages,
+                onEvent: { event in
+                    await transcriptLogger?.handle(event: event)
+                }
+            )
 
-        guard let payload = firstReturnPayload(from: result.promptTranscript) else {
-            throw SubAgentToolError.missingReturnPayload(agentName: configuration.definition.name)
+            guard let payload = firstReturnPayload(from: result.promptTranscript) else {
+                await transcriptLogger?.finish(status: "missing_return_payload", error: nil)
+                didFinishLogging = true
+                throw SubAgentToolError.missingReturnPayload(agentName: configuration.definition.name)
+            }
+
+            let payloadWithLogPath = attachLogPath(
+                to: payload,
+                logPath: transcriptLogger?.logPath
+            )
+            await transcriptLogger?.recordReturnPayload(payloadWithLogPath)
+            await transcriptLogger?.finish(status: "completed", error: nil)
+            didFinishLogging = true
+
+            return payloadWithLogPath
+        } catch {
+            if !didFinishLogging {
+                await transcriptLogger?.finish(status: "failed", error: error)
+            }
+            throw error
         }
-
-        return payload
     }
 
     private func buildMessages(for request: SubAgentToolRequest) -> [PromptMessage] {
@@ -111,13 +133,17 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         return contextPack.description
     }
 
-    private func makeTools() throws -> [any ExecutableTool] {
-        let settings = resolvedToolSettings()
-        let toolFactory = ToolFactory(toolsFileName: settings.toolsFileName)
+    private func makeTools(
+        transcriptLogger: SubAgentTranscriptLogger?
+    ) throws -> [any ExecutableTool] {
+        let toolFactory = ToolFactory(
+            defaultToolsConfigURL: toolSettings.defaultToolsConfigURL,
+            localToolsConfigURL: toolSettings.localToolsConfigURL
+        )
         let baseTools = try toolFactory.makeTools(
             config: configuration.configuration,
-            includeTools: settings.includeTools,
-            excludeTools: settings.excludeTools,
+            includeTools: toolSettings.includeTools,
+            excludeTools: toolSettings.excludeTools,
             toolOutput: toolOutput
         )
 
@@ -132,20 +158,12 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         tools.append(
             ReportProgressToSupervisorTool(
                 agentName: configuration.definition.name,
-                toolOutput: toolOutput
+                toolOutput: toolOutput,
+                transcriptLogger: transcriptLogger
             )
         )
 
         return tools
-    }
-
-    private func resolvedToolSettings() -> ToolSettings {
-        let overrides = configuration.definition.tools
-        return ToolSettings(
-            toolsFileName: overrides?.toolsFileName ?? toolDefaults.toolsFileName,
-            includeTools: overrides?.include ?? toolDefaults.includeTools,
-            excludeTools: overrides?.exclude ?? toolDefaults.excludeTools
-        )
     }
 
     private func isDisallowedToolName(_ name: String) -> Bool {
@@ -166,5 +184,17 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
             return output ?? arguments
         }
         return nil
+    }
+
+    private func attachLogPath(to payload: JSONValue, logPath: String?) -> JSONValue {
+        guard let logPath else {
+            return payload
+        }
+        guard case let .object(object) = payload else {
+            return payload
+        }
+        var updated = object
+        updated["logPath"] = .string(logPath)
+        return .object(updated)
     }
 }
