@@ -90,6 +90,7 @@ To install Promptly, execute the following steps:
 ## Configuration
 
 - See [Configuration](Docs/configuration.md)
+- See [Self Tests](Docs/self-test.md) for built in self test usage and output.
 
 ## Usage
 

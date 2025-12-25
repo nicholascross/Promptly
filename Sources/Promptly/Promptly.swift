@@ -14,7 +14,8 @@ struct Promptly: AsyncParsableCommand {
             ToolCommand.self,
             AgentCommand.self,
             CannedCommand.self,
-            TokenCommand.self
+            TokenCommand.self,
+            SelfTestCommand.self
         ],
         defaultSubcommand: PromptCommand.self
     )

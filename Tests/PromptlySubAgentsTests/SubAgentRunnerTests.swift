@@ -49,7 +49,7 @@ struct SubAgentRunnerTests {
                     parameters: emptySchema
                 ),
                 ShellCommandConfigEntry(
-                    name: "SubAgent.fake",
+                    name: "SubAgent-fake",
                     description: "Disallowed tool.",
                     executable: "/usr/bin/true",
                     echoOutput: nil,
@@ -105,7 +105,7 @@ struct SubAgentRunnerTests {
             let toolNames = tools.map { $0.name }
 
             #expect(toolNames.contains("EchoTool"))
-            #expect(!toolNames.contains("SubAgent.fake"))
+            #expect(!toolNames.contains("SubAgent-fake"))
 
             let returnToolCount = toolNames.filter { $0 == ReturnToSupervisorTool.toolName }.count
             let progressToolCount = toolNames.filter { $0 == ReportProgressToSupervisorTool.toolName }.count

@@ -24,6 +24,10 @@ let package = Package(
         .library(
             name: "PromptlySubAgents",
             targets: ["PromptlySubAgents"]
+        ),
+        .library(
+            name: "PromptlySelfTest",
+            targets: ["PromptlySelfTest"]
         )
     ],
     dependencies: [
@@ -40,6 +44,7 @@ let package = Package(
                 "PromptlyKitTooling",
                 "PromptlyKitUtils",
                 "PromptlySubAgents",
+                "PromptlySelfTest",
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "SwiftTokenizer", package: "SwiftTokenizer"),
                 .product(name: "TerminalUI", package: "TerminalUI")
@@ -67,6 +72,15 @@ let package = Package(
                 "PromptlyKit",
                 "PromptlyKitTooling",
                 "PromptlyKitUtils"
+            ]
+        ),
+        .target(
+            name: "PromptlySelfTest",
+            dependencies: [
+                "PromptlyKit",
+                "PromptlyKitTooling",
+                "PromptlyKitUtils",
+                "PromptlySubAgents"
             ]
         ),
         .testTarget(
