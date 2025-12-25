@@ -196,7 +196,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
     }
 
     private func isDisallowedToolName(_ name: String) -> Bool {
-        if name.hasPrefix("SubAgent.") {
+        if name.hasPrefix("SubAgent-") {
             return true
         }
         let reservedNames = [

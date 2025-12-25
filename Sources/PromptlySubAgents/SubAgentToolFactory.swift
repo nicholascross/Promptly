@@ -71,7 +71,7 @@ public struct SubAgentToolFactory {
     }
 
     private func toolName(for agentName: String) -> String {
-        "SubAgent.\(normalizedIdentifier(from: agentName))"
+        "SubAgent-\(normalizedIdentifier(from: agentName))"
     }
 
     private func normalizedIdentifier(from agentName: String) -> String {

@@ -179,6 +179,30 @@ promptly tool install [--tools <basename>]
 promptly tool remove <tool-id> [--force] [--config-file <path>]
 ```
 
+## Sub Agent Management
+
+Promptly provides commands to manage sub agent configurations stored under the agents directory relative to the configuration file:
+
+```bash
+# List all configured agents
+promptly agent list
+
+# View the agent configuration file
+promptly agent view <name>
+
+# Add a new agent configuration
+promptly agent add <name> \
+  --agent-name "Refactor Agent" \
+  --description "Refactor code while preserving behavior." \
+  --system-prompt "You are a refactoring specialist."
+
+# Install the bundled default agents
+promptly agent install
+
+# Remove an agent (use --force to skip confirmation)
+promptly agent remove <name> [--force] [--config-file <path>]
+```
+
 ### Install Default Canned Prompts
 
 Install the bundled canned prompts (including helpers for registering tools, generating new canned prompts, and drafting commit messages) into `~/.config/promptly/canned`:
