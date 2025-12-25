@@ -8,7 +8,7 @@ public struct ToolFactory {
     private let localToolsConfigURL: URL
 
     public init(
-        fileManager: FileManagerProtocol = FileManager(),
+        fileManager: FileManagerProtocol,
         toolsFileName: String = "tools.json"
     ) {
         self.fileManager = fileManager
@@ -24,7 +24,7 @@ public struct ToolFactory {
     }
 
     public init(
-        fileManager: FileManagerProtocol = FileManager(),
+        fileManager: FileManagerProtocol,
         defaultToolsConfigURL: URL,
         localToolsConfigURL: URL
     ) {
@@ -186,7 +186,7 @@ public struct ToolFactory {
     }
 
     public static func defaultToolsConfigURL(
-        fileManager: FileManagerProtocol = FileManager(),
+        fileManager: FileManagerProtocol,
         toolsFileName: String
     ) -> URL {
         let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
@@ -197,7 +197,7 @@ public struct ToolFactory {
     }
 
     public static func localToolsConfigURL(
-        fileManager: FileManagerProtocol = FileManager(),
+        fileManager: FileManagerProtocol,
         toolsFileName: String
     ) -> URL {
         let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
@@ -229,7 +229,7 @@ public struct ToolFactory {
 
     /// Decode a shell-command config from JSON at the given URL.
     private func decodeShellCommandConfig(from url: URL) throws -> ShellCommandConfig {
-        let data = try Data(contentsOf: url)
+        let data = try fileManager.readData(at: url)
         return try JSONDecoder().decode(ShellCommandConfig.self, from: data)
     }
 }

@@ -73,6 +73,14 @@ let package = Package(
             name: "PromptlyKitTests",
             dependencies: ["PromptlyKit"]
         ),
+        .testTarget(
+            name: "PromptlySubAgentsTests",
+            dependencies: [
+                "PromptlySubAgents",
+                "PromptlyKit",
+                "PromptlyKitUtils"
+            ]
+        ),
         .executableTarget(
             name: "GenerateDefaultShellCommandConfig",
             dependencies: [

@@ -17,7 +17,9 @@ struct ToolView: ParsableCommand {
     var options: ToolConfigOptions
 
     func run() throws {
-        let entries = try ToolFactory().loadConfigEntries(overrideConfigFile: options.configFile)
+        let fileManager = FileManager.default
+        let entries = try ToolFactory(fileManager: fileManager)
+            .loadConfigEntries(overrideConfigFile: options.configFile)
         guard let entry = entries.first(where: { $0.name == id }) else {
             FileHandle.standardError.write(Data("tool \(id) not found\n".utf8))
             throw ExitCode(3)

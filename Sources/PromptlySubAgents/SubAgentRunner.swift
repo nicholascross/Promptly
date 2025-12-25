@@ -10,6 +10,28 @@ struct SubAgentToolSettings: Sendable {
     let excludeTools: [String]
 }
 
+protocol SubAgentCoordinator {
+    func run(
+        messages: [PromptMessage],
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
+    ) async throws -> PromptSessionResult
+}
+
+private struct PrompterCoordinatorAdapter: SubAgentCoordinator {
+    private let coordinator: PrompterCoordinator
+
+    init(configuration: Config, tools: [any ExecutableTool]) throws {
+        coordinator = try PrompterCoordinator(config: configuration, tools: tools)
+    }
+
+    func run(
+        messages: [PromptMessage],
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
+    ) async throws -> PromptSessionResult {
+        try await coordinator.run(messages: messages, onEvent: onEvent)
+    }
+}
+
 struct SubAgentRunner: Sendable {
     private static let baseSystemPrompt = """
 You are a Promptly sub agent running in an isolated session.
@@ -23,32 +45,38 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
     private let toolSettings: SubAgentToolSettings
     private let logDirectoryURL: URL
     private let toolOutput: @Sendable (String) -> Void
+    private let coordinatorFactory: @Sendable ([any ExecutableTool]) throws -> any SubAgentCoordinator
+    private let fileManager: FileManagerProtocol
 
     init(
         configuration: SubAgentConfiguration,
         toolSettings: SubAgentToolSettings,
         logDirectoryURL: URL,
-        toolOutput: @Sendable @escaping (String) -> Void
+        toolOutput: @Sendable @escaping (String) -> Void,
+        fileManager: FileManagerProtocol,
+        coordinatorFactory: (@Sendable ([any ExecutableTool]) throws -> any SubAgentCoordinator)? = nil
     ) {
         self.configuration = configuration
         self.toolSettings = toolSettings
         self.logDirectoryURL = logDirectoryURL.standardizedFileURL
         self.toolOutput = toolOutput
+        self.fileManager = fileManager
+        let resolvedCoordinatorFactory = coordinatorFactory ?? { tools in
+            try PrompterCoordinatorAdapter(configuration: configuration.configuration, tools: tools)
+        }
+        self.coordinatorFactory = resolvedCoordinatorFactory
     }
 
     func run(request: SubAgentToolRequest) async throws -> JSONValue {
         let transcriptLogger = try? SubAgentTranscriptLogger(
-            logsDirectoryURL: logDirectoryURL
+            logsDirectoryURL: logDirectoryURL,
+            fileManager: fileManager
         )
         var didFinishLogging = false
 
         let messages = buildMessages(for: request)
         let tools = try makeTools(transcriptLogger: transcriptLogger)
-
-        let coordinator = try PrompterCoordinator(
-            config: configuration.configuration,
-            tools: tools
-        )
+        let coordinator = try coordinatorFactory(tools)
 
         do {
             let result = try await coordinator.run(
@@ -133,10 +161,11 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         return contextPack.description
     }
 
-    private func makeTools(
+    func makeTools(
         transcriptLogger: SubAgentTranscriptLogger?
     ) throws -> [any ExecutableTool] {
         let toolFactory = ToolFactory(
+            fileManager: fileManager,
             defaultToolsConfigURL: toolSettings.defaultToolsConfigURL,
             localToolsConfigURL: toolSettings.localToolsConfigURL
         )

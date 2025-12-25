@@ -14,7 +14,9 @@ struct ToolList: ParsableCommand {
     var options: ToolConfigOptions
 
     func run() throws {
-        let entries = try ToolFactory().loadConfigEntries(overrideConfigFile: options.configFile)
+        let fileManager = FileManager.default
+        let entries = try ToolFactory(fileManager: fileManager)
+            .loadConfigEntries(overrideConfigFile: options.configFile)
         guard !entries.isEmpty else {
             print("no tools registered")
             return

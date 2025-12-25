@@ -18,8 +18,8 @@ struct ToolRemove: ParsableCommand {
     var options: ToolConfigOptions
 
     func run() throws {
-        let url = ToolFactory().toolsConfigURL(options.configFile)
-        let fileManager = FileManager()
+        let fileManager = FileManager.default
+        let url = ToolFactory(fileManager: fileManager).toolsConfigURL(options.configFile)
         // Load config
         guard
             let data = try? Data(contentsOf: url),

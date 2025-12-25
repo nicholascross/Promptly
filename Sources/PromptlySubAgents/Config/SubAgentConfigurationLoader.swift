@@ -3,9 +3,9 @@ import PromptlyKit
 import PromptlyKitUtils
 
 struct SubAgentConfigurationLoader {
-    private let fileManager: FileManager
+    private let fileManager: FileManagerProtocol
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManagerProtocol) {
         self.fileManager = fileManager
     }
 
@@ -22,10 +22,7 @@ struct SubAgentConfigurationLoader {
 
     func discoverAgentConfigurationURLs(configFileURL: URL) throws -> [URL] {
         let directoryURL = agentsDirectoryURL(configFileURL: configFileURL)
-        var isDirectory: ObjCBool = false
-        guard fileManager.fileExists(atPath: directoryURL.path, isDirectory: &isDirectory),
-              isDirectory.boolValue
-        else {
+        guard fileManager.directoryExists(atPath: directoryURL.path) else {
             return []
         }
 
@@ -71,8 +68,8 @@ struct SubAgentConfigurationLoader {
     }
 
     private func loadJSONValue(from url: URL) throws -> JSONValue {
-        let data = try Data(contentsOf: url)
         do {
+            let data = try fileManager.readData(at: url)
             let value = try JSONDecoder().decode(JSONValue.self, from: data)
             guard case .object = value else {
                 throw SubAgentConfigurationLoaderError.invalidRootValue(url)

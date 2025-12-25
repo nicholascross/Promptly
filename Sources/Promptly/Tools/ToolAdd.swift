@@ -49,8 +49,8 @@ struct ToolAdd: ParsableCommand {
     var optIn: Bool = false
 
     func run() throws {
-        let url = ToolFactory().toolsConfigURL(options.configFile)
-        let fileManager = FileManager()
+        let fileManager = FileManager.default
+        let url = ToolFactory(fileManager: fileManager).toolsConfigURL(options.configFile)
         // Load existing config or start fresh
         var config: ShellCommandConfig
         if

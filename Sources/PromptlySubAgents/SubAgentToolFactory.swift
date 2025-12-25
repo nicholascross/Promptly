@@ -1,10 +1,13 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 
 public struct SubAgentToolFactory {
     private let configurationLoader: SubAgentConfigurationLoader
+    private let fileManager: FileManagerProtocol
 
-    public init(fileManager: FileManager = .default) {
+    public init(fileManager: FileManagerProtocol) {
+        self.fileManager = fileManager
         configurationLoader = SubAgentConfigurationLoader(fileManager: fileManager)
     }
 
@@ -50,7 +53,8 @@ public struct SubAgentToolFactory {
                 configuration: agentConfiguration,
                 toolSettings: toolSettings,
                 logDirectoryURL: logsDirectoryURL,
-                toolOutput: toolOutput
+                toolOutput: toolOutput,
+                fileManager: fileManager
             )
             let tool = SubAgentTool(
                 name: toolName,

@@ -40,10 +40,11 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             toolsFileName: session.toolsFileName
         )
         let toolFactory = ToolFactory(
+            fileManager: fileManager,
             defaultToolsConfigURL: defaultToolsConfigURL,
             localToolsConfigURL: localToolsConfigURL
         )
-        let subAgentToolFactory = SubAgentToolFactory()
+        let subAgentToolFactory = SubAgentToolFactory(fileManager: fileManager)
         let toolProvider: (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool] = { toolOutput in
             let shellTools = try toolFactory.makeTools(
                 config: session.config,
