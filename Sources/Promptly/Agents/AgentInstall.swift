@@ -13,9 +13,13 @@ struct AgentInstall: ParsableCommand {
     var options: AgentConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let agentsDirectoryURL = options.agentsDirectoryURL()
-        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true)
+        try fileManager.createDirectory(
+            at: agentsDirectoryURL,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
 
         guard !DefaultAgentConfigurations.configurations.isEmpty else {
             print("no default agents available")
@@ -32,7 +36,7 @@ struct AgentInstall: ParsableCommand {
                 continue
             }
             let data = try encoder.encode(entry.configuration)
-            try data.write(to: fileURL)
+            try fileManager.writeData(data, to: fileURL)
             print("Installed agent configuration to \(fileURL.path)")
         }
     }

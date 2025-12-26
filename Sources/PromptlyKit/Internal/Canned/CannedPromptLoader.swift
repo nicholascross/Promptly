@@ -2,11 +2,11 @@ import Foundation
 import PromptlyKitUtils
 
 struct CannedPromptLoader {
-    private let fileManager: FileManager
+    private let fileManager: FileManagerProtocol
     private let baseDirectory: String
 
     init(
-        fileManager: FileManager = .default,
+        fileManager: FileManagerProtocol = FileManager.default,
         baseDirectory: String = "~/.config/promptly/canned"
     ) {
         self.fileManager = fileManager
@@ -19,7 +19,7 @@ struct CannedPromptLoader {
         guard fileManager.fileExists(atPath: cannedURL.path) else {
             throw PromptSessionError.cannedPromptNotFound(cannedURL)
         }
-        let data = try Data(contentsOf: cannedURL)
+        let data = try fileManager.readData(at: cannedURL)
         return String(data: data, encoding: .utf8) ?? ""
     }
 }

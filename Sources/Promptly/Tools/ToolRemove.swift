@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import PromptlyKit
 import PromptlyKitTooling
+import PromptlyKitUtils
 
 /// `promptly tool remove` — remove a tool from the registry
 struct ToolRemove: ParsableCommand {
@@ -18,11 +19,11 @@ struct ToolRemove: ParsableCommand {
     var options: ToolConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let url = ToolFactory(fileManager: fileManager).toolsConfigURL(options.configFile)
         // Load config
         guard
-            let data = try? Data(contentsOf: url),
+            let data = try? fileManager.readData(at: url),
             var config = try? JSONDecoder().decode(ShellCommandConfig.self, from: data)
         else {
             FileHandle.standardError.write(Data("tool \(id) not found\n".utf8))
@@ -47,8 +48,9 @@ struct ToolRemove: ParsableCommand {
         let outputData = try encoder.encode(config)
         try fileManager.createDirectory(
             at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
+            attributes: nil
         )
-        try outputData.write(to: url)
+        try fileManager.writeData(outputData, to: url)
     }
 }

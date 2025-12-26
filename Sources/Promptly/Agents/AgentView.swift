@@ -16,7 +16,7 @@ struct AgentView: ParsableCommand {
     var options: AgentConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let agentConfigurationURL = options.agentConfigurationURL(agentName: name)
 
         guard fileManager.fileExists(atPath: agentConfigurationURL.path) else {
@@ -34,7 +34,7 @@ struct AgentView: ParsableCommand {
         }
     }
 
-    private func loadJSONValue(from url: URL, fileManager: FileManager) throws -> JSONValue {
+    private func loadJSONValue(from url: URL, fileManager: FileManagerProtocol) throws -> JSONValue {
         let data = try fileManager.readData(at: url)
         let value = try JSONDecoder().decode(JSONValue.self, from: data)
         guard case .object = value else {

@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKitUtils
 
 public struct Config: Decodable, Sendable {
     /// Model identifier to use for completions.
@@ -55,8 +56,11 @@ public struct Config: Decodable, Sendable {
     }
 
     /// Load configuration from the given file URL.
-    public static func loadConfig(url: URL) throws -> Config {
-        let data = try Data(contentsOf: url)
+    public static func loadConfig(
+        url: URL,
+        fileManager: FileManagerProtocol = FileManager.default
+    ) throws -> Config {
+        let data = try fileManager.readData(at: url)
         return try JSONDecoder().decode(Config.self, from: data)
     }
 

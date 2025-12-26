@@ -3,26 +3,29 @@ import PromptlyKitUtils
 
 public struct PromptSessionBuilder {
     public let input: PromptSessionInput
-    private let fileManager: FileManager
+    private let fileManager: FileManagerProtocol
     private let initialMessageComposer: InitialMessageComposer
     private let standardInputHandler: StandardInputHandler
 
-    public init(input: PromptSessionInput) {
+    public init(
+        input: PromptSessionInput,
+        fileManager: FileManagerProtocol = FileManager.default
+    ) {
         let standardInputHandler = StandardInputHandler()
         let initialMessageComposer = InitialMessageComposer(
-            cannedPromptLoader: CannedPromptLoader(),
+            cannedPromptLoader: CannedPromptLoader(fileManager: fileManager),
             standardInputHandler: standardInputHandler
         )
         self.init(
             input: input,
-            fileManager: .default,
+            fileManager: fileManager,
             initialMessageComposer: initialMessageComposer
         )
     }
 
     init(
         input: PromptSessionInput,
-        fileManager: FileManager,
+        fileManager: FileManagerProtocol,
         initialMessageComposer: InitialMessageComposer
     ) {
         self.input = input
@@ -33,7 +36,7 @@ public struct PromptSessionBuilder {
 
     public func build() throws -> PromptSession {
         let configURL = try resolveConfigURL()
-        let config = try Config.loadConfig(url: configURL)
+        let config = try Config.loadConfig(url: configURL, fileManager: fileManager)
         let initialMessages = try initialMessageComposer.compose(
             cannedContexts: input.cannedContexts,
             contextArgument: input.contextArgument,

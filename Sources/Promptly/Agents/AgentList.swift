@@ -13,7 +13,7 @@ struct AgentList: ParsableCommand {
     var options: AgentConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let agentsDirectoryURL = options.agentsDirectoryURL()
 
         guard fileManager.directoryExists(atPath: agentsDirectoryURL.path) else {

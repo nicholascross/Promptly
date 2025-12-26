@@ -49,12 +49,12 @@ struct ToolAdd: ParsableCommand {
     var optIn: Bool = false
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let url = ToolFactory(fileManager: fileManager).toolsConfigURL(options.configFile)
         // Load existing config or start fresh
         var config: ShellCommandConfig
         if
-            let data = try? Data(contentsOf: url),
+            let data = try? fileManager.readData(at: url),
             let existing = try? JSONDecoder().decode(ShellCommandConfig.self, from: data)
         {
             config = existing
@@ -69,7 +69,7 @@ struct ToolAdd: ParsableCommand {
         // Build the parameters schema
         let parametersSchema: JSONSchema
         if let filePath = parametersFile {
-            let data = try Data(contentsOf: URL(fileURLWithPath: filePath))
+            let data = try fileManager.readData(at: URL(fileURLWithPath: filePath))
             parametersSchema = try JSONDecoder().decode(JSONSchema.self, from: data)
         } else if let params = parameters {
             let data = Data(params.utf8)
@@ -99,8 +99,9 @@ struct ToolAdd: ParsableCommand {
         let outputData = try encoder.encode(config)
         try fileManager.createDirectory(
             at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
+            withIntermediateDirectories: true,
+            attributes: nil
         )
-        try outputData.write(to: url)
+        try fileManager.writeData(outputData, to: url)
     }
 }

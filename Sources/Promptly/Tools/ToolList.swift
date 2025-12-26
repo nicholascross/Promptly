@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import PromptlyKit
 import PromptlyKitTooling
+import PromptlyKitUtils
 
 /// `promptly tool list` — list all tools in a simple table
 struct ToolList: ParsableCommand {
@@ -14,7 +15,7 @@ struct ToolList: ParsableCommand {
     var options: ToolConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let entries = try ToolFactory(fileManager: fileManager)
             .loadConfigEntries(overrideConfigFile: options.configFile)
         guard !entries.isEmpty else {

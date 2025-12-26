@@ -52,7 +52,7 @@ struct AgentAdd: ParsableCommand {
     var force: Bool = false
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let agentsDirectoryURL = options.agentsDirectoryURL()
         let agentConfigurationURL = options.agentConfigurationURL(agentName: name)
 
@@ -89,8 +89,12 @@ struct AgentAdd: ParsableCommand {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let data = try encoder.encode(document)
-        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true)
-        try data.write(to: agentConfigurationURL)
+        try fileManager.createDirectory(
+            at: agentsDirectoryURL,
+            withIntermediateDirectories: true,
+            attributes: nil
+        )
+        try fileManager.writeData(data, to: agentConfigurationURL)
     }
 
     private func apiString(from selection: APISelection?) -> String? {

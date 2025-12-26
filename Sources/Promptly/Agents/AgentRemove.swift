@@ -19,7 +19,7 @@ struct AgentRemove: ParsableCommand {
     var options: AgentConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let agentConfigurationURL = options.agentConfigurationURL(agentName: name)
 
         guard fileManager.fileExists(atPath: agentConfigurationURL.path) else {

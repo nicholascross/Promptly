@@ -3,7 +3,10 @@ import PromptlyKit
 import PromptlyKitUtils
 
 extension Config {
-    static func setupToken(configURL: URL) async throws {
+    static func setupToken(
+        configURL: URL,
+        fileManager: FileManagerProtocol = FileManager.default
+    ) async throws {
         Logger.prompt("Enter a name for your token: ")
         guard let tokenName = readLine(strippingNewline: true), !tokenName.isEmpty else {
             Logger.log("Token name cannot be empty.", level: .error)
@@ -28,11 +31,15 @@ extension Config {
         }
 
         Logger.log("Updating config file with token name...", level: .info)
-        try updateConfig(tokenName: tokenName, configURL: configURL)
+        try updateConfig(tokenName: tokenName, configURL: configURL, fileManager: fileManager)
     }
 
-    private static func updateConfig(tokenName: String, configURL: URL) throws {
-        let raw = try Data(contentsOf: configURL)
+    private static func updateConfig(
+        tokenName: String,
+        configURL: URL,
+        fileManager: FileManagerProtocol
+    ) throws {
+        let raw = try fileManager.readData(at: configURL)
         guard
             var document = try JSONSerialization.jsonObject(with: raw, options: []) as? [String: Any],
             let providerKey = document["provider"] as? String,
@@ -50,6 +57,6 @@ extension Config {
             withJSONObject: document,
             options: [.prettyPrinted]
         )
-        try updatedData.write(to: configURL)
+        try fileManager.writeData(updatedData, to: configURL)
     }
 }

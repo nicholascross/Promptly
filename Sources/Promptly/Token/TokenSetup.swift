@@ -3,7 +3,7 @@ import Foundation
 import PromptlyKit
 import PromptlyKitUtils
 
-private let fileManager = FileManager()
+private let fileManager: FileManagerProtocol = FileManager.default
 
 struct TokenSetup: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -19,7 +19,7 @@ struct TokenSetup: AsyncParsableCommand {
 
     mutating func run() async throws {
         let configURL = try resolveConfigURL()
-        try await Config.setupToken(configURL: configURL)
+        try await Config.setupToken(configURL: configURL, fileManager: fileManager)
     }
 
     private func resolveConfigURL() throws -> URL {

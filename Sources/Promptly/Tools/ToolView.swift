@@ -2,6 +2,7 @@ import ArgumentParser
 import Foundation
 import PromptlyKit
 import PromptlyKitTooling
+import PromptlyKitUtils
 
 /// `promptly tool view <id>` — show details for one tool
 struct ToolView: ParsableCommand {
@@ -17,7 +18,7 @@ struct ToolView: ParsableCommand {
     var options: ToolConfigOptions
 
     func run() throws {
-        let fileManager = FileManager.default
+        let fileManager: FileManagerProtocol = FileManager.default
         let entries = try ToolFactory(fileManager: fileManager)
             .loadConfigEntries(overrideConfigFile: options.configFile)
         guard let entry = entries.first(where: { $0.name == id }) else {
