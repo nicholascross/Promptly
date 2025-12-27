@@ -6,9 +6,15 @@ public struct SubAgentToolFactory {
     private let configurationLoader: SubAgentConfigurationLoader
     private let fileManager: FileManagerProtocol
 
-    public init(fileManager: FileManagerProtocol) {
+    public init(
+        fileManager: FileManagerProtocol,
+        credentialSource: CredentialSource
+    ) {
         self.fileManager = fileManager
-        configurationLoader = SubAgentConfigurationLoader(fileManager: fileManager)
+        configurationLoader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
     }
 
     public func makeTools(

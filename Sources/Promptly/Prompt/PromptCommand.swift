@@ -47,7 +47,10 @@ struct PromptCommand: AsyncParsableCommand {
             defaultToolsConfigURL: defaultToolsConfigURL,
             localToolsConfigURL: localToolsConfigURL
         )
-        let subAgentToolFactory = SubAgentToolFactory(fileManager: fileManager)
+        let subAgentToolFactory = SubAgentToolFactory(
+            fileManager: fileManager,
+            credentialSource: SystemCredentialSource()
+        )
         let runner = PromptCommandLineRunner(
             config: session.config,
             toolProvider: {

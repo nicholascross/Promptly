@@ -41,7 +41,14 @@ public struct Config: Decodable, Sendable {
         api = try container.decodeIfPresent(API.self, forKey: .api) ?? .responses
         responsesURL = try? spec.resolveResponsesURL(providerKey: providerKey)
         chatCompletionsURL = try? spec.resolveChatCompletionsURL(providerKey: providerKey)
-        token = try spec.resolveToken(providerKey: providerKey)
+        guard let credentialSource = decoder.userInfo[.promptlyCredentialSource] as? CredentialSource else {
+            throw ConfigError.missingCredentialSource
+        }
+        token = try credentialSource.resolveToken(
+            providerKey: providerKey,
+            environmentKey: spec.envKey,
+            tokenName: spec.tokenName
+        )
 
         switch api {
         case .responses:
@@ -58,10 +65,13 @@ public struct Config: Decodable, Sendable {
     /// Load configuration from the given file URL.
     public static func loadConfig(
         url: URL,
-        fileManager: FileManagerProtocol = FileManager.default
+        fileManager: FileManagerProtocol = FileManager.default,
+        credentialSource: CredentialSource
     ) throws -> Config {
         let data = try fileManager.readData(at: url)
-        return try JSONDecoder().decode(Config.self, from: data)
+        let decoder = JSONDecoder()
+        decoder.userInfo[.promptlyCredentialSource] = credentialSource
+        return try decoder.decode(Config.self, from: data)
     }
 
     /// Return the effective model identifier, applying any aliases for override or default.

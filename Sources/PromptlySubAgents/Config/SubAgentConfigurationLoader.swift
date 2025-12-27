@@ -4,9 +4,14 @@ import PromptlyKitUtils
 
 struct SubAgentConfigurationLoader {
     private let fileManager: FileManagerProtocol
+    private let credentialSource: CredentialSource
 
-    init(fileManager: FileManagerProtocol) {
+    init(
+        fileManager: FileManagerProtocol,
+        credentialSource: CredentialSource
+    ) {
         self.fileManager = fileManager
+        self.credentialSource = credentialSource
     }
 
     func agentsDirectoryURL(configFileURL: URL) -> URL {
@@ -89,7 +94,7 @@ struct SubAgentConfigurationLoader {
         agentURL: URL
     ) throws -> T {
         do {
-            return try value.decoded(T.self)
+            return try decode(value, as: T.self)
         } catch {
             throw SubAgentConfigurationLoaderError.invalidMergedConfiguration(
                 baseURL: baseURL,
@@ -116,6 +121,16 @@ struct SubAgentConfigurationLoader {
             baseURL: baseURL,
             agentURL: agentURL
         )
+    }
+
+    private func decode<T: Decodable>(
+        _ value: JSONValue,
+        as _: T.Type
+    ) throws -> T {
+        let data = try JSONEncoder().encode(value)
+        let decoder = JSONDecoder()
+        decoder.userInfo[.promptlyCredentialSource] = credentialSource
+        return try decoder.decode(T.self, from: data)
     }
 
     private func merge(base: JSONValue, override: JSONValue) -> JSONValue {

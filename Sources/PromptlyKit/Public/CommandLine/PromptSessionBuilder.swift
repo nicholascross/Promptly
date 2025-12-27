@@ -36,7 +36,11 @@ public struct PromptSessionBuilder {
 
     public func build() throws -> PromptSession {
         let configURL = try resolveConfigURL()
-        let config = try Config.loadConfig(url: configURL, fileManager: fileManager)
+        let config = try Config.loadConfig(
+            url: configURL,
+            fileManager: fileManager,
+            credentialSource: SystemCredentialSource()
+        )
         let initialMessages = try initialMessageComposer.compose(
             cannedContexts: input.cannedContexts,
             contextArgument: input.contextArgument,

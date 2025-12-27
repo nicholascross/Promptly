@@ -92,7 +92,8 @@ let package = Package(
             dependencies: [
                 "PromptlySubAgents",
                 "PromptlyKit",
-                "PromptlyKitUtils"
+                "PromptlyKitUtils",
+                "PromptlyKitTooling"
             ]
         ),
         .executableTarget(

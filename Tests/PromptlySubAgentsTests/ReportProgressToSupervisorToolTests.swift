@@ -33,7 +33,7 @@ struct ReportProgressToSupervisorToolTests {
         #expect(outputs.first?.contains("Working") == true)
 
         let logURL = URL(fileURLWithPath: transcriptLogger.logPath)
-        let entries = try loadJSONLines(from: logURL, fileManager: fileManager)
+        let entries = try fileManager.loadJSONLines(from: logURL)
         let progressEntry = entries.first { entry in
             guard let object = objectValue(entry) else { return false }
             return stringValue(object["eventType"]) == "progress_update"

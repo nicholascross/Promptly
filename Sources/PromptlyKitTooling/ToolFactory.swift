@@ -85,6 +85,11 @@ public struct ToolFactory {
             toolNames.insert(tool.name)
         }
 
+        try validateIncludeFilters(
+            includeTools,
+            toolNames: tools.map { $0.name }
+        )
+
         // Apply include/exclude filters to the merged tools
         var filtered = tools
         if !includeTools.isEmpty {
@@ -231,5 +236,18 @@ public struct ToolFactory {
     private func decodeShellCommandConfig(from url: URL) throws -> ShellCommandConfig {
         let data = try fileManager.readData(at: url)
         return try JSONDecoder().decode(ShellCommandConfig.self, from: data)
+    }
+
+    private func validateIncludeFilters(
+        _ includeTools: [String],
+        toolNames: [String]
+    ) throws {
+        guard !includeTools.isEmpty else { return }
+
+        for include in includeTools {
+            guard toolNames.contains(where: { $0.contains(include) }) else {
+                throw ToolFactoryError.includeFilterMatchesNoTools(filter: include)
+            }
+        }
     }
 }

@@ -197,7 +197,10 @@ public struct SelfTestRunner: Sendable {
     private func loadConfiguration() throws -> Config {
         try ensureConfigurationFileExists()
         do {
-            return try Config.loadConfig(url: configurationFileURL)
+            return try Config.loadConfig(
+                url: configurationFileURL,
+                credentialSource: SystemCredentialSource()
+            )
         } catch {
             throw SelfTestFailure("Configuration could not be loaded: \(error)")
         }
@@ -378,7 +381,10 @@ public struct SelfTestRunner: Sendable {
                 agentName: agentName
             )
 
-            let toolFactory = SubAgentToolFactory(fileManager: fileManager)
+            let toolFactory = SubAgentToolFactory(
+                fileManager: fileManager,
+                credentialSource: SystemCredentialSource()
+            )
             let defaultToolsConfigurationURL = ToolFactory.defaultToolsConfigURL(
                 fileManager: fileManager,
                 toolsFileName: toolsFileName

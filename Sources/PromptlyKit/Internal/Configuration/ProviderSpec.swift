@@ -1,5 +1,4 @@
 import Foundation
-import PromptlyKitUtils
 
 struct ProviderSpec: Codable {
     let name: String
@@ -19,30 +18,6 @@ struct ProviderSpec: Codable {
 
     func resolveChatCompletionsURL(providerKey: String) throws -> URL {
         try resolveURL(providerKey: providerKey, kind: .chatCompletions)
-    }
-
-    func resolveToken(providerKey: String) throws -> String {
-        if
-            let envKey = envKey,
-            let envToken = ProcessInfo.processInfo.environment[envKey]
-        {
-            return envToken
-        } else if let tokenName = tokenName {
-            do {
-                let keychainToken = try Keychain().genericPassword(
-                    account: tokenName,
-                    service: "Promptly"
-                )
-                guard let keychainToken else {
-                    throw ConfigError.noKeychainToken(providerKey)
-                }
-                return keychainToken
-            } catch {
-                throw ConfigError.keychainError(providerKey, error)
-            }
-        } else {
-            throw ConfigError.noTokenConfiguration(providerKey)
-        }
     }
 
     private enum PathKind {

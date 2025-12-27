@@ -5,6 +5,7 @@ enum ConfigError: Error, LocalizedError {
     case noKeychainToken(String)
     case keychainError(String, Error)
     case noTokenConfiguration(String)
+    case missingCredentialSource
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +17,8 @@ enum ConfigError: Error, LocalizedError {
             return "Unable to fetch keychain token for provider '\(key)': \(error)"
         case let .noTokenConfiguration(key):
             return "No token configuration for provider '\(key)'"
+        case .missingCredentialSource:
+            return "Credential source was not provided during configuration decoding."
         }
     }
 }
