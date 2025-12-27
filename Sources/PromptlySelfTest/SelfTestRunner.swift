@@ -376,28 +376,26 @@ public struct SelfTestRunner: Sendable {
     private func verifySubAgentLifecycle() async throws -> JSONValue {
         return try await withTemporaryConfigurationCopy { temporaryConfigurationFileURL, agentsDirectoryURL in
             let agentName = "Self Test Agent"
+            let toolsConfiguration = try createTemporarySubAgentToolsConfiguration(
+                directoryURL: temporaryConfigurationFileURL.deletingLastPathComponent()
+            )
             let agentConfigurationURL = try createTemporaryAgentConfiguration(
                 agentsDirectoryURL: agentsDirectoryURL,
-                agentName: agentName
+                agentName: agentName,
+                toolsFileName: toolsConfiguration.toolsFileName,
+                includeTools: [toolsConfiguration.toolName]
             )
 
             let toolFactory = SubAgentToolFactory(
                 fileManager: fileManager,
                 credentialSource: SystemCredentialSource()
             )
-            let defaultToolsConfigurationURL = ToolFactory.defaultToolsConfigURL(
-                fileManager: fileManager,
-                toolsFileName: toolsFileName
-            )
-            let localToolsConfigurationURL = ToolFactory.localToolsConfigURL(
-                fileManager: fileManager,
-                toolsFileName: toolsFileName
-            )
+            let toolsConfigurationURL = toolsConfiguration.toolsConfigURL
 
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
-                defaultToolsConfigURL: defaultToolsConfigurationURL,
-                localToolsConfigURL: localToolsConfigurationURL,
+                defaultToolsConfigURL: toolsConfigurationURL,
+                localToolsConfigURL: toolsConfigurationURL,
                 includeTools: [],
                 excludeTools: [],
                 toolOutput: { _ in }
@@ -433,10 +431,13 @@ public struct SelfTestRunner: Sendable {
 
     private func createTemporaryAgentConfiguration(
         agentsDirectoryURL: URL,
-        agentName: String
+        agentName: String,
+        toolsFileName: String,
+        includeTools: [String]
     ) throws -> URL {
         let toolConfiguration: [String: JSONValue] = [
-            "include": .array([.string("self-test-disabled")])
+            "toolsFileName": .string(toolsFileName),
+            "include": .array(includeTools.map { .string($0) })
         ]
         let agentDefinition: [String: JSONValue] = [
             "name": .string(agentName),
@@ -455,6 +456,17 @@ public struct SelfTestRunner: Sendable {
         let data = try JSONEncoder().encode(document)
         try fileManager.writeData(data, to: agentConfigurationURL)
         return agentConfigurationURL
+    }
+
+    private func createTemporarySubAgentToolsConfiguration(
+        directoryURL: URL
+    ) throws -> (toolsFileName: String, toolsConfigURL: URL, toolName: String) {
+        let toolsFileName = "self-test-tools"
+        let toolsConfigURL = directoryURL.appendingPathComponent("\(toolsFileName).json")
+        let configuration = subAgentToolConfiguration()
+        let data = try JSONEncoder().encode(configuration)
+        try fileManager.writeData(data, to: toolsConfigURL)
+        return (toolsFileName: toolsFileName, toolsConfigURL: toolsConfigURL, toolName: "SelfTestListDirectory")
     }
 
     private func validateSubAgentPayload(_ payload: JSONValue) throws {
@@ -707,6 +719,28 @@ public struct SelfTestRunner: Sendable {
         )
 
         return ShellCommandConfig(shellCommands: [listDirectoryTool, dateTimeTool])
+    }
+
+    private func subAgentToolConfiguration() -> ShellCommandConfig {
+        let emptySchema = JSONSchema.object(
+            requiredProperties: [:],
+            optionalProperties: [:],
+            description: nil
+        )
+
+        let listDirectoryTool = ShellCommandConfigEntry(
+            name: "SelfTestListDirectory",
+            description: "List entries in the current working directory.",
+            executable: "/bin/ls",
+            echoOutput: nil,
+            truncateOutput: nil,
+            argumentTemplate: [["-1"]],
+            exclusiveArgumentTemplate: nil,
+            optIn: nil,
+            parameters: emptySchema
+        )
+
+        return ShellCommandConfig(shellCommands: [listDirectoryTool])
     }
 
     private func normalizedIdentifier(from name: String) -> String {
