@@ -1,15 +1,15 @@
 public struct PromptRunResult: Sendable {
     public let promptTranscript: [PromptTranscriptEntry]
-    public let historyEntries: [PromptHistoryEntry]
+    public let conversationEntries: [PromptMessage]
     public let resumeToken: String?
 
     public init(
         promptTranscript: [PromptTranscriptEntry],
-        historyEntries: [PromptHistoryEntry] = [],
+        conversationEntries: [PromptMessage] = [],
         resumeToken: String? = nil
     ) {
         self.promptTranscript = promptTranscript
-        self.historyEntries = historyEntries
+        self.conversationEntries = conversationEntries
         self.resumeToken = resumeToken
     }
 }

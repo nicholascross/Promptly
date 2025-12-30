@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitUtils
 import TerminalUI
 
 @MainActor
@@ -85,8 +86,8 @@ final class PromptlyTerminalUIController {
                 toolOutputArea.text = ""
                 conversation.append(PromptMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
-                _ = try await coordinator.run(
-                    messages: conversation,
+                _ = try await coordinator.prompt(
+                    context: .messages(conversation),
                     onEvent: { [weak self] event in
                         await self?.handle(event: event)
                     }
@@ -117,6 +118,8 @@ final class PromptlyTerminalUIController {
             switch message.content {
             case let .text(str):
                 content = str
+            case let .json(value):
+                content = formatJson(value)
             case .empty:
                 content = ""
             }
@@ -125,6 +128,15 @@ final class PromptlyTerminalUIController {
         Task { @MainActor in
             messagesArea.text = text
         }
+    }
+
+    private func formatJson(_ value: JSONValue) -> String {
+        guard let data = try? JSONEncoder().encode(value),
+              let text = String(data: data, encoding: .utf8)
+        else {
+            return ""
+        }
+        return text
     }
 
     private func handle(event: PromptStreamEvent) async {

@@ -1,7 +1,7 @@
 import Foundation
 import PromptlyKitUtils
 
-struct ChatCompletionsPromptEndpoint: PromptEndpoint {
+struct ChatCompletionsPromptEndpoint: PromptTurnEndpoint {
     private let factory: ChatCompletionsRequestFactory
     private let transport: any NetworkTransport
     private let encoder: JSONEncoder

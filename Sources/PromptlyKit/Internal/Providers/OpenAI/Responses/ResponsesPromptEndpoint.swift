@@ -1,7 +1,7 @@
 import Foundation
 import PromptlyKitUtils
 
-struct ResponsesPromptEndpoint: PromptEndpoint {
+struct ResponsesPromptEndpoint: PromptTurnEndpoint {
     private let client: ResponsesClient
     private let encoder: JSONEncoder
     private let decoder: JSONDecoder

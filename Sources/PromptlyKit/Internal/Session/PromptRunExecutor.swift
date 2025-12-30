@@ -1,12 +1,12 @@
 import Foundation
 
 struct PromptRunExecutor {
-    private let endpoint: any PromptEndpoint
+    private let endpoint: any PromptTurnEndpoint
     private let tools: [any ExecutableTool]
     private let configuration: Configuration
 
     init(
-        endpoint: any PromptEndpoint,
+        endpoint: any PromptTurnEndpoint,
         tools: [any ExecutableTool],
         configuration: Configuration = Configuration()
     ) {
@@ -17,19 +17,16 @@ struct PromptRunExecutor {
 
     func run(
         entry: PromptEntry,
-        initialHistoryEntries: [PromptHistoryEntry] = [],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptRunResult {
         let transcriptRecorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
-        let historyRecorder = PromptHistoryRecorder(
-            initialEntries: initialHistoryEntries
-        )
+        let conversationRecorder = PromptConversationRecorder()
 
         let eventHandler: @Sendable (PromptStreamEvent) async -> Void = { event in
             await transcriptRecorder.handle(event)
-            await historyRecorder.handle(event)
+            await conversationRecorder.handle(event)
             await onEvent(event)
         }
 
@@ -62,10 +59,10 @@ struct PromptRunExecutor {
         }
 
         let promptTranscript = await transcriptRecorder.finish()
-        let historyEntries = await historyRecorder.finish()
+        let conversationEntries = await conversationRecorder.finish()
         return PromptRunResult(
             promptTranscript: promptTranscript,
-            historyEntries: historyEntries,
+            conversationEntries: conversationEntries,
             resumeToken: latestResumeToken
         )
     }

@@ -90,8 +90,8 @@ public struct PromptConsoleRunner {
                 onToolCallCompleted: writeToStandardOutput
             )
         )
-        let result = try await coordinator.run(
-            messages: conversation,
+        let result = try await coordinator.prompt(
+            context: .messages(conversation),
             onEvent: { event in
                 await outputHandler.handle(event)
             }

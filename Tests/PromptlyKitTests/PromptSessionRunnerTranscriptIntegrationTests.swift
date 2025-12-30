@@ -113,7 +113,7 @@ private struct StaticTool: ExecutableTool {
     }
 }
 
-private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
+private final class FinalTextOnlyAfterToolCallEndpoint: PromptTurnEndpoint {
     func prompt(
         entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
@@ -146,7 +146,7 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
     }
 }
 
-private final class StreamedFinalTextEndpoint: PromptEndpoint {
+private final class StreamedFinalTextEndpoint: PromptTurnEndpoint {
     func prompt(
         entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void

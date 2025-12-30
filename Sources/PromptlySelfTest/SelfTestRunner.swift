@@ -279,7 +279,10 @@ public struct SelfTestRunner: Sendable {
                 content: .text("Confirm the self test ran, start with the required word, and include the token.")
             )
         ]
-        let result = try await coordinator.run(messages: messages, onEvent: { _ in })
+        let result = try await coordinator.prompt(
+            context: .messages(messages),
+            onEvent: { _ in }
+        )
         guard let message = latestAssistantMessage(from: result.promptTranscript) else {
             throw SelfTestFailure("Model did not return an assistant message.")
         }
@@ -394,7 +397,10 @@ public struct SelfTestRunner: Sendable {
                     )
                 )
             ]
-            let result = try await coordinator.run(messages: messages, onEvent: { _ in })
+            let result = try await coordinator.prompt(
+                context: .messages(messages),
+                onEvent: { _ in }
+            )
 
             let toolOutputs = try collectToolOutputs(
                 names: ["ListDirectory", "ShowDateTime"],
@@ -497,7 +503,10 @@ public struct SelfTestRunner: Sendable {
                 )
             ]
 
-            let result = try await coordinator.run(messages: messages, onEvent: { _ in })
+            let result = try await coordinator.prompt(
+                context: .messages(messages),
+                onEvent: { _ in }
+            )
             let toolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
                 transcript: result.promptTranscript
@@ -620,7 +629,10 @@ public struct SelfTestRunner: Sendable {
                     content: .text("Start the incident intake.")
                 )
             ]
-            let firstResult = try await firstCoordinator.run(messages: firstMessages, onEvent: { _ in })
+            let firstResult = try await firstCoordinator.prompt(
+                context: .messages(firstMessages),
+                onEvent: { _ in }
+            )
             if let firstOutput = latestAssistantMessage(from: firstResult.promptTranscript) {
                 let trimmedOutput = firstOutput.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedOutput.isEmpty {
@@ -676,7 +688,10 @@ public struct SelfTestRunner: Sendable {
                     content: .text("Continue the incident intake.")
                 )
             ]
-            let secondResult = try await secondCoordinator.run(messages: secondMessages, onEvent: { _ in })
+            let secondResult = try await secondCoordinator.prompt(
+                context: .messages(secondMessages),
+                onEvent: { _ in }
+            )
             let secondToolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
                 transcript: secondResult.promptTranscript

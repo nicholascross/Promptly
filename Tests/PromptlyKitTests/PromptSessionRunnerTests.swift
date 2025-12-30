@@ -74,7 +74,7 @@ private actor EventCollector {
     }
 }
 
-private final class FakePromptEndpoint: PromptEndpoint {
+private final class FakePromptEndpoint: PromptTurnEndpoint {
     private var didStart = false
 
     func prompt(

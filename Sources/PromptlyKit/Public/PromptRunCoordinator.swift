@@ -1,8 +1,8 @@
 import Foundation
 import PromptlyKitUtils
 
-/// Public entry point for the run/event architecture.
-public struct PromptRunCoordinator {
+/// Public entry point for coordinating prompt runs and stream events.
+public struct PromptRunCoordinator: PromptEndpoint {
     private let runner: PromptRunExecutor
 
     public init(
@@ -18,7 +18,7 @@ public struct PromptRunCoordinator {
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
 
-        let endpoint: any PromptEndpoint
+        let endpoint: any PromptTurnEndpoint
         switch api {
         case .responses:
             guard let responsesURL = config.responsesURL else {
@@ -53,27 +53,25 @@ public struct PromptRunCoordinator {
         runner = PromptRunExecutor(endpoint: endpoint, tools: tools)
     }
 
-    public func run(
-        messages: [PromptMessage],
-        historyEntries: [PromptHistoryEntry]? = nil,
-        resumeToken: String? = nil,
+    public func prompt(
+        context: PromptRunContext,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptRunResult {
-        let resolvedHistoryEntries = historyEntries ?? messages.map { PromptHistoryEntry.message($0) }
-        let entry: PromptEntry
-        if let resumeToken {
-            entry = .resume(
-                context: .responses(previousResponseIdentifier: resumeToken),
-                requestMessages: messages.asChatMessages()
+        switch context {
+        case let .messages(entries):
+            let messages = try entries.asChatMessages()
+            return try await runner.run(
+                entry: .initial(messages: messages),
+                onEvent: onEvent
             )
-        } else {
-            entry = .initial(messages: try resolvedHistoryEntries.asChatMessages())
+        case let .resume(resumeToken, requestMessages):
+            return try await runner.run(
+                entry: .resume(
+                    context: .responses(previousResponseIdentifier: resumeToken),
+                    requestMessages: try requestMessages.asChatMessages()
+                ),
+                onEvent: onEvent
+            )
         }
-
-        return try await runner.run(
-            entry: entry,
-            initialHistoryEntries: resolvedHistoryEntries,
-            onEvent: onEvent
-        )
     }
 }

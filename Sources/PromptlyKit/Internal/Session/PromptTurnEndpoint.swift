@@ -1,6 +1,6 @@
 import Foundation
 
-protocol PromptEndpoint {
+protocol PromptTurnEndpoint {
     func prompt(
         entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void

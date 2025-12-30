@@ -35,8 +35,8 @@ public struct SuggestionService {
             PromptMessage(role: .user, content: .text(userPrompt))
         ]
 
-        let result = try await coordinator.run(
-            messages: messages,
+        let result = try await coordinator.prompt(
+            context: .messages(messages),
             onEvent: { _ in }
         )
 

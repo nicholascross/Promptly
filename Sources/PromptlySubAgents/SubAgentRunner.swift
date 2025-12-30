@@ -3,7 +3,7 @@ import PromptlyKit
 import PromptlyKitTooling
 import PromptlyKitUtils
 
-private struct PromptRunCoordinatorAdapter: SubAgentCoordinator {
+private struct PromptRunCoordinatorAdapter: PromptEndpoint {
     private let coordinator: PromptRunCoordinator
 
     init(configuration: Config, tools: [any ExecutableTool], apiOverride: Config.API?) throws {
@@ -14,16 +14,12 @@ private struct PromptRunCoordinatorAdapter: SubAgentCoordinator {
         )
     }
 
-    func run(
-        requestMessages: [PromptMessage],
-        historyEntries: [PromptHistoryEntry],
-        resumeToken: String?,
+    func prompt(
+        context: PromptRunContext,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptRunResult {
-        try await coordinator.run(
-            messages: requestMessages,
-            historyEntries: historyEntries,
-            resumeToken: resumeToken,
+        try await coordinator.prompt(
+            context: context,
             onEvent: onEvent
         )
     }
@@ -42,7 +38,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
     private let toolSettings: SubAgentToolSettings
     private let logDirectoryURL: URL
     private let toolOutput: @Sendable (String) -> Void
-    private let coordinatorFactory: @Sendable ([any ExecutableTool]) throws -> any SubAgentCoordinator
+    private let coordinatorFactory: @Sendable ([any ExecutableTool]) throws -> any PromptEndpoint
     private let fileManager: FileManagerProtocol
     private let sessionState: SubAgentSessionState
     private let apiOverride: Config.API?
@@ -55,7 +51,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         fileManager: FileManagerProtocol,
         sessionState: SubAgentSessionState,
         apiOverride: Config.API? = nil,
-        coordinatorFactory: (@Sendable ([any ExecutableTool]) throws -> any SubAgentCoordinator)? = nil
+        coordinatorFactory: (@Sendable ([any ExecutableTool]) throws -> any PromptEndpoint)? = nil
     ) {
         self.configuration = configuration
         self.toolSettings = toolSettings
@@ -84,13 +80,10 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         let userMessage = makeUserMessage(for: request)
         let resumeIdentifier = normalizeResumeIdentifier(request.resumeId)
         let resumeEntry = try await resolveResumeEntry(for: resumeIdentifier)
-        let requestMessages: [PromptMessage]
-        let historyEntries: [PromptHistoryEntry]
-        let resumeToken: String?
+        let context: PromptRunContext
 
         let effectiveApi = apiOverride ?? configuration.configuration.api
         if let resumeEntry {
-            historyEntries = resumeEntry.historyEntries + [.message(userMessage)]
             switch effectiveApi {
             case .responses:
                 guard let storedResumeToken = resumeEntry.resumeToken else {
@@ -99,29 +92,28 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
                         resumeId: resumeEntry.resumeId
                     )
                 }
-                requestMessages = [userMessage]
-                resumeToken = storedResumeToken
+                context = .resume(
+                    resumeToken: storedResumeToken,
+                    requestMessages: [userMessage]
+                )
             case .chatCompletions:
-                requestMessages = [userMessage]
-                resumeToken = nil
+                context = .messages(
+                    resumeEntry.conversationEntries + [userMessage]
+                )
             }
         } else {
             let systemMessage = makeSystemMessage()
-            requestMessages = [systemMessage, userMessage]
-            historyEntries = [
-                .message(systemMessage),
-                .message(userMessage)
-            ]
-            resumeToken = nil
+            context = .messages([
+                systemMessage,
+                userMessage
+            ])
         }
         let tools = try makeTools(transcriptLogger: transcriptLogger)
         let coordinator = try coordinatorFactory(tools)
 
         do {
-            let result = try await coordinator.run(
-                requestMessages: requestMessages,
-                historyEntries: historyEntries,
-                resumeToken: resumeToken,
+            let result = try await coordinator.prompt(
+                context: context,
                 onEvent: { event in
                     await transcriptLogger?.handle(event: event)
                 }
@@ -139,10 +131,16 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
             )
             payloadWithLogPath = removeResumeIdIfNotNeeded(from: payloadWithLogPath)
             if needsMoreInformation(in: payloadWithLogPath) {
+                let mergedConversationEntries: [PromptMessage]
+                if let resumeEntry, effectiveApi == .responses {
+                    mergedConversationEntries = resumeEntry.conversationEntries + result.conversationEntries
+                } else {
+                    mergedConversationEntries = result.conversationEntries
+                }
                 let storedResumeEntry = await sessionState.storeResumeEntry(
                     resumeId: resumeIdentifier,
                     agentName: configuration.definition.name,
-                    historyEntries: result.historyEntries,
+                    conversationEntries: mergedConversationEntries,
                     resumeToken: result.resumeToken
                 )
                 payloadWithLogPath = attachResumeId(
