@@ -1,14 +1,15 @@
 import Foundation
+import PromptlyKit
 import PromptlyKitUtils
 
-public struct PromptSessionBuilder {
-    public let input: PromptSessionInput
+public struct PromptConsoleBuilder {
+    public let input: PromptConsoleInput
     private let fileManager: FileManagerProtocol
     private let initialMessageComposer: InitialMessageComposer
     private let standardInputHandler: StandardInputHandler
 
     public init(
-        input: PromptSessionInput,
+        input: PromptConsoleInput,
         fileManager: FileManagerProtocol = FileManager.default
     ) {
         let standardInputHandler = StandardInputHandler()
@@ -24,7 +25,7 @@ public struct PromptSessionBuilder {
     }
 
     init(
-        input: PromptSessionInput,
+        input: PromptConsoleInput,
         fileManager: FileManagerProtocol,
         initialMessageComposer: InitialMessageComposer
     ) {
@@ -34,7 +35,7 @@ public struct PromptSessionBuilder {
         self.standardInputHandler = initialMessageComposer.standardInputHandler
     }
 
-    public func build() throws -> PromptSession {
+    public func build() throws -> PromptConsoleRun {
         let configURL = try resolveConfigURL()
         let config = try Config.loadConfig(
             url: configURL,
@@ -47,7 +48,7 @@ public struct PromptSessionBuilder {
             explicitMessages: input.explicitMessages
         )
 
-        return PromptSession(
+        return PromptConsoleRun(
             config: config,
             toolsFileName: input.toolsFileName,
             includeTools: input.includeTools,
@@ -62,7 +63,7 @@ public struct PromptSessionBuilder {
     private func resolveConfigURL() throws -> URL {
         let configURL = URL(fileURLWithPath: input.configFilePath.expandingTilde).standardizedFileURL
         guard fileManager.fileExists(atPath: configURL.path) else {
-            throw PrompterError.missingConfiguration
+            throw PromptError.missingConfiguration
         }
         return configURL
     }

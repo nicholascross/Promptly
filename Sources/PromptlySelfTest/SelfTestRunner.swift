@@ -259,7 +259,7 @@ public struct SelfTestRunner: Sendable {
     private func verifyBasicConversation(configuration: Config) async throws -> String {
         let token = UUID().uuidString
         let seedWord = randomSeedWord()
-        let coordinator = try PrompterCoordinator(
+        let coordinator = try PromptRunCoordinator(
             config: configuration,
             apiOverride: apiOverride
         )
@@ -371,7 +371,7 @@ public struct SelfTestRunner: Sendable {
                 throw SelfTestFailure("ShowDateTime tool was not loaded for tool invocation test.")
             }
 
-            let coordinator = try PrompterCoordinator(
+            let coordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
                 tools: [listTool, dateTool]
@@ -471,7 +471,7 @@ public struct SelfTestRunner: Sendable {
                 throw SelfTestFailure("Expected sub agent tool was not created.")
             }
 
-            let coordinator = try PrompterCoordinator(
+            let coordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
                 tools: [agentTool]
@@ -595,7 +595,7 @@ public struct SelfTestRunner: Sendable {
             }
 
             emit("Supervisor incident step 1: requesting missing details.")
-            let firstCoordinator = try PrompterCoordinator(
+            let firstCoordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
                 tools: [agentTool]
@@ -647,7 +647,7 @@ public struct SelfTestRunner: Sendable {
             emit("Case handle: \(requestOutcome.resumeIdentifier)")
 
             emit("Supervisor incident step 2: providing details.")
-            let secondCoordinator = try PrompterCoordinator(
+            let secondCoordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
                 tools: [agentTool]

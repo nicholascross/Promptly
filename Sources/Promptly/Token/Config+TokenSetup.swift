@@ -46,7 +46,7 @@ extension Config {
             var providers = document["providers"] as? [String: Any],
             var spec = providers[providerKey] as? [String: Any]
         else {
-            throw PrompterError.invalidConfiguration
+            throw PromptError.invalidConfiguration
         }
 
         spec["tokenName"] = tokenName

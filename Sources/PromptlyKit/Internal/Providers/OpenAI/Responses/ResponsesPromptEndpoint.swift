@@ -30,7 +30,7 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
 
         case let .resume(context, requestMessages):
             guard case let .responses(previousResponseIdentifier) = context else {
-                throw PrompterError.invalidConfiguration
+                throw PromptError.invalidConfiguration
             }
 
             return try await runOnce(
@@ -41,7 +41,7 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
 
         case let .toolCallResults(context, toolOutputs):
             guard case let .responses(previousResponseIdentifier) = context else {
-                throw PrompterError.invalidConfiguration
+                throw PromptError.invalidConfiguration
             }
 
             let outputItems = try toolOutputs.map { output in
@@ -117,13 +117,13 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
             )
 
         case .failed:
-            throw PrompterError.apiError(response.errorMessage ?? "The response failed.")
+            throw PromptError.apiError(response.errorMessage ?? "The response failed.")
 
         case .cancelled:
-            throw PrompterError.apiError("The response was cancelled.")
+            throw PromptError.apiError("The response was cancelled.")
 
         case .inProgress:
-            throw PrompterError.apiError("The response did not finish.")
+            throw PromptError.apiError("The response did not finish.")
         }
     }
 
@@ -140,7 +140,7 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
     private func encodeJSONValue(_ value: JSONValue) throws -> String {
         let data = try encoder.encode(value)
         guard let text = String(data: data, encoding: .utf8) else {
-            throw PrompterError.apiError("Failed to encode tool output.")
+            throw PromptError.apiError("Failed to encode tool output.")
         }
         return text
     }

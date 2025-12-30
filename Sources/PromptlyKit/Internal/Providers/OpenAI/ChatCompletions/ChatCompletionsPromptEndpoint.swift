@@ -28,11 +28,11 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
             // Chat Completions is stateless, so there is no server-side response identifier to resume from.
             // Resuming is only supported by the Responses endpoint using a previous response identifier.
             // The equivalent for Chat Completions is to send the full message history as new input.
-            throw PrompterError.resumeNotSupported
+            throw PromptError.resumeNotSupported
 
         case let .toolCallResults(context, toolOutputs):
             guard case let .chatCompletions(messages) = context else {
-                throw PrompterError.invalidConfiguration
+                throw PromptError.invalidConfiguration
             }
 
             var updatedMessages = messages
@@ -62,7 +62,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
             let http = response as? HTTPURLResponse,
             200 ... 299 ~= http.statusCode
         else {
-            throw PrompterError.invalidResponse(statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
+            throw PromptError.invalidResponse(statusCode: (response as? HTTPURLResponse)?.statusCode ?? -1)
         }
 
         let processor = ChatCompletionsResponseProcessor()
@@ -121,7 +121,7 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
     private func encodeJSONValue(_ value: JSONValue) throws -> String {
         let data = try encoder.encode(value)
         guard let text = String(data: data, encoding: .utf8) else {
-            throw PrompterError.apiError("Failed to encode tool output.")
+            throw PromptError.apiError("Failed to encode tool output.")
         }
         return text
     }

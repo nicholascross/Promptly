@@ -25,7 +25,7 @@ struct TokenSetup: AsyncParsableCommand {
     private func resolveConfigURL() throws -> URL {
         let configURL = URL(fileURLWithPath: configFile.expandingTilde).standardizedFileURL
         guard fileManager.fileExists(atPath: configURL.path) else {
-            throw PrompterError.missingConfiguration
+            throw PromptError.missingConfiguration
         }
         return configURL
     }

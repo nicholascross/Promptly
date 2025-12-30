@@ -236,7 +236,7 @@ struct SubAgentRunnerTests {
         let transcript = [
             PromptTranscriptEntry.assistant(message: "No return tool call")
         ]
-        let stubCoordinator = StubCoordinator(result: PromptSessionResult(promptTranscript: transcript))
+        let stubCoordinator = StubCoordinator(result: PromptRunResult(promptTranscript: transcript))
 
         let runner = SubAgentRunner(
             configuration: configuration,
@@ -344,18 +344,18 @@ struct SubAgentRunnerTests {
                 output: returnPayload
             )
         ]
-        let conversationEntries = [
-            PromptConversationEntry.message(
+        let historyEntries = [
+            PromptHistoryEntry.message(
                 PromptMessage(role: .system, content: .text("System"))
             ),
-            PromptConversationEntry.message(
+            PromptHistoryEntry.message(
                 PromptMessage(role: .user, content: .text("User"))
             )
         ]
         let stubCoordinator = StubCoordinator(
-            result: PromptSessionResult(
+            result: PromptRunResult(
                 promptTranscript: transcript,
-                conversationEntries: conversationEntries,
+                historyEntries: historyEntries,
                 resumeToken: "response-1"
             )
         )
@@ -393,7 +393,7 @@ struct SubAgentRunnerTests {
         let storedEntry = await sessionState.entry(for: resumeId)
         #expect(storedEntry?.agentName == "Resume Agent")
         #expect(storedEntry?.resumeToken == "response-1")
-        #expect(storedEntry?.conversationEntries.count == conversationEntries.count)
+        #expect(storedEntry?.historyEntries.count == historyEntries.count)
     }
 
     @Test
@@ -448,9 +448,9 @@ struct SubAgentRunnerTests {
             )
         ]
         let stubCoordinator = StubCoordinator(
-            result: PromptSessionResult(
+            result: PromptRunResult(
                 promptTranscript: transcript,
-                conversationEntries: [],
+                historyEntries: [],
                 resumeToken: nil
             )
         )
@@ -525,7 +525,7 @@ struct SubAgentRunnerTests {
             excludeTools: []
         )
 
-        let stubCoordinator = StubCoordinator(result: PromptSessionResult(promptTranscript: []))
+        let stubCoordinator = StubCoordinator(result: PromptRunResult(promptTranscript: []))
         let runner = SubAgentRunner(
             configuration: configuration,
             toolSettings: toolSettings,
@@ -598,11 +598,11 @@ struct SubAgentRunnerTests {
         _ = await sessionState.storeResumeEntry(
             resumeId: "22222222-2222-2222-2222-222222222222",
             agentName: "Resume Agent",
-            conversationEntries: [],
+            historyEntries: [],
             resumeToken: nil
         )
 
-        let stubCoordinator = StubCoordinator(result: PromptSessionResult(promptTranscript: []))
+        let stubCoordinator = StubCoordinator(result: PromptRunResult(promptTranscript: []))
         let runner = SubAgentRunner(
             configuration: configuration,
             toolSettings: toolSettings,
@@ -639,14 +639,14 @@ struct SubAgentRunnerTests {
 }
 
 private struct StubCoordinator: SubAgentCoordinator {
-    let result: PromptSessionResult
+    let result: PromptRunResult
 
     func run(
         requestMessages: [PromptMessage],
-        conversationEntries: [PromptConversationEntry],
+        historyEntries: [PromptHistoryEntry],
         resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptSessionResult {
+    ) async throws -> PromptRunResult {
         result
     }
 }

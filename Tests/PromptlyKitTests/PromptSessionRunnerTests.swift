@@ -3,16 +3,16 @@ import Foundation
 import Testing
 import PromptlyKitUtils
 
-struct PromptSessionRunnerTests {
+struct PromptRunExecutorTests {
     @Test
     func executesToolCallsAndContinuesUntilComplete() async throws {
         let endpoint = FakePromptEndpoint()
         let tool = StaticTool(output: .string("tool-output"))
-        let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
+        let runner = PromptRunExecutor(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
         let result = try await runner.run(
-            messages: [ChatMessage(role: .user, content: .text("hi"))],
+            entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
             onEvent: { event in
                 await events.append(event)
             }
@@ -77,38 +77,41 @@ private actor EventCollector {
 private final class FakePromptEndpoint: PromptEndpoint {
     private var didStart = false
 
-    func start(
-        messages: [ChatMessage],
-        resumeToken: String?,
+    func prompt(
+        entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        didStart = true
-        await onEvent(.assistantTextDelta("Running..."))
-        return PromptTurn(
-            continuation: .responses(previousResponseId: "r1"),
-            toolCalls: [
-                ToolCallRequest(
-                    id: "call_1",
-                    name: "Echo",
-                    arguments: .object(["text": .string("hello")])
-                )
-            ],
-            resumeToken: resumeToken
-        )
-    }
-
-    func continueSession(
-        continuation: PromptContinuation,
-        toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptTurn {
-        #expect(didStart == true)
-        #expect(toolOutputs.count == 1)
-        await onEvent(.assistantTextDelta("Done."))
-        return PromptTurn(
-            continuation: nil,
-            toolCalls: [],
-            resumeToken: nil
-        )
+        switch entry {
+        case .initial:
+            didStart = true
+            await onEvent(.assistantTextDelta("Running..."))
+            return PromptTurn(
+                context: .responses(previousResponseIdentifier: "r1"),
+                toolCalls: [
+                    ToolCallRequest(
+                        id: "call_1",
+                        name: "Echo",
+                        arguments: .object(["text": .string("hello")])
+                    )
+                ],
+                resumeToken: nil
+            )
+        case let .toolCallResults(context, toolOutputs):
+            #expect(didStart == true)
+            #expect(toolOutputs.count == 1)
+            guard case .responses = context else {
+                Issue.record("Expected responses context for tool continuation.")
+                return PromptTurn(context: nil, toolCalls: [], resumeToken: nil)
+            }
+            await onEvent(.assistantTextDelta("Done."))
+            return PromptTurn(
+                context: nil,
+                toolCalls: [],
+                resumeToken: nil
+            )
+        case .resume:
+            Issue.record("Resume not expected in this test.")
+            return PromptTurn(context: nil, toolCalls: [], resumeToken: nil)
+        }
     }
 }

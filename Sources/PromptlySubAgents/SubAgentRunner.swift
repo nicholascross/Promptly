@@ -3,27 +3,11 @@ import PromptlyKit
 import PromptlyKitTooling
 import PromptlyKitUtils
 
-struct SubAgentToolSettings: Sendable {
-    let defaultToolsConfigURL: URL
-    let localToolsConfigURL: URL
-    let includeTools: [String]
-    let excludeTools: [String]
-}
-
-protocol SubAgentCoordinator {
-    func run(
-        requestMessages: [PromptMessage],
-        conversationEntries: [PromptConversationEntry],
-        resumeToken: String?,
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptSessionResult
-}
-
-private struct PrompterCoordinatorAdapter: SubAgentCoordinator {
-    private let coordinator: PrompterCoordinator
+private struct PromptRunCoordinatorAdapter: SubAgentCoordinator {
+    private let coordinator: PromptRunCoordinator
 
     init(configuration: Config, tools: [any ExecutableTool], apiOverride: Config.API?) throws {
-        coordinator = try PrompterCoordinator(
+        coordinator = try PromptRunCoordinator(
             config: configuration,
             apiOverride: apiOverride,
             tools: tools
@@ -32,13 +16,13 @@ private struct PrompterCoordinatorAdapter: SubAgentCoordinator {
 
     func run(
         requestMessages: [PromptMessage],
-        conversationEntries: [PromptConversationEntry],
+        historyEntries: [PromptHistoryEntry],
         resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptSessionResult {
+    ) async throws -> PromptRunResult {
         try await coordinator.run(
-            requestMessages: requestMessages,
-            conversationEntries: conversationEntries,
+            messages: requestMessages,
+            historyEntries: historyEntries,
             resumeToken: resumeToken,
             onEvent: onEvent
         )
@@ -81,7 +65,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         self.sessionState = sessionState
         self.apiOverride = apiOverride
         let resolvedCoordinatorFactory = coordinatorFactory ?? { tools in
-            try PrompterCoordinatorAdapter(
+            try PromptRunCoordinatorAdapter(
                 configuration: configuration.configuration,
                 tools: tools,
                 apiOverride: apiOverride
@@ -101,12 +85,12 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         let resumeIdentifier = normalizeResumeIdentifier(request.resumeId)
         let resumeEntry = try await resolveResumeEntry(for: resumeIdentifier)
         let requestMessages: [PromptMessage]
-        let conversationEntries: [PromptConversationEntry]
+        let historyEntries: [PromptHistoryEntry]
         let resumeToken: String?
 
         let effectiveApi = apiOverride ?? configuration.configuration.api
         if let resumeEntry {
-            conversationEntries = resumeEntry.conversationEntries + [.message(userMessage)]
+            historyEntries = resumeEntry.historyEntries + [.message(userMessage)]
             switch effectiveApi {
             case .responses:
                 guard let storedResumeToken = resumeEntry.resumeToken else {
@@ -124,7 +108,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         } else {
             let systemMessage = makeSystemMessage()
             requestMessages = [systemMessage, userMessage]
-            conversationEntries = [
+            historyEntries = [
                 .message(systemMessage),
                 .message(userMessage)
             ]
@@ -136,7 +120,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         do {
             let result = try await coordinator.run(
                 requestMessages: requestMessages,
-                conversationEntries: conversationEntries,
+                historyEntries: historyEntries,
                 resumeToken: resumeToken,
                 onEvent: { event in
                     await transcriptLogger?.handle(event: event)
@@ -158,7 +142,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
                 let storedResumeEntry = await sessionState.storeResumeEntry(
                     resumeId: resumeIdentifier,
                     agentName: configuration.definition.name,
-                    conversationEntries: result.conversationEntries,
+                    historyEntries: result.historyEntries,
                     resumeToken: result.resumeToken
                 )
                 payloadWithLogPath = attachResumeId(

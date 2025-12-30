@@ -72,7 +72,7 @@ final class PromptlyTerminalUIController {
 
         let tools = try toolProvider(toolOutputHandler)
 
-        let coordinator = try PrompterCoordinator(
+        let coordinator = try PromptRunCoordinator(
             config: config,
             modelOverride: modelOverride,
             apiOverride: apiOverride,

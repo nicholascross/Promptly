@@ -1,10 +1,10 @@
 import Foundation
 
-actor PromptConversationRecorder {
+actor PromptHistoryRecorder {
     private var assistantBuffer = ""
-    private var entries: [PromptConversationEntry]
+    private var entries: [PromptHistoryEntry]
 
-    init(initialEntries: [PromptConversationEntry] = []) {
+    init(initialEntries: [PromptHistoryEntry] = []) {
         entries = initialEntries
     }
 
@@ -23,7 +23,7 @@ actor PromptConversationRecorder {
         }
     }
 
-    func finish() -> [PromptConversationEntry] {
+    func finish() -> [PromptHistoryEntry] {
         flushAssistantBufferIfNeeded()
         return entries
     }

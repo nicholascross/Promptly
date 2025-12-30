@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PromptlyConsole
 import PromptlyKit
 import PromptlyKitTooling
 import PromptlyKitUtils
@@ -18,7 +19,7 @@ struct UserInterfaceCommand: AsyncParsableCommand {
         let configurationFileURL = URL(
             fileURLWithPath: promptOptions.configFile.expandingTilde
         ).standardizedFileURL
-        let sessionInput = PromptSessionInput(
+        let runInput = PromptConsoleInput(
             configFilePath: promptOptions.configFile,
             toolsFileName: promptOptions.tools,
             includeTools: promptOptions.includeTools,
@@ -29,15 +30,15 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             modelOverride: promptOptions.model,
             apiOverride: promptOptions.apiSelection?.configValue
         )
-        let session = try PromptSessionBuilder(input: sessionInput).build()
+        let run = try PromptConsoleBuilder(input: runInput).build()
         let fileManager = FileManager.default
         let defaultToolsConfigURL = ToolFactory.defaultToolsConfigURL(
             fileManager: fileManager,
-            toolsFileName: session.toolsFileName
+            toolsFileName: run.toolsFileName
         )
         let localToolsConfigURL = ToolFactory.localToolsConfigURL(
             fileManager: fileManager,
-            toolsFileName: session.toolsFileName
+            toolsFileName: run.toolsFileName
         )
         let toolFactory = ToolFactory(
             fileManager: fileManager,
@@ -51,9 +52,9 @@ struct UserInterfaceCommand: AsyncParsableCommand {
         )
         let toolProvider: (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool] = { toolOutput in
             let shellTools = try toolFactory.makeTools(
-                config: session.config,
-                includeTools: session.includeTools,
-                excludeTools: session.excludeTools,
+                config: run.config,
+                includeTools: run.includeTools,
+                excludeTools: run.excludeTools,
                 toolOutput: toolOutput
             )
             let subAgentTools = try subAgentToolFactory.makeTools(
@@ -61,20 +62,20 @@ struct UserInterfaceCommand: AsyncParsableCommand {
                 defaultToolsConfigURL: defaultToolsConfigURL,
                 localToolsConfigURL: localToolsConfigURL,
                 sessionState: subAgentSessionState,
-                apiOverride: session.apiOverride,
-                includeTools: session.includeTools,
-                excludeTools: session.excludeTools,
+                apiOverride: run.apiOverride,
+                includeTools: run.includeTools,
+                excludeTools: run.excludeTools,
                 toolOutput: toolOutput
             )
             return shellTools + subAgentTools
         }
         let runner = await PromptTerminalUIRunner(
-            config: session.config,
+            config: run.config,
             toolProvider: toolProvider,
-            modelOverride: session.modelOverride,
-            apiOverride: session.apiOverride,
-            standardInputHandler: session.standardInputHandler
+            modelOverride: run.modelOverride,
+            apiOverride: run.apiOverride,
+            standardInputHandler: run.standardInputHandler
         )
-        try await runner.run(initialMessages: session.initialMessages)
+        try await runner.run(initialMessages: run.initialMessages)
     }
 }

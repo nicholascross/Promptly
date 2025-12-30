@@ -2,19 +2,6 @@ import Foundation
 import PromptlyKitUtils
 
 actor PromptTranscriptRecorder {
-    struct Configuration: Sendable {
-        enum ToolOutputPolicy: Sendable {
-            case include
-            case tombstone
-        }
-
-        var toolOutputPolicy: ToolOutputPolicy
-
-        init(toolOutputPolicy: ToolOutputPolicy = .tombstone) {
-            self.toolOutputPolicy = toolOutputPolicy
-        }
-    }
-
     private struct PendingToolCall {
         let id: String?
         let name: String

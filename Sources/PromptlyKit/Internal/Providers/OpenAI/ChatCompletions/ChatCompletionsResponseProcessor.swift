@@ -2,12 +2,6 @@ import Foundation
 import PromptlyKitUtils
 
 actor ChatCompletionsResponseProcessor {
-    enum Event: Sendable {
-        case content(String)
-        case toolCall(id: String, name: String, args: JSONValue)
-        case stop
-    }
-
     private let prefix = "data: "
 
     private var pendingToolId: String?

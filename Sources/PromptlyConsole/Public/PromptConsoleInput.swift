@@ -1,4 +1,6 @@
-public struct PromptSessionInput {
+import PromptlyKit
+
+public struct PromptConsoleInput {
     public let configFilePath: String
     public let toolsFileName: String
     public let includeTools: [String]

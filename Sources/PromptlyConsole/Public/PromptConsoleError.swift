@@ -1,6 +1,6 @@
 import Foundation
 
-public enum PromptSessionError: Error, LocalizedError {
+public enum PromptConsoleError: Error, LocalizedError {
     case missingInput
     case cannedPromptNotFound(URL)
 

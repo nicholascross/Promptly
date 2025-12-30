@@ -1,14 +1,6 @@
 import Foundation
 
-struct PromptSessionRunner {
-    struct Configuration: Sendable {
-        let maximumToolIterations: Int
-
-        init(maximumToolIterations: Int = 8) {
-            self.maximumToolIterations = max(0, maximumToolIterations)
-        }
-    }
-
+struct PromptRunExecutor {
     private let endpoint: any PromptEndpoint
     private let tools: [any ExecutableTool]
     private let configuration: Configuration
@@ -25,19 +17,19 @@ struct PromptSessionRunner {
 
     func run(
         entry: PromptEntry,
-        initialConversationEntries: [PromptConversationEntry] = [],
+        initialHistoryEntries: [PromptHistoryEntry] = [],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptSessionResult {
+    ) async throws -> PromptRunResult {
         let transcriptRecorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
-        let conversationRecorder = PromptConversationRecorder(
-            initialEntries: initialConversationEntries
+        let historyRecorder = PromptHistoryRecorder(
+            initialEntries: initialHistoryEntries
         )
 
         let eventHandler: @Sendable (PromptStreamEvent) async -> Void = { event in
             await transcriptRecorder.handle(event)
-            await conversationRecorder.handle(event)
+            await historyRecorder.handle(event)
             await onEvent(event)
         }
 
@@ -48,7 +40,7 @@ struct PromptSessionRunner {
         while !turn.toolCalls.isEmpty {
             toolIterations += 1
             if toolIterations > configuration.maximumToolIterations {
-                throw PromptSessionRunnerError.toolIterationLimitExceeded(limit: configuration.maximumToolIterations)
+                throw PromptRunExecutorError.toolIterationLimitExceeded(limit: configuration.maximumToolIterations)
             }
 
             let toolOutputs = try await executeTools(
@@ -57,7 +49,7 @@ struct PromptSessionRunner {
             )
 
             guard let context = turn.context else {
-                throw PromptSessionRunnerError.missingContinuationContext
+                throw PromptRunExecutorError.missingContinuationContext
             }
 
             turn = try await endpoint.prompt(
@@ -70,10 +62,10 @@ struct PromptSessionRunner {
         }
 
         let promptTranscript = await transcriptRecorder.finish()
-        let conversationEntries = await conversationRecorder.finish()
-        return PromptSessionResult(
+        let historyEntries = await historyRecorder.finish()
+        return PromptRunResult(
             promptTranscript: promptTranscript,
-            conversationEntries: conversationEntries,
+            historyEntries: historyEntries,
             resumeToken: latestResumeToken
         )
     }

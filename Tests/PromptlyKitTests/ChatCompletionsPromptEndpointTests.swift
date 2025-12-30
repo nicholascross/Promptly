@@ -28,9 +28,8 @@ struct ChatCompletionsPromptEndpointTests {
             encoder: JSONEncoder()
         )
 
-        let turn = try await endpoint.start(
-            messages: [ChatMessage(role: .user, content: .text("hi"))],
-            resumeToken: nil,
+        let turn = try await endpoint.prompt(
+            entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
             onEvent: { _ in }
         )
 
@@ -38,7 +37,7 @@ struct ChatCompletionsPromptEndpointTests {
         #expect(turn.toolCalls.first?.id == "call_1")
         #expect(turn.toolCalls.first?.name == "MyTool")
 
-        guard case let .chatCompletions(messages)? = turn.continuation else {
+        guard case let .chatCompletions(messages)? = turn.context else {
             Issue.record("Expected chatCompletions continuation with messages")
             return
         }

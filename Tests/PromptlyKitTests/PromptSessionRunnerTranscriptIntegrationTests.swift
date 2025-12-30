@@ -3,17 +3,17 @@ import Foundation
 import Testing
 import PromptlyKitUtils
 
-struct PromptSessionRunnerTranscriptIntegrationTests {
+struct PromptRunExecutorTranscriptIntegrationTests {
     @Test
     func includesAssistantTextAfterToolCalls() async throws {
         let endpoint = FinalTextOnlyAfterToolCallEndpoint()
         let tool = StaticTool(output: .string("tool-output"))
-        let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
+        let runner = PromptRunExecutor(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
 
         _ = try await runner.run(
-            messages: [ChatMessage(role: .user, content: .text("hi"))],
+            entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
             onEvent: { event in
                 await events.append(event)
             }
@@ -60,12 +60,12 @@ struct PromptSessionRunnerTranscriptIntegrationTests {
     func doesNotDuplicateAssistantTextWhenStreamed() async throws {
         let endpoint = StreamedFinalTextEndpoint()
         let tool = StaticTool(output: .string("tool-output"))
-        let runner = PromptSessionRunner(endpoint: endpoint, tools: [tool])
+        let runner = PromptRunExecutor(endpoint: endpoint, tools: [tool])
 
         let events = EventCollector()
 
         _ = try await runner.run(
-            messages: [ChatMessage(role: .user, content: .text("hi"))],
+            entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
             onEvent: { event in
                 await events.append(event)
             }
@@ -114,69 +114,67 @@ private struct StaticTool: ExecutableTool {
 }
 
 private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
-    func start(
-        messages: [ChatMessage],
-        resumeToken: String?,
+    func prompt(
+        entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        await onEvent(.assistantTextDelta("Preparing..."))
-        return PromptTurn(
-            continuation: .responses(previousResponseId: "r1"),
-            toolCalls: [
-                ToolCallRequest(
-                    id: "call_1",
-                    name: "Echo",
-                    arguments: .object(["text": .string("hello")])
-                )
-            ],
-            resumeToken: resumeToken
-        )
-    }
-
-    func continueSession(
-        continuation: PromptContinuation,
-        toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptTurn {
-        await onEvent(.assistantTextDelta("All done."))
-        return PromptTurn(
-            continuation: nil,
-            toolCalls: [],
-            resumeToken: nil
-        )
+        switch entry {
+        case .initial:
+            await onEvent(.assistantTextDelta("Preparing..."))
+            return PromptTurn(
+                context: .responses(previousResponseIdentifier: "r1"),
+                toolCalls: [
+                    ToolCallRequest(
+                        id: "call_1",
+                        name: "Echo",
+                        arguments: .object(["text": .string("hello")])
+                    )
+                ],
+                resumeToken: nil
+            )
+        case .toolCallResults:
+            await onEvent(.assistantTextDelta("All done."))
+            return PromptTurn(
+                context: nil,
+                toolCalls: [],
+                resumeToken: nil
+            )
+        case .resume:
+            Issue.record("Resume not expected in this test.")
+            return PromptTurn(context: nil, toolCalls: [], resumeToken: nil)
+        }
     }
 }
 
 private final class StreamedFinalTextEndpoint: PromptEndpoint {
-    func start(
-        messages: [ChatMessage],
-        resumeToken: String?,
+    func prompt(
+        entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        await onEvent(.assistantTextDelta("Preparing..."))
-        return PromptTurn(
-            continuation: .responses(previousResponseId: "r1"),
-            toolCalls: [
-                ToolCallRequest(
-                    id: "call_1",
-                    name: "Echo",
-                    arguments: .object(["text": .string("hello")])
-                )
-            ],
-            resumeToken: resumeToken
-        )
-    }
-
-    func continueSession(
-        continuation: PromptContinuation,
-        toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptTurn {
-        await onEvent(.assistantTextDelta("All done."))
-        return PromptTurn(
-            continuation: nil,
-            toolCalls: [],
-            resumeToken: nil
-        )
+        switch entry {
+        case .initial:
+            await onEvent(.assistantTextDelta("Preparing..."))
+            return PromptTurn(
+                context: .responses(previousResponseIdentifier: "r1"),
+                toolCalls: [
+                    ToolCallRequest(
+                        id: "call_1",
+                        name: "Echo",
+                        arguments: .object(["text": .string("hello")])
+                    )
+                ],
+                resumeToken: nil
+            )
+        case .toolCallResults:
+            await onEvent(.assistantTextDelta("All done."))
+            return PromptTurn(
+                context: nil,
+                toolCalls: [],
+                resumeToken: nil
+            )
+        case .resume:
+            Issue.record("Resume not expected in this test.")
+            return PromptTurn(context: nil, toolCalls: [], resumeToken: nil)
+        }
     }
 }

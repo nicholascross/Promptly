@@ -6,7 +6,7 @@ struct ResponseStreamCollector {
 
     private(set) var streamedOutputs: [Int: String] = [:]
     private var finalResponse: APIResponse?
-    private var failure: PrompterError?
+    private var failure: PromptError?
     private var responseId: String?
 
     init(decoder: JSONDecoder, onTextStream: @escaping @Sendable (String) async -> Void) {
@@ -88,15 +88,15 @@ struct ResponseStreamCollector {
                 finalResponse = response
             }
             let message = payload.error?.message ?? "The response failed."
-            failure = PrompterError.apiError(message)
+            failure = PromptError.apiError(message)
         case "response.cancelled":
             if let response = payload.response {
                 finalResponse = response
             }
-            failure = PrompterError.apiError("The response was cancelled.")
+            failure = PromptError.apiError("The response was cancelled.")
         case "response.error":
             let message = payload.error?.message ?? "The response failed."
-            failure = PrompterError.apiError(message)
+            failure = PromptError.apiError(message)
         default:
             // TODO: unknown event type, consider logging
             // https://platform.openai.com/docs/api-reference/responses-streaming/response

@@ -1,9 +1,9 @@
 import Foundation
 import PromptlyKitUtils
 
-/// Public entry point for the session/event architecture.
-public struct PrompterCoordinator {
-    private let runner: PromptSessionRunner
+/// Public entry point for the run/event architecture.
+public struct PromptRunCoordinator {
+    private let runner: PromptRunExecutor
 
     public init(
         config: Config,
@@ -22,7 +22,7 @@ public struct PrompterCoordinator {
         switch api {
         case .responses:
             guard let responsesURL = config.responsesURL else {
-                throw PrompterError.invalidConfiguration
+                throw PromptError.invalidConfiguration
             }
             let factory = ResponsesRequestFactory(
                 responsesURL: responsesURL,
@@ -37,7 +37,7 @@ public struct PrompterCoordinator {
 
         case .chatCompletions:
             guard let chatURL = config.chatCompletionsURL else {
-                throw PrompterError.invalidConfiguration
+                throw PromptError.invalidConfiguration
             }
             let factory = ChatCompletionsRequestFactory(
                 chatCompletionURL: chatURL,
@@ -50,41 +50,29 @@ public struct PrompterCoordinator {
             endpoint = ChatCompletionsPromptEndpoint(factory: factory, transport: transport, encoder: encoder)
         }
 
-        runner = PromptSessionRunner(endpoint: endpoint, tools: tools)
+        runner = PromptRunExecutor(endpoint: endpoint, tools: tools)
     }
 
     public func run(
         messages: [PromptMessage],
+        historyEntries: [PromptHistoryEntry]? = nil,
+        resumeToken: String? = nil,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptSessionResult {
-        let conversationEntries = messages.map { PromptConversationEntry.message($0) }
-        return try await run(
-            requestMessages: messages,
-            conversationEntries: conversationEntries,
-            resumeToken: nil,
-            onEvent: onEvent
-        )
-    }
-
-    public func run(
-        requestMessages: [PromptMessage],
-        conversationEntries: [PromptConversationEntry],
-        resumeToken: String?,
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptSessionResult {
+    ) async throws -> PromptRunResult {
+        let resolvedHistoryEntries = historyEntries ?? messages.map { PromptHistoryEntry.message($0) }
         let entry: PromptEntry
         if let resumeToken {
             entry = .resume(
                 context: .responses(previousResponseIdentifier: resumeToken),
-                requestMessages: requestMessages.asChatMessages()
+                requestMessages: messages.asChatMessages()
             )
         } else {
-            entry = .initial(messages: try conversationEntries.asChatMessages())
+            entry = .initial(messages: try resolvedHistoryEntries.asChatMessages())
         }
 
         return try await runner.run(
             entry: entry,
-            initialConversationEntries: conversationEntries,
+            initialHistoryEntries: resolvedHistoryEntries,
             onEvent: onEvent
         )
     }

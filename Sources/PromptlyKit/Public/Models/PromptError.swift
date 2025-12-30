@@ -1,6 +1,6 @@
 import Foundation
 
-public enum PrompterError: Error {
+public enum PromptError: Error {
     case tokenNotSpecified
     case invalidConfiguration
     case resumeNotSupported

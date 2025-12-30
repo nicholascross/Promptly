@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyKit
 import PromptlyKitUtils
 
 struct InitialMessageComposer {

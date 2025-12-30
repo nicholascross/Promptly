@@ -1,10 +1,5 @@
 import Foundation
 
-struct DefaultAgentConfiguration {
-    let fileName: String
-    let configuration: AgentConfigurationDocument
-}
-
 enum DefaultAgentConfigurations {
     static let configurations: [DefaultAgentConfiguration] = [
         DefaultAgentConfiguration(

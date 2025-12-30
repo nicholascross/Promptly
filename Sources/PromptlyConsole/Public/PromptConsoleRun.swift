@@ -1,6 +1,7 @@
+import PromptlyKit
 import PromptlyKitUtils
 
-public struct PromptSession {
+public struct PromptConsoleRun {
     public let config: Config
     public let toolsFileName: String
     public let includeTools: [String]

@@ -31,16 +31,15 @@ struct ResponsesPromptEndpointTests {
         let endpoint = ResponsesPromptEndpoint(client: client, encoder: encoder, decoder: decoder)
 
         let events = EventCollector()
-        let turn = try await endpoint.start(
-            messages: [ChatMessage(role: .user, content: .text("hi"))],
-            resumeToken: nil,
+        let turn = try await endpoint.prompt(
+            entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
             onEvent: { event in
                 await events.append(event)
             }
         )
 
         #expect(turn.toolCalls.isEmpty)
-        #expect(turn.continuation == nil)
+        #expect(turn.context == nil)
 
         let snapshot = await events.snapshot()
         #expect(snapshot.contains { event in
@@ -74,9 +73,8 @@ struct ResponsesPromptEndpointTests {
         let client = ResponsesClient(factory: requestFactory, decoder: decoder, transport: transport)
         let endpoint = ResponsesPromptEndpoint(client: client, encoder: encoder, decoder: decoder)
 
-        let turn = try await endpoint.start(
-            messages: [ChatMessage(role: .user, content: .text("hi"))],
-            resumeToken: nil,
+        let turn = try await endpoint.prompt(
+            entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
             onEvent: { _ in }
         )
 
@@ -84,11 +82,11 @@ struct ResponsesPromptEndpointTests {
         #expect(turn.toolCalls.first?.id == "call_1")
         #expect(turn.toolCalls.first?.name == "Echo")
 
-        guard case let .responses(previousResponseId)? = turn.continuation else {
+        guard case let .responses(previousResponseIdentifier)? = turn.context else {
             Issue.record("Expected responses continuation")
             return
         }
-        #expect(previousResponseId == "r2")
+        #expect(previousResponseIdentifier == "r2")
     }
 }
 

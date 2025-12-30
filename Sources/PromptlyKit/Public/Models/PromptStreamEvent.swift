@@ -1,7 +1,7 @@
 import Foundation
 import PromptlyKitUtils
 
-/// Provider-neutral events produced while running a prompt session.
+/// Provider-neutral events produced while running a prompt.
 ///
 /// This type is intended to be stable for reuse across different clients (command line, UI, tests),
 /// while provider-specific request/response DTOs remain strongly typed and internal to adapters.
@@ -15,4 +15,3 @@ public enum PromptStreamEvent: Sendable {
     /// A tool finished executing and produced output.
     case toolCallCompleted(id: String?, name: String, output: JSONValue)
 }
-

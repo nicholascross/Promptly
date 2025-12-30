@@ -16,14 +16,14 @@ public actor SubAgentSessionState {
     func storeResumeEntry(
         resumeId: String?,
         agentName: String,
-        conversationEntries: [PromptConversationEntry],
+        historyEntries: [PromptHistoryEntry],
         resumeToken: String?
     ) -> SubAgentResumeEntry {
         if let resumeId, let existing = resumeEntries[resumeId] {
             let updated = SubAgentResumeEntry(
                 resumeId: resumeId,
                 agentName: agentName,
-                conversationEntries: conversationEntries,
+                historyEntries: historyEntries,
                 resumeToken: resumeToken,
                 createdAt: existing.createdAt
             )
@@ -35,19 +35,11 @@ public actor SubAgentSessionState {
         let entry = SubAgentResumeEntry(
             resumeId: newResumeId,
             agentName: agentName,
-            conversationEntries: conversationEntries,
+            historyEntries: historyEntries,
             resumeToken: resumeToken,
             createdAt: dateProvider()
         )
         resumeEntries[newResumeId] = entry
         return entry
     }
-}
-
-struct SubAgentResumeEntry: Sendable {
-    let resumeId: String
-    let agentName: String
-    let conversationEntries: [PromptConversationEntry]
-    let resumeToken: String?
-    let createdAt: Date
 }

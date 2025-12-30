@@ -4,12 +4,12 @@ import PromptlyKitUtils
 
 /// A service that suggests regular expression patterns by querying a language model.
 public struct SuggestionService {
-    private let coordinator: PrompterCoordinator
+    private let coordinator: PromptRunCoordinator
 
     public init(
         config: Config
     ) throws {
-        coordinator = try PrompterCoordinator(config: config)
+        coordinator = try PromptRunCoordinator(config: config)
     }
 
     public func suggestPatterns(

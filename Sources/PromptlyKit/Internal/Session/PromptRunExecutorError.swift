@@ -1,6 +1,6 @@
 import Foundation
 
-enum PromptSessionRunnerError: Error, LocalizedError, Sendable {
+enum PromptRunExecutorError: Error, LocalizedError, Sendable {
     case toolIterationLimitExceeded(limit: Int)
     case missingContinuationContext
 

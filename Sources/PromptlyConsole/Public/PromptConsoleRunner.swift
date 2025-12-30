@@ -1,7 +1,8 @@
 import Darwin
+import PromptlyKit
 import PromptlyKitUtils
 
-public struct PromptCommandLineRunner {
+public struct PromptConsoleRunner {
     public let config: Config
     public let toolProvider: () throws -> [any ExecutableTool]
     public let modelOverride: String?
@@ -27,7 +28,7 @@ public struct PromptCommandLineRunner {
 
     public func run(initialMessages: [PromptMessage]) async throws {
         let availableTools = try toolProvider()
-        let coordinator = try PrompterCoordinator(
+        let coordinator = try PromptRunCoordinator(
             config: config,
             modelOverride: modelOverride,
             apiOverride: apiOverride,
@@ -35,7 +36,7 @@ public struct PromptCommandLineRunner {
         )
 
         if initialMessages.isEmpty && !interactive {
-            throw PromptSessionError.missingInput
+            throw PromptConsoleError.missingInput
         }
 
         var conversation = initialMessages
@@ -54,7 +55,7 @@ public struct PromptCommandLineRunner {
     }
 
     private func continueInteractivelyIfNeeded(
-        coordinator: PrompterCoordinator,
+        coordinator: PromptRunCoordinator,
         initialMessages: [PromptMessage]
     ) async throws {
         guard interactive else { return }
@@ -75,7 +76,7 @@ public struct PromptCommandLineRunner {
     }
 
     private func runOnce(
-        coordinator: PrompterCoordinator,
+        coordinator: PromptRunCoordinator,
         conversation: [PromptMessage]
     ) async throws -> [PromptMessage] {
         let writeToStandardOutput: @Sendable (String) async -> Void = { text in

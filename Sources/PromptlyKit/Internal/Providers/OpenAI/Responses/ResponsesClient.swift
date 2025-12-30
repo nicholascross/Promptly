@@ -46,12 +46,12 @@ struct ResponsesClient {
     private func send(_ request: URLRequest) async throws -> APIResponse {
         let (data, response) = try await transport.data(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw PrompterError.invalidResponse(statusCode: -1)
+            throw PromptError.invalidResponse(statusCode: -1)
         }
 
         guard 200 ... 299 ~= http.statusCode else {
             let message = decodeErrorMessage(from: data) ?? "HTTP status \(http.statusCode)"
-            throw PrompterError.apiError(message)
+            throw PromptError.apiError(message)
         }
 
         return try decoder.decode(APIResponse.self, from: data)
@@ -63,7 +63,7 @@ struct ResponsesClient {
     ) async throws -> ResponseResult {
         let (lines, response) = try await transport.lineStream(for: request)
         guard let http = response as? HTTPURLResponse else {
-            throw PrompterError.invalidResponse(statusCode: -1)
+            throw PromptError.invalidResponse(statusCode: -1)
         }
 
         guard 200 ... 299 ~= http.statusCode else {
@@ -73,7 +73,7 @@ struct ResponsesClient {
                 payload += "\n"
             }
             let message = decodeErrorMessage(from: Data(payload.utf8)) ?? "HTTP status \(http.statusCode)"
-            throw PrompterError.apiError(message)
+            throw PromptError.apiError(message)
         }
 
         var collector = ResponseStreamCollector(
@@ -122,7 +122,7 @@ struct ResponsesClient {
             )
         }
 
-        throw PrompterError.apiError("Streaming response missing terminal event.")
+        throw PromptError.apiError("Streaming response missing terminal event.")
     }
 
     private func decodeErrorMessage(from data: Data) -> String? {
