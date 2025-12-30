@@ -98,8 +98,9 @@ public struct PromptConsoleRunner {
         )
 
         var updatedConversation = conversation
-        let assistantMessages = result.promptTranscript.compactMap { entry -> String? in
-            guard case let .assistant(message) = entry else { return nil }
+        let assistantMessages = result.conversationEntries.compactMap { entry -> String? in
+            guard entry.role == .assistant else { return nil }
+            guard case let .text(message) = entry.content else { return nil }
             return message
         }
         if !assistantMessages.isEmpty {

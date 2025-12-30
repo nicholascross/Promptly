@@ -10,46 +10,45 @@ struct PromptRunExecutorTranscriptIntegrationTests {
         let tool = StaticTool(output: .string("tool-output"))
         let runner = PromptRunExecutor(endpoint: endpoint, tools: [tool])
 
-        let events = EventCollector()
-
-        _ = try await runner.run(
+        let result = try await runner.run(
             entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
-            onEvent: { event in
-                await events.append(event)
-            }
+            onEvent: { _ in }
         )
+        let conversationEntries = result.conversationEntries
 
-        let transcriptRecorder = PromptTranscriptRecorder(
-            configuration: .init(toolOutputPolicy: .include)
-        )
-        for event in await events.snapshot() {
-            await transcriptRecorder.handle(event)
-        }
+        #expect(conversationEntries.count == 4)
 
-        let transcript = await transcriptRecorder.finish()
-
-        #expect(transcript.count == 3)
-
-        if case let .assistant(message) = transcript[0] {
+        if case let .text(message) = conversationEntries[0].content {
+            #expect(conversationEntries[0].role == .assistant)
             #expect(message == "Preparing...")
         } else {
             Issue.record("Expected assistant message entry.")
         }
 
-        if case let .toolCall(id, name, arguments, output) = transcript[1] {
-            #expect(id == "call_1")
-            #expect(name == "Echo")
-            if case let .object(object)? = arguments {
-                expectString(object["text"], equals: "hello")
-            } else {
-                Issue.record("Expected tool call arguments object.")
-            }
-            expectString(output, equals: "tool-output")
+        guard let toolCalls = conversationEntries[1].toolCalls,
+              let toolCall = toolCalls.first else {
+            Issue.record("Expected assistant tool call entry.")
+            return
+        }
+        #expect(conversationEntries[1].role == .assistant)
+        #expect(toolCall.id == "call_1")
+        #expect(toolCall.name == "Echo")
+        if case let .object(object) = toolCall.arguments {
+            expectString(object["text"], equals: "hello")
         } else {
-            Issue.record("Expected tool call entry.")
+            Issue.record("Expected tool call arguments object.")
         }
 
-        if case let .assistant(message) = transcript[2] {
+        #expect(conversationEntries[2].role == .tool)
+        #expect(conversationEntries[2].toolCallId == "call_1")
+        if case let .json(output) = conversationEntries[2].content {
+            expectString(output, equals: "tool-output")
+        } else {
+            Issue.record("Expected tool output content.")
+        }
+
+        if case let .text(message) = conversationEntries[3].content {
+            #expect(conversationEntries[3].role == .assistant)
             #expect(message == "All done.")
         } else {
             Issue.record("Expected final assistant message entry.")
@@ -62,42 +61,17 @@ struct PromptRunExecutorTranscriptIntegrationTests {
         let tool = StaticTool(output: .string("tool-output"))
         let runner = PromptRunExecutor(endpoint: endpoint, tools: [tool])
 
-        let events = EventCollector()
-
-        _ = try await runner.run(
+        let result = try await runner.run(
             entry: .initial(messages: [ChatMessage(role: .user, content: .text("hi"))]),
-            onEvent: { event in
-                await events.append(event)
-            }
+            onEvent: { _ in }
         )
-
-        let transcriptRecorder = PromptTranscriptRecorder(
-            configuration: .init(toolOutputPolicy: .include)
-        )
-        for event in await events.snapshot() {
-            await transcriptRecorder.handle(event)
-        }
-
-        let transcript = await transcriptRecorder.finish()
-
-        let assistantMessages = transcript.compactMap { entry -> String? in
-            if case let .assistant(message) = entry { return message }
-            return nil
+        let assistantMessages = result.conversationEntries.compactMap { entry -> String? in
+            guard entry.role == .assistant else { return nil }
+            guard case let .text(message) = entry.content else { return nil }
+            return message
         }
 
         #expect(assistantMessages == ["Preparing...", "All done."])
-    }
-}
-
-private actor EventCollector {
-    private var storage: [PromptStreamEvent] = []
-
-    func append(_ event: PromptStreamEvent) {
-        storage.append(event)
-    }
-
-    func snapshot() -> [PromptStreamEvent] {
-        storage
     }
 }
 

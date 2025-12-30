@@ -19,13 +19,9 @@ struct PromptRunExecutor {
         entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptRunResult {
-        let transcriptRecorder = PromptTranscriptRecorder(
-            configuration: .init(toolOutputPolicy: .include)
-        )
         let conversationRecorder = PromptConversationRecorder()
 
         let eventHandler: @Sendable (PromptStreamEvent) async -> Void = { event in
-            await transcriptRecorder.handle(event)
             await conversationRecorder.handle(event)
             await onEvent(event)
         }
@@ -58,10 +54,8 @@ struct PromptRunExecutor {
             }
         }
 
-        let promptTranscript = await transcriptRecorder.finish()
         let conversationEntries = await conversationRecorder.finish()
         return PromptRunResult(
-            promptTranscript: promptTranscript,
             conversationEntries: conversationEntries,
             resumeToken: latestResumeToken
         )

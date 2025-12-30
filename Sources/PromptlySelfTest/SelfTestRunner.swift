@@ -283,7 +283,7 @@ public struct SelfTestRunner: Sendable {
             context: .messages(messages),
             onEvent: { _ in }
         )
-        guard let message = latestAssistantMessage(from: result.promptTranscript) else {
+        guard let message = latestAssistantMessage(from: result.conversationEntries) else {
             throw SelfTestFailure("Model did not return an assistant message.")
         }
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -404,7 +404,7 @@ public struct SelfTestRunner: Sendable {
 
             let toolOutputs = try collectToolOutputs(
                 names: ["ListDirectory", "ShowDateTime"],
-                transcript: result.promptTranscript
+                conversationEntries: result.conversationEntries
             )
 
             let listOutput = try validatedToolOutput(
@@ -422,7 +422,7 @@ public struct SelfTestRunner: Sendable {
                 throw SelfTestFailure("ShowDateTime tool returned empty output.")
             }
 
-            let modelOutput = latestAssistantMessage(from: result.promptTranscript)
+            let modelOutput = latestAssistantMessage(from: result.conversationEntries)
             try validateModelToolSummary(
                 modelOutput: modelOutput,
                 dateOutput: dateOutput.output,
@@ -509,7 +509,7 @@ public struct SelfTestRunner: Sendable {
             )
             let toolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
-                transcript: result.promptTranscript
+                conversationEntries: result.conversationEntries
             )
             guard let output = toolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
@@ -533,7 +533,7 @@ public struct SelfTestRunner: Sendable {
                 throw SelfTestFailure("Sub agent summary did not include the supervisor token line.")
             }
 
-            guard let modelOutput = latestAssistantMessage(from: result.promptTranscript) else {
+            guard let modelOutput = latestAssistantMessage(from: result.conversationEntries) else {
                 throw SelfTestFailure("Supervisor did not return an assistant message.")
             }
             let trimmedOutput = modelOutput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -633,7 +633,7 @@ public struct SelfTestRunner: Sendable {
                 context: .messages(firstMessages),
                 onEvent: { _ in }
             )
-            if let firstOutput = latestAssistantMessage(from: firstResult.promptTranscript) {
+            if let firstOutput = latestAssistantMessage(from: firstResult.conversationEntries) {
                 let trimmedOutput = firstOutput.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !trimmedOutput.isEmpty {
                     emit("Supervisor incident step 1 output:\n\(trimmedOutput)")
@@ -641,7 +641,7 @@ public struct SelfTestRunner: Sendable {
             }
             let firstToolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
-                transcript: firstResult.promptTranscript
+                conversationEntries: firstResult.conversationEntries
             )
             guard let firstOutput = firstToolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
@@ -694,14 +694,14 @@ public struct SelfTestRunner: Sendable {
             )
             let secondToolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
-                transcript: secondResult.promptTranscript
+                conversationEntries: secondResult.conversationEntries
             )
             guard let secondOutput = secondToolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
             }
             let secondArguments = try toolCallArguments(
                 named: expectedToolName,
-                transcript: secondResult.promptTranscript
+                conversationEntries: secondResult.conversationEntries
             )
             emit("Supervisor incident step 2 tool arguments:\n\(formattedJSON(secondArguments))")
             if jsonValueContainsString(secondArguments, substring: intakeAnchorLine) {
@@ -725,7 +725,7 @@ public struct SelfTestRunner: Sendable {
             }
             emit("Sub agent summary:\n\(summary)")
 
-            guard let modelOutput = latestAssistantMessage(from: secondResult.promptTranscript) else {
+            guard let modelOutput = latestAssistantMessage(from: secondResult.conversationEntries) else {
                 throw SelfTestFailure("Supervisor did not return an assistant message.")
             }
             let trimmedOutput = modelOutput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -953,13 +953,12 @@ public struct SelfTestRunner: Sendable {
 
     private func toolCallArguments(
         named name: String,
-        transcript: [PromptTranscriptEntry]
+        conversationEntries: [PromptMessage]
     ) throws -> JSONValue {
-        let arguments = transcript.compactMap { entry -> JSONValue? in
-            guard case let .toolCall(_, entryName, entryArguments, _) = entry, entryName == name else {
-                return nil
-            }
-            return entryArguments
+        let arguments = conversationEntries.flatMap { entry -> [JSONValue] in
+            guard entry.role == .assistant else { return [] }
+            guard let toolCalls = entry.toolCalls else { return [] }
+            return toolCalls.filter { $0.name == name }.map { $0.arguments }
         }
         if arguments.isEmpty {
             throw SelfTestFailure("Model did not call the \(name) tool.")
@@ -1007,9 +1006,10 @@ public struct SelfTestRunner: Sendable {
         }
     }
 
-    private func latestAssistantMessage(from transcript: [PromptTranscriptEntry]) -> String? {
-        for entry in transcript.reversed() {
-            if case let .assistant(message) = entry {
+    private func latestAssistantMessage(from conversationEntries: [PromptMessage]) -> String? {
+        for entry in conversationEntries.reversed() {
+            guard entry.role == .assistant else { continue }
+            if case let .text(message) = entry.content {
                 return message
             }
         }
@@ -1031,13 +1031,25 @@ public struct SelfTestRunner: Sendable {
 
     private func collectToolOutputs(
         names: [String],
-        transcript: [PromptTranscriptEntry]
+        conversationEntries: [PromptMessage]
     ) throws -> [String: [JSONValue]] {
+        var toolCallNamesByIdentifier: [String: String] = [:]
+        for entry in conversationEntries {
+            guard entry.role == .assistant else { continue }
+            guard let toolCalls = entry.toolCalls else { continue }
+            for toolCall in toolCalls where names.contains(toolCall.name) {
+                if let toolCallIdentifier = toolCall.id {
+                    toolCallNamesByIdentifier[toolCallIdentifier] = toolCall.name
+                }
+            }
+        }
+
         var outputs: [String: [JSONValue]] = [:]
-        for entry in transcript {
-            guard case let .toolCall(_, name, _, output) = entry else { continue }
-            guard let output else { continue }
-            if names.contains(name) {
+        for entry in conversationEntries {
+            guard entry.role == .tool else { continue }
+            guard let toolCallIdentifier = entry.toolCallId else { continue }
+            guard let name = toolCallNamesByIdentifier[toolCallIdentifier] else { continue }
+            if case let .json(output) = entry.content {
                 outputs[name, default: []].append(output)
             }
         }

@@ -119,7 +119,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
                 }
             )
 
-            guard let payload = firstReturnPayload(from: result.promptTranscript) else {
+            guard let payload = firstReturnPayload(from: result.conversationEntries) else {
                 await transcriptLogger?.finish(status: "missing_return_payload", error: nil)
                 didFinishLogging = true
                 throw SubAgentToolError.missingReturnPayload(agentName: configuration.definition.name)
@@ -289,11 +289,33 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         return reservedNames.contains(name)
     }
 
-    private func firstReturnPayload(from transcript: [PromptTranscriptEntry]) -> JSONValue? {
-        for entry in transcript {
-            guard case let .toolCall(_, name, arguments, output) = entry else { continue }
-            guard name == ReturnToSupervisorTool.toolName else { continue }
-            return output ?? arguments
+    private func firstReturnPayload(from conversationEntries: [PromptMessage]) -> JSONValue? {
+        for entry in conversationEntries {
+            guard entry.role == .assistant else { continue }
+            guard let toolCalls = entry.toolCalls else { continue }
+            for toolCall in toolCalls where toolCall.name == ReturnToSupervisorTool.toolName {
+                if let output = toolOutput(for: toolCall.id, in: conversationEntries) {
+                    return output
+                }
+                return toolCall.arguments
+            }
+        }
+        return nil
+    }
+
+    private func toolOutput(
+        for toolCallIdentifier: String?,
+        in conversationEntries: [PromptMessage]
+    ) -> JSONValue? {
+        guard let toolCallIdentifier else {
+            return nil
+        }
+        for entry in conversationEntries {
+            guard entry.role == .tool else { continue }
+            guard entry.toolCallId == toolCallIdentifier else { continue }
+            if case let .json(value) = entry.content {
+                return value
+            }
         }
         return nil
     }

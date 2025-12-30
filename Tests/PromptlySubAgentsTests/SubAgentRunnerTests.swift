@@ -233,10 +233,12 @@ struct SubAgentRunnerTests {
             excludeTools: []
         )
 
-        let transcript = [
-            PromptTranscriptEntry.assistant(message: "No return tool call")
+        let conversationEntries = [
+            PromptMessage(role: .assistant, content: .text("No return tool call"))
         ]
-        let stubEndpoint = StubPromptEndpoint(result: PromptRunResult(promptTranscript: transcript))
+        let stubEndpoint = StubPromptEndpoint(
+            result: PromptRunResult(conversationEntries: conversationEntries)
+        )
 
         let runner = SubAgentRunner(
             configuration: configuration,
@@ -336,21 +338,26 @@ struct SubAgentRunnerTests {
                 .string("Sample detail")
             ])
         ])
-        let transcript = [
-            PromptTranscriptEntry.toolCall(
-                id: "return-1",
-                name: ReturnToSupervisorTool.toolName,
-                arguments: nil,
-                output: returnPayload
-            )
-        ]
         let conversationEntries = [
-            PromptMessage(role: .system, content: .text("System")),
-            PromptMessage(role: .user, content: .text("User"))
+            PromptMessage(
+                role: .assistant,
+                content: .empty,
+                toolCalls: [
+                    PromptToolCall(
+                        id: "return-1",
+                        name: ReturnToSupervisorTool.toolName,
+                        arguments: returnPayload
+                    )
+                ]
+            ),
+            PromptMessage(
+                role: .tool,
+                content: .json(returnPayload),
+                toolCallId: "return-1"
+            )
         ]
         let stubEndpoint = StubPromptEndpoint(
             result: PromptRunResult(
-                promptTranscript: transcript,
                 conversationEntries: conversationEntries,
                 resumeToken: "response-1"
             )
@@ -435,18 +442,27 @@ struct SubAgentRunnerTests {
                 .string("Sample detail")
             ])
         ])
-        let transcript = [
-            PromptTranscriptEntry.toolCall(
-                id: "return-1",
-                name: ReturnToSupervisorTool.toolName,
-                arguments: nil,
-                output: returnPayload
+        let conversationEntries = [
+            PromptMessage(
+                role: .assistant,
+                content: .empty,
+                toolCalls: [
+                    PromptToolCall(
+                        id: "return-1",
+                        name: ReturnToSupervisorTool.toolName,
+                        arguments: returnPayload
+                    )
+                ]
+            ),
+            PromptMessage(
+                role: .tool,
+                content: .json(returnPayload),
+                toolCallId: "return-1"
             )
         ]
         let stubEndpoint = StubPromptEndpoint(
             result: PromptRunResult(
-                promptTranscript: transcript,
-                conversationEntries: [],
+                conversationEntries: conversationEntries,
                 resumeToken: nil
             )
         )
@@ -521,7 +537,7 @@ struct SubAgentRunnerTests {
             excludeTools: []
         )
 
-        let stubEndpoint = StubPromptEndpoint(result: PromptRunResult(promptTranscript: []))
+        let stubEndpoint = StubPromptEndpoint(result: PromptRunResult(conversationEntries: []))
         let runner = SubAgentRunner(
             configuration: configuration,
             toolSettings: toolSettings,
@@ -598,7 +614,7 @@ struct SubAgentRunnerTests {
             resumeToken: nil
         )
 
-        let stubEndpoint = StubPromptEndpoint(result: PromptRunResult(promptTranscript: []))
+        let stubEndpoint = StubPromptEndpoint(result: PromptRunResult(conversationEntries: []))
         let runner = SubAgentRunner(
             configuration: configuration,
             toolSettings: toolSettings,

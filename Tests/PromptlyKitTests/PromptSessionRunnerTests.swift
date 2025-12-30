@@ -18,9 +18,10 @@ struct PromptRunExecutorTests {
             }
         )
 
-        let assistantMessages = result.promptTranscript.compactMap { entry -> String? in
-            if case let .assistant(message) = entry { return message }
-            return nil
+        let assistantMessages = result.conversationEntries.compactMap { entry -> String? in
+            guard entry.role == .assistant else { return nil }
+            guard case let .text(message) = entry.content else { return nil }
+            return message
         }
         #expect(assistantMessages.last == "Done.")
 
