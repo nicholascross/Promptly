@@ -79,6 +79,7 @@ private final class FakePromptEndpoint: PromptEndpoint {
 
     func start(
         messages: [ChatMessage],
+        resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         didStart = true
@@ -91,7 +92,8 @@ private final class FakePromptEndpoint: PromptEndpoint {
                     name: "Echo",
                     arguments: .object(["text": .string("hello")])
                 )
-            ]
+            ],
+            resumeToken: resumeToken
         )
     }
 
@@ -105,7 +107,8 @@ private final class FakePromptEndpoint: PromptEndpoint {
         await onEvent(.assistantTextDelta("Done."))
         return PromptTurn(
             continuation: nil,
-            toolCalls: []
+            toolCalls: [],
+            resumeToken: nil
         )
     }
 }

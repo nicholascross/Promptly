@@ -23,37 +23,40 @@ struct ToolCallOutput: Sendable {
     }
 }
 
-enum PromptContinuation: Sendable {
-    case responses(previousResponseId: String)
+enum PromptContext: Sendable {
+    case responses(previousResponseIdentifier: String)
     case chatCompletions(messages: [ChatMessage])
 }
 
+enum PromptEntry: Sendable {
+    case initial(messages: [ChatMessage])
+    case resume(context: PromptContext, requestMessages: [ChatMessage])
+    case toolCallResults(context: PromptContext, toolOutputs: [ToolCallOutput])
+}
+
 struct PromptTurn: Sendable {
-    public let continuation: PromptContinuation?
+    public let context: PromptContext?
     public let toolCalls: [ToolCallRequest]
+    public let resumeToken: String?
 
     public var isComplete: Bool {
-        toolCalls.isEmpty && continuation == nil
+        toolCalls.isEmpty && context == nil
     }
 
     public init(
-        continuation: PromptContinuation?,
-        toolCalls: [ToolCallRequest]
+        context: PromptContext?,
+        toolCalls: [ToolCallRequest],
+        resumeToken: String?
     ) {
-        self.continuation = continuation
+        self.context = context
         self.toolCalls = toolCalls
+        self.resumeToken = resumeToken
     }
 }
 
 protocol PromptEndpoint {
-    func start(
-        messages: [ChatMessage],
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptTurn
-
-    func continueSession(
-        continuation: PromptContinuation,
-        toolOutputs: [ToolCallOutput],
+    func prompt(
+        entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn
 }

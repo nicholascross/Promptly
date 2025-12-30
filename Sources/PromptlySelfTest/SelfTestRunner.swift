@@ -7,15 +7,21 @@ import PromptlySubAgents
 public struct SelfTestRunner: Sendable {
     public let configurationFileURL: URL
     public let toolsFileName: String
+    public let apiOverride: Config.API?
+    private let outputHandler: (@Sendable (String) -> Void)?
     private let fileManager: FileManagerProtocol
 
     public init(
         configurationFileURL: URL,
         toolsFileName: String = "tools",
+        apiOverride: Config.API? = nil,
+        outputHandler: (@Sendable (String) -> Void)? = nil,
         fileManager: FileManagerProtocol = FileManager.default
     ) {
         self.configurationFileURL = configurationFileURL.standardizedFileURL
         self.toolsFileName = toolsFileName
+        self.apiOverride = apiOverride
+        self.outputHandler = outputHandler
         self.fileManager = fileManager
     }
 
@@ -61,6 +67,7 @@ public struct SelfTestRunner: Sendable {
         results.append(
             await runTestWithOutput(name: "Basic model conversation") {
                 let output = try await verifyBasicConversation(configuration: configuration)
+                emit("Basic model conversation output:\n\(output)")
                 return SelfTestResult(
                     name: "Basic model conversation",
                     status: .passed,
@@ -104,6 +111,15 @@ public struct SelfTestRunner: Sendable {
         results.append(
             await runTestWithOutput(name: "Tool invocation via model") {
                 let output = try await verifyToolInvocationWithModel(configuration: configuration)
+                if let modelOutput = output.modelOutput {
+                    emit("Tool invocation model output:\n\(modelOutput)")
+                } else {
+                    emit("Tool invocation model output was missing.")
+                }
+                for toolOutput in output.toolOutputs {
+                    let trimmedOutput = toolOutput.output.output.trimmingCharacters(in: .whitespacesAndNewlines)
+                    emit("Tool output for \(toolOutput.name):\n\(trimmedOutput)")
+                }
                 return SelfTestResult(
                     name: "Tool invocation via model",
                     status: .passed,
@@ -128,10 +144,17 @@ public struct SelfTestRunner: Sendable {
         let configurationResult = loadConfigurationResult()
         results.append(configurationResult.result)
 
-        guard configurationResult.configuration != nil else {
+        guard let configuration = configurationResult.configuration else {
             results.append(
                 SelfTestResult(
-                    name: "Sub agent lifecycle",
+                    name: "Supervisor uses sub agent tool",
+                    status: .failed,
+                    details: "Agent tests require a valid configuration."
+                )
+            )
+            results.append(
+                SelfTestResult(
+                    name: "Supervisor continues incident case",
                     status: .failed,
                     details: "Agent tests require a valid configuration."
                 )
@@ -140,12 +163,35 @@ public struct SelfTestRunner: Sendable {
         }
 
         results.append(
-            await runTestWithOutput(name: "Sub agent lifecycle") {
-                let payload = try await verifySubAgentLifecycle()
+            await runTestWithOutput(name: "Supervisor uses sub agent tool") {
+                let result = try await verifySupervisorSubAgentToolInvocation(configuration: configuration)
+                if let modelOutput = result.modelOutput {
+                    emit("Supervisor output:\n\(modelOutput)")
+                } else {
+                    emit("Supervisor output was missing.")
+                }
                 return SelfTestResult(
-                    name: "Sub agent lifecycle",
+                    name: "Supervisor uses sub agent tool",
                     status: .passed,
-                    agentOutput: payload
+                    modelOutput: result.modelOutput,
+                    agentOutput: result.agentOutput
+                )
+            }
+        )
+
+        results.append(
+            await runTestWithOutput(name: "Supervisor continues incident case") {
+                let result = try await verifySupervisorSubAgentResumeInvocation(configuration: configuration)
+                if let modelOutput = result.modelOutput {
+                    emit("Supervisor continuation output:\n\(modelOutput)")
+                } else {
+                    emit("Supervisor continuation output was missing.")
+                }
+                return SelfTestResult(
+                    name: "Supervisor continues incident case",
+                    status: .passed,
+                    modelOutput: result.modelOutput,
+                    agentOutput: result.agentOutput
                 )
             }
         )
@@ -188,6 +234,10 @@ public struct SelfTestRunner: Sendable {
         }
     }
 
+    private func emit(_ message: String) {
+        outputHandler?(message)
+    }
+
     private func ensureConfigurationFileExists() throws {
         guard fileManager.fileExists(atPath: configurationFileURL.path) else {
             throw SelfTestFailure("Configuration file not found at \(configurationFileURL.path).")
@@ -209,7 +259,10 @@ public struct SelfTestRunner: Sendable {
     private func verifyBasicConversation(configuration: Config) async throws -> String {
         let token = UUID().uuidString
         let seedWord = randomSeedWord()
-        let coordinator = try PrompterCoordinator(config: configuration)
+        let coordinator = try PrompterCoordinator(
+            config: configuration,
+            apiOverride: apiOverride
+        )
         let messages = [
             PromptMessage(
                 role: .system,
@@ -318,7 +371,11 @@ public struct SelfTestRunner: Sendable {
                 throw SelfTestFailure("ShowDateTime tool was not loaded for tool invocation test.")
             }
 
-            let coordinator = try PrompterCoordinator(config: configuration, tools: [listTool, dateTool])
+            let coordinator = try PrompterCoordinator(
+                config: configuration,
+                apiOverride: apiOverride,
+                tools: [listTool, dateTool]
+            )
             let messages = [
                 PromptMessage(
                     role: .system,
@@ -373,9 +430,14 @@ public struct SelfTestRunner: Sendable {
         }
     }
 
-    private func verifySubAgentLifecycle() async throws -> JSONValue {
+    private func verifySupervisorSubAgentToolInvocation(
+        configuration: Config
+    ) async throws -> (modelOutput: String?, agentOutput: JSONValue) {
         return try await withTemporaryConfigurationCopy { temporaryConfigurationFileURL, agentsDirectoryURL in
-            let agentName = "Self Test Agent"
+            let agentName = "Self Test Supervisor Agent"
+            let token = UUID().uuidString
+            let tokenLine = "Supervisor Output Token: \(token)"
+            emit("Supervisor tool invocation: starting.")
             let toolsConfiguration = try createTemporarySubAgentToolsConfiguration(
                 directoryURL: temporaryConfigurationFileURL.deletingLastPathComponent()
             )
@@ -391,11 +453,14 @@ public struct SelfTestRunner: Sendable {
                 credentialSource: SystemCredentialSource()
             )
             let toolsConfigurationURL = toolsConfiguration.toolsConfigURL
+            let subAgentSessionState = SubAgentSessionState()
 
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
                 defaultToolsConfigURL: toolsConfigurationURL,
                 localToolsConfigURL: toolsConfigurationURL,
+                sessionState: subAgentSessionState,
+                apiOverride: apiOverride,
                 includeTools: [],
                 excludeTools: [],
                 toolOutput: { _ in }
@@ -406,26 +471,272 @@ public struct SelfTestRunner: Sendable {
                 throw SelfTestFailure("Expected sub agent tool was not created.")
             }
 
-            let requestPayload: JSONValue = .object([
-                "task": .string("Return a short summary confirming the self test ran."),
-                "goals": .array([
-                    .string("Call ReturnToSupervisor with required fields."),
-                    .string("Keep the response brief.")
-                ]),
-                "constraints": .array([
-                    .string("Do not use any tools besides ReturnToSupervisor."),
-                    .string("Do not modify any files.")
-                ])
-            ])
+            let coordinator = try PrompterCoordinator(
+                config: configuration,
+                apiOverride: apiOverride,
+                tools: [agentTool]
+            )
+            let messages = [
+                PromptMessage(
+                    role: .system,
+                    content: .text(
+                        """
+                        You are running a self test.
+                        Call the tool named \(expectedToolName) exactly once.
+                        When you call the tool, set the task to exactly:
+                        Return a summary that includes the line "\(tokenLine)".
+                        Provide only task and constraints fields in the tool arguments.
+                        After the tool returns, respond with a short summary that includes the line "\(tokenLine)".
+                        Include the sub agent summary exactly as returned, prefixed with "Sub agent summary:".
+                        """
+                    )
+                ),
+                PromptMessage(
+                    role: .user,
+                    content: .text("Use the sub agent tool now.")
+                )
+            ]
 
-            let payload = try await agentTool.execute(arguments: requestPayload)
-            try validateSubAgentPayload(payload)
+            let result = try await coordinator.run(messages: messages, onEvent: { _ in })
+            let toolOutputs = try collectToolOutputs(
+                names: [expectedToolName],
+                transcript: result.promptTranscript
+            )
+            guard let output = toolOutputs[expectedToolName]?.first else {
+                throw SelfTestFailure("Missing output for \(expectedToolName).")
+            }
+            try validateSubAgentPayload(output)
+            guard case let .object(object) = output else {
+                throw SelfTestFailure("Sub agent payload was not a JSON object.")
+            }
+            guard case let .string(summary) = object["summary"] else {
+                throw SelfTestFailure("Sub agent payload missing summary field.")
+            }
+            emit("Sub agent summary:\n\(summary)")
+            if case let .bool(needsMoreInformation) = object["needsMoreInformation"],
+               needsMoreInformation {
+                throw SelfTestFailure("Sub agent requested more information during supervisor tool invocation.")
+            }
+            if let resumeValue = object["resumeId"] {
+                throw SelfTestFailure("Sub agent returned a continuation handle when the run was complete: \(resumeValue).")
+            }
+            guard summary.contains(tokenLine) else {
+                throw SelfTestFailure("Sub agent summary did not include the supervisor token line.")
+            }
+
+            guard let modelOutput = latestAssistantMessage(from: result.promptTranscript) else {
+                throw SelfTestFailure("Supervisor did not return an assistant message.")
+            }
+            let trimmedOutput = modelOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedOutput.isEmpty else {
+                throw SelfTestFailure("Supervisor returned an empty assistant message.")
+            }
+            guard trimmedOutput.contains(tokenLine) else {
+                throw SelfTestFailure("Supervisor summary did not include the token line.")
+            }
+            let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmedOutput.contains(trimmedSummary) else {
+                throw SelfTestFailure("Supervisor summary did not include the sub agent summary.")
+            }
 
             try fileManager.removeItem(atPath: agentConfigurationURL.path)
             if fileManager.fileExists(atPath: agentConfigurationURL.path) {
                 throw SelfTestFailure("Failed to remove temporary agent configuration file.")
             }
-            return payload
+
+            return (modelOutput: trimmedOutput, agentOutput: output)
+        }
+    }
+
+    private func verifySupervisorSubAgentResumeInvocation(
+        configuration: Config
+    ) async throws -> (modelOutput: String?, agentOutput: JSONValue) {
+        return try await withTemporaryConfigurationCopy { temporaryConfigurationFileURL, agentsDirectoryURL in
+            let agentName = "Self Test Incident Agent"
+            let intakeAnchorToken = UUID().uuidString
+            let intakeAnchorLine = "Intake Anchor: \(intakeAnchorToken)"
+            let incidentTimeToken = UUID().uuidString
+            let incidentLocationToken = UUID().uuidString
+            let incidentDetailsLine = "Incident Details: \(incidentTimeToken) at \(incidentLocationToken)"
+            let missingIncidentDetailsLine = "Incident Details Needed: time and location."
+            let toolsConfiguration = try createTemporarySubAgentIncidentToolsConfiguration(
+                directoryURL: temporaryConfigurationFileURL.deletingLastPathComponent()
+            )
+            let agentConfigurationURL = try createTemporaryResumeAgentConfiguration(
+                agentsDirectoryURL: agentsDirectoryURL,
+                agentName: agentName,
+                toolsFileName: toolsConfiguration.toolsFileName,
+                missingIncidentDetailsLine: missingIncidentDetailsLine,
+                intakeAnchorLine: intakeAnchorLine,
+                excludedTools: ["ApplyPatch"]
+            )
+
+            let toolFactory = SubAgentToolFactory(
+                fileManager: fileManager,
+                credentialSource: SystemCredentialSource()
+            )
+            let toolsConfigurationURL = toolsConfiguration.toolsConfigURL
+            let subAgentSessionState = SubAgentSessionState()
+
+            let tools = try toolFactory.makeTools(
+                configurationFileURL: temporaryConfigurationFileURL,
+                defaultToolsConfigURL: toolsConfigurationURL,
+                localToolsConfigURL: toolsConfigurationURL,
+                sessionState: subAgentSessionState,
+                apiOverride: apiOverride,
+                includeTools: [],
+                excludeTools: [],
+                toolOutput: { _ in }
+            )
+
+            let expectedToolName = "SubAgent-\(normalizedIdentifier(from: agentName))"
+            guard let agentTool = tools.first(where: { $0.name == expectedToolName }) else {
+                throw SelfTestFailure("Expected sub agent tool was not created.")
+            }
+
+            emit("Supervisor incident step 1: requesting missing details.")
+            let firstCoordinator = try PrompterCoordinator(
+                config: configuration,
+                apiOverride: apiOverride,
+                tools: [agentTool]
+            )
+            let firstMessages = [
+                PromptMessage(
+                    role: .system,
+                    content: .text(
+                        """
+                        You are running a self test.
+                        Call the tool named \(expectedToolName) exactly once.
+                        When you call the tool, set the task to exactly:
+                        Start the incident intake. Missing time and location.
+                        \(intakeAnchorLine)
+                        Provide only task and constraints fields in the tool arguments.
+                        After the tool returns, respond briefly and include the line "\(intakeAnchorLine)".
+                        """
+                    )
+                ),
+                PromptMessage(
+                    role: .user,
+                    content: .text("Start the incident intake.")
+                )
+            ]
+            let firstResult = try await firstCoordinator.run(messages: firstMessages, onEvent: { _ in })
+            if let firstOutput = latestAssistantMessage(from: firstResult.promptTranscript) {
+                let trimmedOutput = firstOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmedOutput.isEmpty {
+                    emit("Supervisor incident step 1 output:\n\(trimmedOutput)")
+                }
+            }
+            let firstToolOutputs = try collectToolOutputs(
+                names: [expectedToolName],
+                transcript: firstResult.promptTranscript
+            )
+            guard let firstOutput = firstToolOutputs[expectedToolName]?.first else {
+                throw SelfTestFailure("Missing output for \(expectedToolName).")
+            }
+            let requestOutcome = try validateResumeRequestPayload(
+                payload: firstOutput,
+                missingIncidentDetailsLine: missingIncidentDetailsLine,
+                intakeAnchorLine: intakeAnchorLine
+            )
+            if case let .object(firstObject) = firstOutput,
+               case let .string(firstSummary) = firstObject["summary"] {
+                emit("Sub agent summary (step 1):\n\(firstSummary)")
+            }
+            emit("Case note: \(requestOutcome.caseNoteLine)")
+            emit("Case handle: \(requestOutcome.resumeIdentifier)")
+
+            emit("Supervisor incident step 2: providing details.")
+            let secondCoordinator = try PrompterCoordinator(
+                config: configuration,
+                apiOverride: apiOverride,
+                tools: [agentTool]
+            )
+            let secondMessages = [
+                PromptMessage(
+                    role: .system,
+                    content: .text(
+                        """
+                        You are completing the incident intake.
+                        Call the tool named \(expectedToolName) exactly once.
+                        When you call the tool, set the task to exactly:
+                        Continue the incident intake and complete it.
+                        \(incidentDetailsLine)
+                        Provide only task, constraints, and the continuation handle field in the tool arguments.
+                        Set the continuation handle field named resumeId to: \(requestOutcome.resumeIdentifier).
+                        Do not include the "\(intakeAnchorLine)" line in the tool arguments.
+                        After the tool returns, respond with a short summary that includes the line "\(incidentDetailsLine)" and "\(intakeAnchorLine)".
+                        Include the case note line from the prior tool response in your summary.
+                        Include the sub agent summary exactly as returned, prefixed with "Sub agent summary:".
+                        """
+                    )
+                ),
+                PromptMessage(
+                    role: .user,
+                    content: .text("Continue the incident intake.")
+                )
+            ]
+            let secondResult = try await secondCoordinator.run(messages: secondMessages, onEvent: { _ in })
+            let secondToolOutputs = try collectToolOutputs(
+                names: [expectedToolName],
+                transcript: secondResult.promptTranscript
+            )
+            guard let secondOutput = secondToolOutputs[expectedToolName]?.first else {
+                throw SelfTestFailure("Missing output for \(expectedToolName).")
+            }
+            let secondArguments = try toolCallArguments(
+                named: expectedToolName,
+                transcript: secondResult.promptTranscript
+            )
+            emit("Supervisor incident step 2 tool arguments:\n\(formattedJSON(secondArguments))")
+            if jsonValueContainsString(secondArguments, substring: intakeAnchorLine) {
+                throw SelfTestFailure("Supervisor tool arguments included the intake anchor line.")
+            }
+            guard continuationHandle(from: secondArguments) == requestOutcome.resumeIdentifier else {
+                throw SelfTestFailure("Supervisor tool arguments did not include the continuation handle.")
+            }
+
+            try validateResumeCompletionPayload(
+                payload: secondOutput,
+                incidentDetailsLine: incidentDetailsLine,
+                intakeAnchorLine: intakeAnchorLine,
+                caseNoteLine: requestOutcome.caseNoteLine
+            )
+            guard case let .object(object) = secondOutput else {
+                throw SelfTestFailure("Sub agent payload was not a JSON object.")
+            }
+            guard case let .string(summary) = object["summary"] else {
+                throw SelfTestFailure("Sub agent payload missing summary field.")
+            }
+            emit("Sub agent summary:\n\(summary)")
+
+            guard let modelOutput = latestAssistantMessage(from: secondResult.promptTranscript) else {
+                throw SelfTestFailure("Supervisor did not return an assistant message.")
+            }
+            let trimmedOutput = modelOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedOutput.isEmpty else {
+                throw SelfTestFailure("Supervisor returned an empty assistant message.")
+            }
+            guard trimmedOutput.contains(incidentDetailsLine) else {
+                throw SelfTestFailure("Supervisor summary did not include the incident details line.")
+            }
+            guard trimmedOutput.contains(intakeAnchorLine) else {
+                throw SelfTestFailure("Supervisor summary did not include the intake anchor line.")
+            }
+            guard trimmedOutput.contains(requestOutcome.caseNoteLine) else {
+                throw SelfTestFailure("Supervisor summary did not include the case note line.")
+            }
+            let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmedOutput.contains(trimmedSummary) else {
+                throw SelfTestFailure("Supervisor summary did not include the sub agent summary.")
+            }
+
+            try fileManager.removeItem(atPath: agentConfigurationURL.path)
+            if fileManager.fileExists(atPath: agentConfigurationURL.path) {
+                throw SelfTestFailure("Failed to remove temporary agent configuration file.")
+            }
+
+            return (modelOutput: trimmedOutput, agentOutput: secondOutput)
         }
     }
 
@@ -443,7 +754,10 @@ public struct SelfTestRunner: Sendable {
             "name": .string(agentName),
             "description": .string("Temporary agent used by self tests."),
             "systemPrompt": .string(
-                "Complete the task and call ReturnToSupervisor exactly once with result and summary fields."
+                """
+                Complete the task and call ReturnToSupervisor exactly once with result and summary fields.
+                If the task includes a line that begins with "Supervisor Output Token:", include that line verbatim in both the result and summary.
+                """
             ),
             "tools": .object(toolConfiguration)
         ]
@@ -452,6 +766,45 @@ public struct SelfTestRunner: Sendable {
         ])
 
         let fileName = "self-test-agent.json"
+        let agentConfigurationURL = agentsDirectoryURL.appendingPathComponent(fileName, isDirectory: false)
+        let data = try JSONEncoder().encode(document)
+        try fileManager.writeData(data, to: agentConfigurationURL)
+        return agentConfigurationURL
+    }
+
+    private func createTemporaryResumeAgentConfiguration(
+        agentsDirectoryURL: URL,
+        agentName: String,
+        toolsFileName: String,
+        missingIncidentDetailsLine: String,
+        intakeAnchorLine: String,
+        excludedTools: [String]
+    ) throws -> URL {
+        let toolConfiguration: [String: JSONValue] = [
+            "toolsFileName": .string(toolsFileName),
+            "exclude": .array(excludedTools.map { .string($0) })
+        ]
+        let systemPrompt = """
+        You are running a self test for an incident intake workflow.
+        If the user message does not include a line that begins with "Incident Details:", call ReturnToSupervisor with result and summary, set needsMoreInformation to true, and include the exact line "\(missingIncidentDetailsLine)" in requestedInformation.
+        In that case, include a standalone line that begins with "Case Note:" followed by a short identifier you create in the summary.
+        Also include the line "\(intakeAnchorLine)" in the summary.
+        Do not complete the task in that case.
+        If the user message includes a line that begins with "Incident Details:", complete the task and call ReturnToSupervisor with result and summary.
+        Include the full "Incident Details:" line verbatim in the summary, along with the earlier "Case Note:" line and the "\(intakeAnchorLine)" line from the initial request.
+        Do not set needsMoreInformation in the completion response, and do not include a continuation handle when completing.
+        """
+        let agentDefinition: [String: JSONValue] = [
+            "name": .string(agentName),
+            "description": .string("Temporary agent used by self tests."),
+            "systemPrompt": .string(systemPrompt),
+            "tools": .object(toolConfiguration)
+        ]
+        let document: JSONValue = .object([
+            "agent": .object(agentDefinition)
+        ])
+
+        let fileName = "self-test-incident-agent.json"
         let agentConfigurationURL = agentsDirectoryURL.appendingPathComponent(fileName, isDirectory: false)
         let data = try JSONEncoder().encode(document)
         try fileManager.writeData(data, to: agentConfigurationURL)
@@ -469,6 +822,17 @@ public struct SelfTestRunner: Sendable {
         return (toolsFileName: toolsFileName, toolsConfigURL: toolsConfigURL, toolName: "SelfTestListDirectory")
     }
 
+    private func createTemporarySubAgentIncidentToolsConfiguration(
+        directoryURL: URL
+    ) throws -> (toolsFileName: String, toolsConfigURL: URL) {
+        let toolsFileName = "self-test-incident-tools"
+        let toolsConfigURL = directoryURL.appendingPathComponent("\(toolsFileName).json")
+        let configuration = ShellCommandConfig(shellCommands: [])
+        let data = try JSONEncoder().encode(configuration)
+        try fileManager.writeData(data, to: toolsConfigURL)
+        return (toolsFileName: toolsFileName, toolsConfigURL: toolsConfigURL)
+    }
+
     private func validateSubAgentPayload(_ payload: JSONValue) throws {
         guard case let .object(object) = payload else {
             throw SelfTestFailure("Sub agent payload was not a JSON object.")
@@ -484,6 +848,147 @@ public struct SelfTestRunner: Sendable {
         }
         if summary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             throw SelfTestFailure("Sub agent payload summary was empty.")
+        }
+    }
+
+    private func validateResumeRequestPayload(
+        payload: JSONValue,
+        missingIncidentDetailsLine: String,
+        intakeAnchorLine: String
+    ) throws -> (resumeIdentifier: String, caseNoteLine: String) {
+        try validateSubAgentPayload(payload)
+        guard case let .object(object) = payload else {
+            throw SelfTestFailure("Sub agent payload was not a JSON object.")
+        }
+        guard case let .bool(needsMoreInformation) = object["needsMoreInformation"] else {
+            throw SelfTestFailure("Sub agent payload missing needsMoreInformation.")
+        }
+        guard needsMoreInformation else {
+            throw SelfTestFailure("Sub agent did not request more information.")
+        }
+        guard case let .string(resumeIdentifier) = object["resumeId"],
+              !resumeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else {
+            throw SelfTestFailure("Sub agent payload missing continuation handle.")
+        }
+        guard case let .array(requestedInformation) = object["requestedInformation"] else {
+            throw SelfTestFailure("Sub agent payload missing requestedInformation.")
+        }
+        let requestedLines = requestedInformation.compactMap { value -> String? in
+            guard case let .string(text) = value else { return nil }
+            return text
+        }
+        guard requestedLines.contains(where: { $0.contains(missingIncidentDetailsLine) }) else {
+            throw SelfTestFailure("Sub agent did not request the expected incident details.")
+        }
+        guard case let .string(summary) = object["summary"] else {
+            throw SelfTestFailure("Sub agent payload missing summary.")
+        }
+        guard summary.contains(intakeAnchorLine) else {
+            throw SelfTestFailure("Sub agent summary did not include the intake anchor line.")
+        }
+        let caseNoteLine = try caseNoteLine(from: summary)
+        return (resumeIdentifier: resumeIdentifier, caseNoteLine: caseNoteLine)
+    }
+
+    private func validateResumeCompletionPayload(
+        payload: JSONValue,
+        incidentDetailsLine: String,
+        intakeAnchorLine: String,
+        caseNoteLine: String
+    ) throws {
+        try validateSubAgentPayload(payload)
+        guard case let .object(object) = payload else {
+            throw SelfTestFailure("Sub agent payload was not a JSON object.")
+        }
+        if case let .bool(needsMoreInformation) = object["needsMoreInformation"], needsMoreInformation {
+            throw SelfTestFailure("Sub agent requested more information during completion.")
+        }
+        if let resumeValue = object["resumeId"] {
+            throw SelfTestFailure("Sub agent returned a continuation handle when the run was complete: \(resumeValue).")
+        }
+        guard case let .string(summary) = object["summary"] else {
+            throw SelfTestFailure("Sub agent payload missing summary.")
+        }
+        guard summary.contains(incidentDetailsLine) else {
+            throw SelfTestFailure("Sub agent summary did not include the incident details line.")
+        }
+        guard summary.contains(intakeAnchorLine) else {
+            throw SelfTestFailure("Sub agent summary did not include the intake anchor line.")
+        }
+        guard summary.contains(caseNoteLine) else {
+            throw SelfTestFailure("Sub agent summary did not include the case note line.")
+        }
+    }
+
+    private func caseNoteLine(from summary: String) throws -> String {
+        let lines = summary.split(whereSeparator: \.isNewline).map(String.init)
+        if let line = lines.first(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("Case Note:") }) {
+            return line.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        if let range = summary.range(of: "Case Note:") {
+            let trailing = summary[range.lowerBound...]
+            if let endRange = trailing.range(of: "\n") {
+                return String(trailing[..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            return String(trailing).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        throw SelfTestFailure("Sub agent summary did not include a case note line.")
+    }
+
+    private func toolCallArguments(
+        named name: String,
+        transcript: [PromptTranscriptEntry]
+    ) throws -> JSONValue {
+        let arguments = transcript.compactMap { entry -> JSONValue? in
+            guard case let .toolCall(_, entryName, entryArguments, _) = entry, entryName == name else {
+                return nil
+            }
+            return entryArguments
+        }
+        if arguments.isEmpty {
+            throw SelfTestFailure("Model did not call the \(name) tool.")
+        }
+        if arguments.count > 1 {
+            throw SelfTestFailure("Model called the \(name) tool more than once.")
+        }
+        return arguments[0]
+    }
+
+    private func formattedJSON(_ value: JSONValue) -> String {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(value),
+              let text = String(data: data, encoding: .utf8) else {
+            return value.description
+        }
+        return text
+    }
+
+    private func continuationHandle(from arguments: JSONValue) -> String? {
+        guard case let .object(object) = arguments else {
+            return nil
+        }
+        return stringValue(object["resumeId"])
+    }
+
+    private func stringValue(_ value: JSONValue?) -> String? {
+        guard case let .string(text)? = value else {
+            return nil
+        }
+        return text
+    }
+
+    private func jsonValueContainsString(_ value: JSONValue, substring: String) -> Bool {
+        switch value {
+        case let .string(text):
+            return text.contains(substring)
+        case let .array(items):
+            return items.contains { jsonValueContainsString($0, substring: substring) }
+        case let .object(object):
+            return object.values.contains { jsonValueContainsString($0, substring: substring) }
+        case .integer, .number, .bool, .null:
+            return false
         }
     }
 

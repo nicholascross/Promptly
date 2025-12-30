@@ -12,7 +12,9 @@ struct SubAgentToolSettings: Sendable {
 
 protocol SubAgentCoordinator {
     func run(
-        messages: [PromptMessage],
+        requestMessages: [PromptMessage],
+        conversationEntries: [PromptConversationEntry],
+        resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult
 }
@@ -20,15 +22,26 @@ protocol SubAgentCoordinator {
 private struct PrompterCoordinatorAdapter: SubAgentCoordinator {
     private let coordinator: PrompterCoordinator
 
-    init(configuration: Config, tools: [any ExecutableTool]) throws {
-        coordinator = try PrompterCoordinator(config: configuration, tools: tools)
+    init(configuration: Config, tools: [any ExecutableTool], apiOverride: Config.API?) throws {
+        coordinator = try PrompterCoordinator(
+            config: configuration,
+            apiOverride: apiOverride,
+            tools: tools
+        )
     }
 
     func run(
-        messages: [PromptMessage],
+        requestMessages: [PromptMessage],
+        conversationEntries: [PromptConversationEntry],
+        resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
-        try await coordinator.run(messages: messages, onEvent: onEvent)
+        try await coordinator.run(
+            requestMessages: requestMessages,
+            conversationEntries: conversationEntries,
+            resumeToken: resumeToken,
+            onEvent: onEvent
+        )
     }
 }
 
@@ -47,6 +60,8 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
     private let toolOutput: @Sendable (String) -> Void
     private let coordinatorFactory: @Sendable ([any ExecutableTool]) throws -> any SubAgentCoordinator
     private let fileManager: FileManagerProtocol
+    private let sessionState: SubAgentSessionState
+    private let apiOverride: Config.API?
 
     init(
         configuration: SubAgentConfiguration,
@@ -54,6 +69,8 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         logDirectoryURL: URL,
         toolOutput: @Sendable @escaping (String) -> Void,
         fileManager: FileManagerProtocol,
+        sessionState: SubAgentSessionState,
+        apiOverride: Config.API? = nil,
         coordinatorFactory: (@Sendable ([any ExecutableTool]) throws -> any SubAgentCoordinator)? = nil
     ) {
         self.configuration = configuration
@@ -61,8 +78,14 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         self.logDirectoryURL = logDirectoryURL.standardizedFileURL
         self.toolOutput = toolOutput
         self.fileManager = fileManager
+        self.sessionState = sessionState
+        self.apiOverride = apiOverride
         let resolvedCoordinatorFactory = coordinatorFactory ?? { tools in
-            try PrompterCoordinatorAdapter(configuration: configuration.configuration, tools: tools)
+            try PrompterCoordinatorAdapter(
+                configuration: configuration.configuration,
+                tools: tools,
+                apiOverride: apiOverride
+            )
         }
         self.coordinatorFactory = resolvedCoordinatorFactory
     }
@@ -74,13 +97,47 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         )
         var didFinishLogging = false
 
-        let messages = buildMessages(for: request)
+        let userMessage = makeUserMessage(for: request)
+        let resumeIdentifier = normalizeResumeIdentifier(request.resumeId)
+        let resumeEntry = try await resolveResumeEntry(for: resumeIdentifier)
+        let requestMessages: [PromptMessage]
+        let conversationEntries: [PromptConversationEntry]
+        let resumeToken: String?
+
+        let effectiveApi = apiOverride ?? configuration.configuration.api
+        if let resumeEntry {
+            conversationEntries = resumeEntry.conversationEntries + [.message(userMessage)]
+            switch effectiveApi {
+            case .responses:
+                guard let storedResumeToken = resumeEntry.resumeToken else {
+                    throw SubAgentToolError.missingResponsesResumeToken(
+                        agentName: configuration.definition.name,
+                        resumeId: resumeEntry.resumeId
+                    )
+                }
+                requestMessages = [userMessage]
+                resumeToken = storedResumeToken
+            case .chatCompletions:
+                requestMessages = [userMessage]
+                resumeToken = nil
+            }
+        } else {
+            let systemMessage = makeSystemMessage()
+            requestMessages = [systemMessage, userMessage]
+            conversationEntries = [
+                .message(systemMessage),
+                .message(userMessage)
+            ]
+            resumeToken = nil
+        }
         let tools = try makeTools(transcriptLogger: transcriptLogger)
         let coordinator = try coordinatorFactory(tools)
 
         do {
             let result = try await coordinator.run(
-                messages: messages,
+                requestMessages: requestMessages,
+                conversationEntries: conversationEntries,
+                resumeToken: resumeToken,
                 onEvent: { event in
                     await transcriptLogger?.handle(event: event)
                 }
@@ -92,10 +149,23 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
                 throw SubAgentToolError.missingReturnPayload(agentName: configuration.definition.name)
             }
 
-            let payloadWithLogPath = attachLogPath(
+            var payloadWithLogPath = attachLogPath(
                 to: payload,
                 logPath: transcriptLogger?.logPath
             )
+            payloadWithLogPath = removeResumeIdIfNotNeeded(from: payloadWithLogPath)
+            if needsMoreInformation(in: payloadWithLogPath) {
+                let storedResumeEntry = await sessionState.storeResumeEntry(
+                    resumeId: resumeIdentifier,
+                    agentName: configuration.definition.name,
+                    conversationEntries: result.conversationEntries,
+                    resumeToken: result.resumeToken
+                )
+                payloadWithLogPath = attachResumeId(
+                    storedResumeEntry.resumeId,
+                    to: payloadWithLogPath
+                )
+            }
             await transcriptLogger?.recordReturnPayload(payloadWithLogPath)
             await transcriptLogger?.finish(status: "completed", error: nil)
             didFinishLogging = true
@@ -109,23 +179,23 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         }
     }
 
-    private func buildMessages(for request: SubAgentToolRequest) -> [PromptMessage] {
+    private func makeSystemMessage() -> PromptMessage {
         let systemPrompt = [
             Self.baseSystemPrompt,
             configuration.definition.systemPrompt
         ].joined(separator: "\n\n")
 
-        let systemMessage = PromptMessage(
+        return PromptMessage(
             role: .system,
             content: .text(systemPrompt)
         )
+    }
 
-        let userMessage = PromptMessage(
+    private func makeUserMessage(for request: SubAgentToolRequest) -> PromptMessage {
+        PromptMessage(
             role: .user,
             content: .text(buildUserMessageBody(for: request))
         )
-
-        return [systemMessage, userMessage]
     }
 
     private func buildUserMessageBody(for request: SubAgentToolRequest) -> String {
@@ -159,6 +229,37 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
             return text
         }
         return contextPack.description
+    }
+
+    private func resolveResumeEntry(for resumeIdentifier: String?) async throws -> SubAgentResumeEntry? {
+        guard let resumeIdentifier else {
+            return nil
+        }
+        guard let resumeEntry = await sessionState.entry(for: resumeIdentifier) else {
+            throw SubAgentToolError.invalidResumeId(resumeId: resumeIdentifier)
+        }
+        guard resumeEntry.agentName == configuration.definition.name else {
+            throw SubAgentToolError.resumeAgentMismatch(
+                resumeId: resumeIdentifier,
+                expectedAgentName: configuration.definition.name,
+                actualAgentName: resumeEntry.agentName
+            )
+        }
+        return resumeEntry
+    }
+
+    private func normalizeResumeIdentifier(_ resumeIdentifier: String?) -> String? {
+        guard let resumeIdentifier else {
+            return nil
+        }
+        let trimmedIdentifier = resumeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedIdentifier.isEmpty else {
+            return nil
+        }
+        guard let parsedIdentifier = UUID(uuidString: trimmedIdentifier) else {
+            return nil
+        }
+        return parsedIdentifier.uuidString.lowercased()
     }
 
     func makeTools(
@@ -225,5 +326,37 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         var updated = object
         updated["logPath"] = .string(logPath)
         return .object(updated)
+    }
+
+    private func needsMoreInformation(in payload: JSONValue) -> Bool {
+        guard case let .object(object) = payload else {
+            return false
+        }
+        guard case let .bool(needsMore)? = object["needsMoreInformation"] else {
+            return false
+        }
+        return needsMore
+    }
+
+    private func attachResumeId(_ resumeId: String, to payload: JSONValue) -> JSONValue {
+        guard case let .object(object) = payload else {
+            return payload
+        }
+        var updated = object
+        updated["resumeId"] = .string(resumeId)
+        return .object(updated)
+    }
+
+    private func removeResumeIdIfNotNeeded(from payload: JSONValue) -> JSONValue {
+        guard case let .object(object) = payload else {
+            return payload
+        }
+        guard case let .bool(needsMoreInformation) = object["needsMoreInformation"],
+              needsMoreInformation else {
+            var updated = object
+            updated.removeValue(forKey: "resumeId")
+            return .object(updated)
+        }
+        return payload
     }
 }

@@ -57,6 +57,35 @@ public struct PrompterCoordinator {
         messages: [PromptMessage],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
-        try await runner.run(messages: messages.asChatMessages(), onEvent: onEvent)
+        let conversationEntries = messages.map { PromptConversationEntry.message($0) }
+        return try await run(
+            requestMessages: messages,
+            conversationEntries: conversationEntries,
+            resumeToken: nil,
+            onEvent: onEvent
+        )
+    }
+
+    public func run(
+        requestMessages: [PromptMessage],
+        conversationEntries: [PromptConversationEntry],
+        resumeToken: String?,
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
+    ) async throws -> PromptSessionResult {
+        let entry: PromptEntry
+        if let resumeToken {
+            entry = .resume(
+                context: .responses(previousResponseIdentifier: resumeToken),
+                requestMessages: requestMessages.asChatMessages()
+            )
+        } else {
+            entry = .initial(messages: try conversationEntries.asChatMessages())
+        }
+
+        return try await runner.run(
+            entry: entry,
+            initialConversationEntries: conversationEntries,
+            onEvent: onEvent
+        )
     }
 }

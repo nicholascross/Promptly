@@ -24,19 +24,25 @@ struct PromptSessionRunner {
     }
 
     func run(
-        messages: [ChatMessage],
+        entry: PromptEntry,
+        initialConversationEntries: [PromptConversationEntry] = [],
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
         let transcriptRecorder = PromptTranscriptRecorder(
             configuration: .init(toolOutputPolicy: .include)
         )
+        let conversationRecorder = PromptConversationRecorder(
+            initialEntries: initialConversationEntries
+        )
 
         let eventHandler: @Sendable (PromptStreamEvent) async -> Void = { event in
             await transcriptRecorder.handle(event)
+            await conversationRecorder.handle(event)
             await onEvent(event)
         }
 
-        var turn = try await endpoint.start(messages: messages, onEvent: eventHandler)
+        var turn = try await endpoint.prompt(entry: entry, onEvent: eventHandler)
+        var latestResumeToken = turn.resumeToken ?? resumeToken(from: entry)
 
         var toolIterations = 0
         while !turn.toolCalls.isEmpty {
@@ -50,20 +56,25 @@ struct PromptSessionRunner {
                 onEvent: eventHandler
             )
 
-            guard let continuation = turn.continuation else {
-                throw PromptSessionRunnerError.missingContinuationToken
+            guard let context = turn.context else {
+                throw PromptSessionRunnerError.missingContinuationContext
             }
 
-            turn = try await endpoint.continueSession(
-                continuation: continuation,
-                toolOutputs: toolOutputs,
+            turn = try await endpoint.prompt(
+                entry: .toolCallResults(context: context, toolOutputs: toolOutputs),
                 onEvent: eventHandler
             )
+            if let resumeToken = turn.resumeToken {
+                latestResumeToken = resumeToken
+            }
         }
 
         let promptTranscript = await transcriptRecorder.finish()
+        let conversationEntries = await conversationRecorder.finish()
         return PromptSessionResult(
-            promptTranscript: promptTranscript
+            promptTranscript: promptTranscript,
+            conversationEntries: conversationEntries,
+            resumeToken: latestResumeToken
         )
     }
 
@@ -82,5 +93,17 @@ struct PromptSessionRunner {
         }
 
         return outputs
+    }
+
+    private func resumeToken(from entry: PromptEntry) -> String? {
+        guard case let .resume(context, _) = entry else {
+            return nil
+        }
+
+        guard case let .responses(previousResponseIdentifier) = context else {
+            return nil
+        }
+
+        return previousResponseIdentifier
     }
 }

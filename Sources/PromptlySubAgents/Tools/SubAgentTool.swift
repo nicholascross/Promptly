@@ -117,6 +117,13 @@ private extension SubAgentTool {
                         description: "Constraint statement."
                     ),
                     description: "Ordered constraints."
+                ),
+                "resumeId": .string(
+                    minLength: 1,
+                    maxLength: nil,
+                    pattern: nil,
+                    format: nil,
+                    description: "Resume identifier from a prior sub agent run."
                 )
             ],
             description: "Parameters for invoking a sub agent."

@@ -116,6 +116,7 @@ private struct StaticTool: ExecutableTool {
 private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
     func start(
         messages: [ChatMessage],
+        resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         await onEvent(.assistantTextDelta("Preparing..."))
@@ -127,7 +128,8 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
                     name: "Echo",
                     arguments: .object(["text": .string("hello")])
                 )
-            ]
+            ],
+            resumeToken: resumeToken
         )
     }
 
@@ -139,7 +141,8 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
         await onEvent(.assistantTextDelta("All done."))
         return PromptTurn(
             continuation: nil,
-            toolCalls: []
+            toolCalls: [],
+            resumeToken: nil
         )
     }
 }
@@ -147,6 +150,7 @@ private final class FinalTextOnlyAfterToolCallEndpoint: PromptEndpoint {
 private final class StreamedFinalTextEndpoint: PromptEndpoint {
     func start(
         messages: [ChatMessage],
+        resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
         await onEvent(.assistantTextDelta("Preparing..."))
@@ -158,7 +162,8 @@ private final class StreamedFinalTextEndpoint: PromptEndpoint {
                     name: "Echo",
                     arguments: .object(["text": .string("hello")])
                 )
-            ]
+            ],
+            resumeToken: resumeToken
         )
     }
 
@@ -170,7 +175,8 @@ private final class StreamedFinalTextEndpoint: PromptEndpoint {
         await onEvent(.assistantTextDelta("All done."))
         return PromptTurn(
             continuation: nil,
-            toolCalls: []
+            toolCalls: [],
+            resumeToken: nil
         )
     }
 }

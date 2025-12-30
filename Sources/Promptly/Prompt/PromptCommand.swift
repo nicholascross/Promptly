@@ -47,6 +47,7 @@ struct PromptCommand: AsyncParsableCommand {
             defaultToolsConfigURL: defaultToolsConfigURL,
             localToolsConfigURL: localToolsConfigURL
         )
+        let subAgentSessionState = SubAgentSessionState()
         let subAgentToolFactory = SubAgentToolFactory(
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
@@ -63,6 +64,8 @@ struct PromptCommand: AsyncParsableCommand {
                     configurationFileURL: configurationFileURL,
                     defaultToolsConfigURL: defaultToolsConfigURL,
                     localToolsConfigURL: localToolsConfigURL,
+                    sessionState: subAgentSessionState,
+                    apiOverride: session.apiOverride,
                     includeTools: session.includeTools,
                     excludeTools: session.excludeTools
                 )

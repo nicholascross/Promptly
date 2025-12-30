@@ -21,6 +21,8 @@ public struct SubAgentToolFactory {
         configurationFileURL: URL,
         defaultToolsConfigURL: URL,
         localToolsConfigURL: URL,
+        sessionState: SubAgentSessionState,
+        apiOverride: Config.API? = nil,
         includeTools: [String] = [],
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
@@ -60,7 +62,9 @@ public struct SubAgentToolFactory {
                 toolSettings: toolSettings,
                 logDirectoryURL: logsDirectoryURL,
                 toolOutput: toolOutput,
-                fileManager: fileManager
+                fileManager: fileManager,
+                sessionState: sessionState,
+                apiOverride: apiOverride
             )
             let tool = SubAgentTool(
                 name: toolName,

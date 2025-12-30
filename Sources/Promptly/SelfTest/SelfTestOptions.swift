@@ -12,4 +12,10 @@ struct SelfTestOptions: ParsableArguments {
         help: "Override the default shell command tools configuration basename (without .json)."
     )
     var toolsFileName: String = "tools"
+
+    @Option(
+        name: .customLong("api"),
+        help: "Select backend API (responses or chat). Overrides configuration."
+    )
+    var apiSelection: APISelection?
 }

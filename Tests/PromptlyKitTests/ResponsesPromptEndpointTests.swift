@@ -33,6 +33,7 @@ struct ResponsesPromptEndpointTests {
         let events = EventCollector()
         let turn = try await endpoint.start(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
+            resumeToken: nil,
             onEvent: { event in
                 await events.append(event)
             }
@@ -75,6 +76,7 @@ struct ResponsesPromptEndpointTests {
 
         let turn = try await endpoint.start(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
+            resumeToken: nil,
             onEvent: { _ in }
         )
 

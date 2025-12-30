@@ -30,6 +30,7 @@ struct ChatCompletionsPromptEndpointTests {
 
         let turn = try await endpoint.start(
             messages: [ChatMessage(role: .user, content: .text("hi"))],
+            resumeToken: nil,
             onEvent: { _ in }
         )
 

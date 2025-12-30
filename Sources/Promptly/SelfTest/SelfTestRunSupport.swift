@@ -9,7 +9,11 @@ func runSelfTests(level: SelfTestLevel, options: SelfTestOptions) async throws {
     ).standardizedFileURL
     let runner = SelfTestRunner(
         configurationFileURL: configurationFileURL,
-        toolsFileName: options.toolsFileName
+        toolsFileName: options.toolsFileName,
+        apiOverride: options.apiSelection?.configValue,
+        outputHandler: { message in
+            print(message)
+        }
     )
     let summary = await runner.run(level: level)
     let encoder = JSONEncoder()

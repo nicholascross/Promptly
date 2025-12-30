@@ -44,6 +44,7 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             defaultToolsConfigURL: defaultToolsConfigURL,
             localToolsConfigURL: localToolsConfigURL
         )
+        let subAgentSessionState = SubAgentSessionState()
         let subAgentToolFactory = SubAgentToolFactory(
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
@@ -59,6 +60,8 @@ struct UserInterfaceCommand: AsyncParsableCommand {
                 configurationFileURL: configurationFileURL,
                 defaultToolsConfigURL: defaultToolsConfigURL,
                 localToolsConfigURL: localToolsConfigURL,
+                sessionState: subAgentSessionState,
+                apiOverride: session.apiOverride,
                 includeTools: session.includeTools,
                 excludeTools: session.excludeTools,
                 toolOutput: toolOutput

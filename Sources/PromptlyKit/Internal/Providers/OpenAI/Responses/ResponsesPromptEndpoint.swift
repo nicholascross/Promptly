@@ -16,38 +16,47 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
         self.decoder = decoder
     }
 
-    func start(
-        messages: [ChatMessage],
+    func prompt(
+        entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        try await runOnce(
-            items: messages.map(RequestItem.message),
-            previousResponseId: nil,
-            onEvent: onEvent
-        )
-    }
+        switch entry {
+        case let .initial(messages):
+            return try await runOnce(
+                items: messages.map(RequestItem.message),
+                previousResponseId: nil,
+                onEvent: onEvent
+            )
 
-    func continueSession(
-        continuation: PromptContinuation,
-        toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptTurn {
-        guard case let .responses(previousResponseId) = continuation else {
-            throw PrompterError.invalidConfiguration
-        }
+        case let .resume(context, requestMessages):
+            guard case let .responses(previousResponseIdentifier) = context else {
+                throw PrompterError.invalidConfiguration
+            }
 
-        let outputItems = try toolOutputs.map { output in
-            let encodedOutput = try encodeJSONValue(output.output)
-            return RequestItem.functionOutput(
-                FunctionCallOutputItem(callId: output.id, output: encodedOutput)
+            return try await runOnce(
+                items: requestMessages.map(RequestItem.message),
+                previousResponseId: previousResponseIdentifier,
+                onEvent: onEvent
+            )
+
+        case let .toolCallResults(context, toolOutputs):
+            guard case let .responses(previousResponseIdentifier) = context else {
+                throw PrompterError.invalidConfiguration
+            }
+
+            let outputItems = try toolOutputs.map { output in
+                let encodedOutput = try encodeJSONValue(output.output)
+                return RequestItem.functionOutput(
+                    FunctionCallOutputItem(callId: output.id, output: encodedOutput)
+                )
+            }
+
+            return try await runOnce(
+                items: outputItems,
+                previousResponseId: previousResponseIdentifier,
+                onEvent: onEvent
             )
         }
-
-        return try await runOnce(
-            items: outputItems,
-            previousResponseId: previousResponseId,
-            onEvent: onEvent
-        )
     }
 
     private func runOnce(
@@ -81,8 +90,9 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
             }
 
             return PromptTurn(
-                continuation: .responses(previousResponseId: response.id),
-                toolCalls: requests
+                context: .responses(previousResponseIdentifier: response.id),
+                toolCalls: requests,
+                resumeToken: response.id
             )
         }
 
@@ -94,14 +104,16 @@ struct ResponsesPromptEndpoint: PromptEndpoint {
                 await onEvent(.assistantTextDelta(combined))
             }
             return PromptTurn(
-                continuation: nil,
-                toolCalls: []
+                context: nil,
+                toolCalls: [],
+                resumeToken: response.id
             )
 
         case .requiresAction:
             return PromptTurn(
-                continuation: .responses(previousResponseId: response.id),
-                toolCalls: []
+                context: .responses(previousResponseIdentifier: response.id),
+                toolCalls: [],
+                resumeToken: response.id
             )
 
         case .failed:

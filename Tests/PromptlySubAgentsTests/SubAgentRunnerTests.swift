@@ -102,7 +102,8 @@ struct SubAgentRunnerTests {
             toolSettings: toolSettings,
             logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
             toolOutput: { _ in },
-            fileManager: fileManager
+            fileManager: fileManager,
+            sessionState: SubAgentSessionState()
         )
 
         let tools = try runner.makeTools(transcriptLogger: nil)
@@ -180,7 +181,8 @@ struct SubAgentRunnerTests {
             toolSettings: toolSettings,
             logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
             toolOutput: { _ in },
-            fileManager: fileManager
+            fileManager: fileManager,
+            sessionState: SubAgentSessionState()
         )
 
         do {
@@ -242,6 +244,7 @@ struct SubAgentRunnerTests {
             logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
             toolOutput: { _ in },
             fileManager: fileManager,
+            sessionState: SubAgentSessionState(),
             coordinatorFactory: { _ in stubCoordinator }
         )
 
@@ -249,7 +252,8 @@ struct SubAgentRunnerTests {
             task: "Summarize the changes",
             contextPack: nil,
             goals: nil,
-            constraints: nil
+            constraints: nil,
+            resumeId: nil
         )
 
         do {
@@ -259,6 +263,8 @@ struct SubAgentRunnerTests {
             switch error {
             case let .missingReturnPayload(agentName):
                 #expect(agentName == "Return Agent")
+            case .invalidResumeId, .resumeAgentMismatch, .missingResponsesResumeToken:
+                Issue.record("Unexpected error: \(error)")
             }
         } catch {
             Issue.record("Unexpected error: \(error)")
@@ -286,13 +292,359 @@ struct SubAgentRunnerTests {
             Issue.record("Expected log file to be created.")
         }
     }
+
+    @Test
+    func storesResumeEntryWhenMoreInformationIsRequested() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Resume Agent",
+            description: "Test resume storage.",
+            systemPrompt: "Ask for more information when needed."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("resume.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
+            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let returnPayload: JSONValue = .object([
+            "result": .string("Need more information."),
+            "summary": .string("Waiting for more details."),
+            "needsMoreInformation": .bool(true),
+            "requestedInformation": .array([
+                .string("Sample detail")
+            ])
+        ])
+        let transcript = [
+            PromptTranscriptEntry.toolCall(
+                id: "return-1",
+                name: ReturnToSupervisorTool.toolName,
+                arguments: nil,
+                output: returnPayload
+            )
+        ]
+        let conversationEntries = [
+            PromptConversationEntry.message(
+                PromptMessage(role: .system, content: .text("System"))
+            ),
+            PromptConversationEntry.message(
+                PromptMessage(role: .user, content: .text("User"))
+            )
+        ]
+        let stubCoordinator = StubCoordinator(
+            result: PromptSessionResult(
+                promptTranscript: transcript,
+                conversationEntries: conversationEntries,
+                resumeToken: "response-1"
+            )
+        )
+
+        let sessionState = SubAgentSessionState()
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: sessionState,
+            coordinatorFactory: { _ in stubCoordinator }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Summarize.",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: nil
+        )
+        let payload = try await runner.run(request: request)
+
+        guard case let .object(object) = payload else {
+            Issue.record("Expected resume payload to be an object.")
+            return
+        }
+        guard let resumeId = stringValue(object["resumeId"]) else {
+            Issue.record("Expected resume identifier in payload.")
+            return
+        }
+        #expect(!resumeId.isEmpty)
+
+        let storedEntry = await sessionState.entry(for: resumeId)
+        #expect(storedEntry?.agentName == "Resume Agent")
+        #expect(storedEntry?.resumeToken == "response-1")
+        #expect(storedEntry?.conversationEntries.count == conversationEntries.count)
+    }
+
+    @Test
+    func ignoresNonUuidResumeIdentifier() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Resume Agent",
+            description: "Test non-UUID resume identifiers.",
+            systemPrompt: "Ask for more information when needed."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("resume.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
+            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let returnPayload: JSONValue = .object([
+            "result": .string("Need more information."),
+            "summary": .string("Waiting for more details."),
+            "needsMoreInformation": .bool(true),
+            "requestedInformation": .array([
+                .string("Sample detail")
+            ])
+        ])
+        let transcript = [
+            PromptTranscriptEntry.toolCall(
+                id: "return-1",
+                name: ReturnToSupervisorTool.toolName,
+                arguments: nil,
+                output: returnPayload
+            )
+        ]
+        let stubCoordinator = StubCoordinator(
+            result: PromptSessionResult(
+                promptTranscript: transcript,
+                conversationEntries: [],
+                resumeToken: nil
+            )
+        )
+
+        let sessionState = SubAgentSessionState()
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: sessionState,
+            coordinatorFactory: { _ in stubCoordinator }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Summarize.",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: "self-test"
+        )
+        let payload = try await runner.run(request: request)
+
+        guard case let .object(object) = payload else {
+            Issue.record("Expected resume payload to be an object.")
+            return
+        }
+        guard let resumeId = stringValue(object["resumeId"]) else {
+            Issue.record("Expected resume identifier in payload.")
+            return
+        }
+        #expect(!resumeId.isEmpty)
+        #expect(resumeId != "self-test")
+
+        let storedEntry = await sessionState.entry(for: resumeId)
+        #expect(storedEntry?.agentName == "Resume Agent")
+    }
+
+    @Test
+    func throwsWhenResumeIdIsInvalid() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Resume Agent",
+            description: "Test resume lookup.",
+            systemPrompt: "Resume if asked."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("resume.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
+            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let stubCoordinator = StubCoordinator(result: PromptSessionResult(promptTranscript: []))
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: SubAgentSessionState(),
+            coordinatorFactory: { _ in stubCoordinator }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Resume.",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: "11111111-1111-1111-1111-111111111111"
+        )
+
+        do {
+            _ = try await runner.run(request: request)
+            Issue.record("Expected invalid resume identifier error.")
+        } catch let error as SubAgentToolError {
+            switch error {
+            case let .invalidResumeId(resumeId):
+                #expect(resumeId == "11111111-1111-1111-1111-111111111111")
+            default:
+                Issue.record("Unexpected error: \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
+
+    @Test
+    func throwsWhenResponsesResumeTokenIsMissing() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Resume Agent",
+            description: "Test resume token validation.",
+            systemPrompt: "Resume if asked."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("resume.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
+            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let sessionState = SubAgentSessionState()
+        _ = await sessionState.storeResumeEntry(
+            resumeId: "22222222-2222-2222-2222-222222222222",
+            agentName: "Resume Agent",
+            conversationEntries: [],
+            resumeToken: nil
+        )
+
+        let stubCoordinator = StubCoordinator(result: PromptSessionResult(promptTranscript: []))
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: sessionState,
+            coordinatorFactory: { _ in stubCoordinator }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Resume.",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: "22222222-2222-2222-2222-222222222222"
+        )
+
+        do {
+            _ = try await runner.run(request: request)
+            Issue.record("Expected missing resume token error.")
+        } catch let error as SubAgentToolError {
+            switch error {
+            case let .missingResponsesResumeToken(agentName, resumeId):
+                #expect(agentName == "Resume Agent")
+                #expect(resumeId == "22222222-2222-2222-2222-222222222222")
+            default:
+                Issue.record("Unexpected error: \(error)")
+            }
+        } catch {
+            Issue.record("Unexpected error: \(error)")
+        }
+    }
 }
 
 private struct StubCoordinator: SubAgentCoordinator {
     let result: PromptSessionResult
 
     func run(
-        messages: [PromptMessage],
+        requestMessages: [PromptMessage],
+        conversationEntries: [PromptConversationEntry],
+        resumeToken: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptSessionResult {
         result

@@ -16,35 +16,39 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
         self.encoder = encoder
     }
 
-    func start(
-        messages: [ChatMessage],
+    func prompt(
+        entry: PromptEntry,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        try await runOnce(messages: messages, onEvent: onEvent)
-    }
+        switch entry {
+        case let .initial(messages):
+            return try await runOnce(messages: messages, onEvent: onEvent)
 
-    func continueSession(
-        continuation: PromptContinuation,
-        toolOutputs: [ToolCallOutput],
-        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
-    ) async throws -> PromptTurn {
-        guard case let .chatCompletions(messages) = continuation else {
-            throw PrompterError.invalidConfiguration
-        }
+        case .resume:
+            // Chat Completions is stateless, so there is no server-side response identifier to resume from.
+            // Resuming is only supported by the Responses endpoint using a previous response identifier.
+            // The equivalent for Chat Completions is to send the full message history as new input.
+            throw PrompterError.resumeNotSupported
 
-        var updatedMessages = messages
-        for output in toolOutputs {
-            let encoded = try encodeJSONValue(output.output)
-            updatedMessages.append(
-                ChatMessage(
-                    role: .tool,
-                    content: .text(encoded),
-                    toolCallId: output.id
+        case let .toolCallResults(context, toolOutputs):
+            guard case let .chatCompletions(messages) = context else {
+                throw PrompterError.invalidConfiguration
+            }
+
+            var updatedMessages = messages
+            for output in toolOutputs {
+                let encoded = try encodeJSONValue(output.output)
+                updatedMessages.append(
+                    ChatMessage(
+                        role: .tool,
+                        content: .text(encoded),
+                        toolCallId: output.id
+                    )
                 )
-            )
-        }
+            }
 
-        return try await runOnce(messages: updatedMessages, onEvent: onEvent)
+            return try await runOnce(messages: updatedMessages, onEvent: onEvent)
+        }
     }
 
     private func runOnce(
@@ -91,8 +95,9 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
 
                 case .stop:
                     return PromptTurn(
-                        continuation: nil,
-                        toolCalls: []
+                        context: nil,
+                        toolCalls: [],
+                        resumeToken: nil
                     )
                 }
             }
@@ -100,14 +105,16 @@ struct ChatCompletionsPromptEndpoint: PromptEndpoint {
 
         if let toolCallRequest, let assistantToolCallMessage {
             return PromptTurn(
-                continuation: .chatCompletions(messages: messages + [assistantToolCallMessage]),
-                toolCalls: [toolCallRequest]
+                context: .chatCompletions(messages: messages + [assistantToolCallMessage]),
+                toolCalls: [toolCallRequest],
+                resumeToken: nil
             )
         }
 
         return PromptTurn(
-            continuation: nil,
-            toolCalls: []
+            context: nil,
+            toolCalls: [],
+            resumeToken: nil
         )
     }
 

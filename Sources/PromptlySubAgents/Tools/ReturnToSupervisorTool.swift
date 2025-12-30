@@ -105,6 +105,33 @@ private extension ReturnToSupervisorTool {
                     format: nil,
                     description: "Reason when a supervisor decision is needed."
                 ),
+                "needsMoreInformation": .boolean(
+                    description: "Whether the sub agent needs more information."
+                ),
+                "requestedInformation": .array(
+                    items: .string(
+                        minLength: 1,
+                        maxLength: nil,
+                        pattern: nil,
+                        format: nil,
+                        description: "Requested information entry."
+                    ),
+                    description: "Requested details needed to continue the sub agent run."
+                ),
+                "nextActionAdvice": .string(
+                    minLength: 1,
+                    maxLength: nil,
+                    pattern: nil,
+                    format: nil,
+                    description: "Guidance for the supervisor on next steps."
+                ),
+                "resumeId": .string(
+                    minLength: 1,
+                    maxLength: nil,
+                    pattern: nil,
+                    format: nil,
+                    description: "Resume identifier for continuing the sub agent run."
+                ),
                 "logPath": .string(
                     minLength: 1,
                     maxLength: nil,
