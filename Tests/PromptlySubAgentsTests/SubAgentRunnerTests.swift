@@ -103,7 +103,8 @@ struct SubAgentRunnerTests {
             logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
             toolOutput: { _ in },
             fileManager: fileManager,
-            sessionState: SubAgentSessionState()
+            sessionState: SubAgentSessionState(),
+            modelOverride: nil
         )
 
         let tools = try runner.makeTools(transcriptLogger: nil)
@@ -182,7 +183,8 @@ struct SubAgentRunnerTests {
             logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
             toolOutput: { _ in },
             fileManager: fileManager,
-            sessionState: SubAgentSessionState()
+            sessionState: SubAgentSessionState(),
+            modelOverride: nil
         )
 
         do {
@@ -247,6 +249,7 @@ struct SubAgentRunnerTests {
             toolOutput: { _ in },
             fileManager: fileManager,
             sessionState: SubAgentSessionState(),
+            modelOverride: nil,
             coordinatorFactory: { _ in stubEndpoint }
         )
 
@@ -371,6 +374,7 @@ struct SubAgentRunnerTests {
             toolOutput: { _ in },
             fileManager: fileManager,
             sessionState: sessionState,
+            modelOverride: nil,
             coordinatorFactory: { _ in stubEndpoint }
         )
 
@@ -475,6 +479,7 @@ struct SubAgentRunnerTests {
             toolOutput: { _ in },
             fileManager: fileManager,
             sessionState: sessionState,
+            modelOverride: nil,
             coordinatorFactory: { _ in stubEndpoint }
         )
 
@@ -545,6 +550,7 @@ struct SubAgentRunnerTests {
             toolOutput: { _ in },
             fileManager: fileManager,
             sessionState: SubAgentSessionState(),
+            modelOverride: nil,
             coordinatorFactory: { _ in stubEndpoint }
         )
 
@@ -622,6 +628,7 @@ struct SubAgentRunnerTests {
             toolOutput: { _ in },
             fileManager: fileManager,
             sessionState: sessionState,
+            modelOverride: nil,
             coordinatorFactory: { _ in stubEndpoint }
         )
 

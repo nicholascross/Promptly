@@ -61,15 +61,16 @@ struct PromptCommand: AsyncParsableCommand {
                     includeTools: run.includeTools,
                     excludeTools: run.excludeTools
                 )
-                let subAgentTools = try subAgentToolFactory.makeTools(
-                    configurationFileURL: configurationFileURL,
-                    defaultToolsConfigURL: defaultToolsConfigURL,
-                    localToolsConfigURL: localToolsConfigURL,
-                    sessionState: subAgentSessionState,
-                    apiOverride: run.apiOverride,
-                    includeTools: run.includeTools,
-                    excludeTools: run.excludeTools
-                )
+            let subAgentTools = try subAgentToolFactory.makeTools(
+                configurationFileURL: configurationFileURL,
+                defaultToolsConfigURL: defaultToolsConfigURL,
+                localToolsConfigURL: localToolsConfigURL,
+                sessionState: subAgentSessionState,
+                modelOverride: run.modelOverride,
+                apiOverride: run.apiOverride,
+                includeTools: run.includeTools,
+                excludeTools: run.excludeTools
+            )
                 return shellTools + subAgentTools
             },
             modelOverride: run.modelOverride,

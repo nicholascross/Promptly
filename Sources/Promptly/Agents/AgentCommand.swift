@@ -8,6 +8,7 @@ struct AgentCommand: ParsableCommand {
         subcommands: [
             AgentList.self,
             AgentView.self,
+            AgentRun.self,
             AgentAdd.self,
             AgentRemove.self,
             AgentInstall.self

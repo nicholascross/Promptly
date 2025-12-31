@@ -62,6 +62,7 @@ struct UserInterfaceCommand: AsyncParsableCommand {
                 defaultToolsConfigURL: defaultToolsConfigURL,
                 localToolsConfigURL: localToolsConfigURL,
                 sessionState: subAgentSessionState,
+                modelOverride: run.modelOverride,
                 apiOverride: run.apiOverride,
                 includeTools: run.includeTools,
                 excludeTools: run.excludeTools,

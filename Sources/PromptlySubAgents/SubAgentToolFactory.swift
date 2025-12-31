@@ -22,6 +22,7 @@ public struct SubAgentToolFactory {
         defaultToolsConfigURL: URL,
         localToolsConfigURL: URL,
         sessionState: SubAgentSessionState,
+        modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
         includeTools: [String] = [],
         excludeTools: [String] = [],
@@ -46,38 +47,52 @@ public struct SubAgentToolFactory {
                 agentConfigurationURL: agentURL
             )
 
-            let agentName = agentConfiguration.definition.name
-            let toolName = toolName(for: agentName)
-            let description = agentConfiguration.definition.description
-            let toolSettings = resolveToolSettings(
-                defaults: toolDefaults,
-                overrides: agentConfiguration.definition.tools
-            )
-            let logsDirectoryURL = agentLogsDirectoryURL(
+            let tool = makeTool(
+                agentConfiguration: agentConfiguration,
                 configurationFileURL: configurationFileURL,
-                agentName: agentName
-            )
-            let runner = SubAgentRunner(
-                configuration: agentConfiguration,
-                toolSettings: toolSettings,
-                logDirectoryURL: logsDirectoryURL,
-                toolOutput: toolOutput,
-                fileManager: fileManager,
+                toolDefaults: toolDefaults,
                 sessionState: sessionState,
-                apiOverride: apiOverride
+                modelOverride: modelOverride,
+                apiOverride: apiOverride,
+                toolOutput: toolOutput
             )
-            let tool = SubAgentTool(
-                name: toolName,
-                description: description,
-                executeHandler: { request in
-                    try await runner.run(request: request)
-                }
-            )
-
             tools.append(tool)
         }
 
         return tools
+    }
+
+    public func makeTool(
+        configurationFileURL: URL,
+        agentConfigurationURL: URL,
+        defaultToolsConfigURL: URL,
+        localToolsConfigURL: URL,
+        sessionState: SubAgentSessionState,
+        modelOverride: String? = nil,
+        apiOverride: Config.API? = nil,
+        includeTools: [String] = [],
+        excludeTools: [String] = [],
+        toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
+    ) throws -> any ExecutableTool {
+        let toolDefaults = SubAgentToolSettings(
+            defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
+            localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
+            includeTools: includeTools,
+            excludeTools: excludeTools
+        )
+        let agentConfiguration = try configurationLoader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentConfigurationURL
+        )
+        return makeTool(
+            agentConfiguration: agentConfiguration,
+            configurationFileURL: configurationFileURL,
+            toolDefaults: toolDefaults,
+            sessionState: sessionState,
+            modelOverride: modelOverride,
+            apiOverride: apiOverride,
+            toolOutput: toolOutput
+        )
     }
 
     private func toolName(for agentName: String) -> String {
@@ -166,5 +181,44 @@ public struct SubAgentToolFactory {
             return toolsFileName
         }
         return "\(toolsFileName).json"
+    }
+
+    private func makeTool(
+        agentConfiguration: SubAgentConfiguration,
+        configurationFileURL: URL,
+        toolDefaults: SubAgentToolSettings,
+        sessionState: SubAgentSessionState,
+        modelOverride: String?,
+        apiOverride: Config.API?,
+        toolOutput: @Sendable @escaping (String) -> Void
+    ) -> any ExecutableTool {
+        let agentName = agentConfiguration.definition.name
+        let toolName = toolName(for: agentName)
+        let description = agentConfiguration.definition.description
+        let toolSettings = resolveToolSettings(
+            defaults: toolDefaults,
+            overrides: agentConfiguration.definition.tools
+        )
+        let logsDirectoryURL = agentLogsDirectoryURL(
+            configurationFileURL: configurationFileURL,
+            agentName: agentName
+        )
+        let runner = SubAgentRunner(
+            configuration: agentConfiguration,
+            toolSettings: toolSettings,
+            logDirectoryURL: logsDirectoryURL,
+            toolOutput: toolOutput,
+            fileManager: fileManager,
+            sessionState: sessionState,
+            modelOverride: modelOverride,
+            apiOverride: apiOverride
+        )
+        return SubAgentTool(
+            name: toolName,
+            description: description,
+            executeHandler: { request in
+                try await runner.run(request: request)
+            }
+        )
     }
 }

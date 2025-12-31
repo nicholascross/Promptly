@@ -6,9 +6,15 @@ import PromptlyKitUtils
 private struct PromptRunCoordinatorAdapter: PromptEndpoint {
     private let coordinator: PromptRunCoordinator
 
-    init(configuration: Config, tools: [any ExecutableTool], apiOverride: Config.API?) throws {
+    init(
+        configuration: Config,
+        tools: [any ExecutableTool],
+        modelOverride: String?,
+        apiOverride: Config.API?
+    ) throws {
         coordinator = try PromptRunCoordinator(
             config: configuration,
+            modelOverride: modelOverride,
             apiOverride: apiOverride,
             tools: tools
         )
@@ -50,6 +56,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         toolOutput: @Sendable @escaping (String) -> Void,
         fileManager: FileManagerProtocol,
         sessionState: SubAgentSessionState,
+        modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
         coordinatorFactory: (@Sendable ([any ExecutableTool]) throws -> any PromptEndpoint)? = nil
     ) {
@@ -64,6 +71,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
             try PromptRunCoordinatorAdapter(
                 configuration: configuration.configuration,
                 tools: tools,
+                modelOverride: modelOverride,
                 apiOverride: apiOverride
             )
         }
