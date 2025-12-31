@@ -53,6 +53,9 @@ struct PromptCommand: AsyncParsableCommand {
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
         )
+        let supervisorHintSection = try subAgentToolFactory.supervisorHintSection(
+            configurationFileURL: configurationFileURL
+        )
         let runner = PromptConsoleRunner(
             config: run.config,
             toolProvider: {
@@ -70,7 +73,7 @@ struct PromptCommand: AsyncParsableCommand {
                 apiOverride: run.apiOverride,
                 includeTools: run.includeTools,
                 excludeTools: run.excludeTools
-            )
+                )
                 return shellTools + subAgentTools
             },
             modelOverride: run.modelOverride,
@@ -78,6 +81,10 @@ struct PromptCommand: AsyncParsableCommand {
             interactive: interactive,
             standardInputHandler: run.standardInputHandler
         )
-        try await runner.run(initialMessages: run.initialMessages)
+        let initialMessages = insertSupervisorHintMessage(
+            supervisorHint: supervisorHintSection,
+            into: run.initialMessages
+        )
+        try await runner.run(initialMessages: initialMessages)
     }
 }

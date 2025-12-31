@@ -30,6 +30,7 @@ func makeBaseConfigurationJSON(model: String, modelAliases: [String: String] = [
 func makeAgentConfigurationJSON(
     name: String,
     description: String,
+    supervisorHint: String? = nil,
     systemPrompt: String,
     model: String? = nil,
     tools: JSONValue? = nil
@@ -39,6 +40,9 @@ func makeAgentConfigurationJSON(
         "description": .string(description),
         "systemPrompt": .string(systemPrompt)
     ]
+    if let supervisorHint {
+        agentObject["supervisorHint"] = .string(supervisorHint)
+    }
     if let tools {
         agentObject["tools"] = tools
     }

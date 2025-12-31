@@ -11,6 +11,7 @@ enum DefaultAgentConfigurations {
                 agent: AgentDefinitionDocument(
                     name: "Refactor Agent",
                     description: "Refactor code while preserving behavior and clarity.",
+                    supervisorHint: nil,
                     systemPrompt: """
                     You are a refactoring specialist. Preserve behavior, keep changes minimal, and improve clarity.
                     Focus on readability, structure, and maintainability without altering public interfaces unless needed.

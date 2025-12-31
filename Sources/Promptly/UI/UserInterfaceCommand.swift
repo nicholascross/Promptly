@@ -50,6 +50,9 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
         )
+        let supervisorHintSection = try subAgentToolFactory.supervisorHintSection(
+            configurationFileURL: configurationFileURL
+        )
         let toolProvider: (@escaping @Sendable (String) -> Void) throws -> [any ExecutableTool] = { toolOutput in
             let shellTools = try toolFactory.makeTools(
                 config: run.config,
@@ -77,6 +80,10 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             apiOverride: run.apiOverride,
             standardInputHandler: run.standardInputHandler
         )
-        try await runner.run(initialMessages: run.initialMessages)
+        let initialMessages = insertSupervisorHintMessage(
+            supervisorHint: supervisorHintSection,
+            into: run.initialMessages
+        )
+        try await runner.run(initialMessages: initialMessages)
     }
 }

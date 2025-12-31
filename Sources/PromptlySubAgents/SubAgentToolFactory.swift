@@ -62,6 +62,38 @@ public struct SubAgentToolFactory {
         return tools
     }
 
+    public func supervisorHintSection(
+        configurationFileURL: URL
+    ) throws -> String? {
+        let agentURLs = try configurationLoader.discoverAgentConfigurationURLs(
+            configFileURL: configurationFileURL
+        )
+
+        var hintLines: [String] = []
+        hintLines.reserveCapacity(agentURLs.count)
+
+        for agentURL in agentURLs {
+            let agentConfiguration = try configurationLoader.loadAgentConfiguration(
+                configFileURL: configurationFileURL,
+                agentConfigurationURL: agentURL
+            )
+            guard let hint = normalizedSupervisorHint(
+                agentConfiguration.definition.supervisorHint
+            ) else {
+                continue
+            }
+            let toolName = toolName(for: agentConfiguration.definition.name)
+            hintLines.append("- \(toolName): \(hint)")
+        }
+
+        guard !hintLines.isEmpty else {
+            return nil
+        }
+
+        let header = "Available sub agents (call tools by name when helpful):"
+        return ([header] + hintLines).joined(separator: "\n")
+    }
+
     public func makeTool(
         configurationFileURL: URL,
         agentConfigurationURL: URL,
@@ -118,6 +150,17 @@ public struct SubAgentToolFactory {
 
         let trimmedSeparators = normalized.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
         return trimmedSeparators.isEmpty ? "agent" : trimmedSeparators
+    }
+
+    private func normalizedSupervisorHint(_ hint: String?) -> String? {
+        guard let hint else {
+            return nil
+        }
+        let trimmed = hint.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     private func resolveToolSettings(

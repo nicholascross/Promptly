@@ -21,6 +21,9 @@ struct AgentAdd: ParsableCommand {
     @Option(name: .customLong("description"), help: "Short description for the agent")
     var description: String
 
+    @Option(name: .customLong("supervisor-hint"), help: "Short hint for when the supervisor should call this agent")
+    var supervisorHint: String?
+
     @Option(name: .customLong("system-prompt"), help: "System prompt for the agent")
     var systemPrompt: String
 
@@ -81,6 +84,7 @@ struct AgentAdd: ParsableCommand {
             agent: AgentDefinitionDocument(
                 name: agentName ?? name,
                 description: description,
+                supervisorHint: supervisorHint,
                 systemPrompt: systemPrompt,
                 tools: toolOverrides
             )
