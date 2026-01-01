@@ -94,9 +94,6 @@ public struct BundledResourceLoader {
     }
 
     private func findModuleResourceBundle() -> Bundle? {
-        if let bundle = bundleIfContainsDefaultAssets(Bundle.module) {
-            return bundle
-        }
         if let bundle = bundleIfContainsDefaultAssets(Bundle.main) {
             return bundle
         }
