@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyAssets
 import PromptlyKit
 import PromptlyKitUtils
 
@@ -28,9 +29,6 @@ public struct SubAgentToolFactory {
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
-        let agentURLs = try configurationLoader.discoverAgentConfigurationURLs(
-            configFileURL: configurationFileURL
-        )
         let toolDefaults = SubAgentToolSettings(
             defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
             localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
@@ -38,15 +36,14 @@ public struct SubAgentToolFactory {
             excludeTools: excludeTools
         )
 
+        let agentConfigurations = try loadAgentConfigurations(
+            configurationFileURL: configurationFileURL
+        )
+
         var tools: [any ExecutableTool] = []
-        tools.reserveCapacity(agentURLs.count)
+        tools.reserveCapacity(agentConfigurations.count)
 
-        for agentURL in agentURLs {
-            let agentConfiguration = try configurationLoader.loadAgentConfiguration(
-                configFileURL: configurationFileURL,
-                agentConfigurationURL: agentURL
-            )
-
+        for agentConfiguration in agentConfigurations {
             let tool = makeTool(
                 agentConfiguration: agentConfiguration,
                 configurationFileURL: configurationFileURL,
@@ -65,18 +62,14 @@ public struct SubAgentToolFactory {
     public func supervisorHintSection(
         configurationFileURL: URL
     ) throws -> String? {
-        let agentURLs = try configurationLoader.discoverAgentConfigurationURLs(
-            configFileURL: configurationFileURL
+        let agentConfigurations = try loadAgentConfigurations(
+            configurationFileURL: configurationFileURL
         )
 
         var hintLines: [String] = []
-        hintLines.reserveCapacity(agentURLs.count)
+        hintLines.reserveCapacity(agentConfigurations.count)
 
-        for agentURL in agentURLs {
-            let agentConfiguration = try configurationLoader.loadAgentConfiguration(
-                configFileURL: configurationFileURL,
-                agentConfigurationURL: agentURL
-            )
+        for agentConfiguration in agentConfigurations {
             guard let hint = normalizedSupervisorHint(
                 agentConfiguration.definition.supervisorHint
             ) else {
@@ -115,6 +108,41 @@ public struct SubAgentToolFactory {
         let agentConfiguration = try configurationLoader.loadAgentConfiguration(
             configFileURL: configurationFileURL,
             agentConfigurationURL: agentConfigurationURL
+        )
+        return makeTool(
+            agentConfiguration: agentConfiguration,
+            configurationFileURL: configurationFileURL,
+            toolDefaults: toolDefaults,
+            sessionState: sessionState,
+            modelOverride: modelOverride,
+            apiOverride: apiOverride,
+            toolOutput: toolOutput
+        )
+    }
+
+    public func makeTool(
+        configurationFileURL: URL,
+        agentConfigurationData: Data,
+        agentSourceURL: URL,
+        defaultToolsConfigURL: URL,
+        localToolsConfigURL: URL,
+        sessionState: SubAgentSessionState,
+        modelOverride: String? = nil,
+        apiOverride: Config.API? = nil,
+        includeTools: [String] = [],
+        excludeTools: [String] = [],
+        toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
+    ) throws -> any ExecutableTool {
+        let toolDefaults = SubAgentToolSettings(
+            defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
+            localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
+            includeTools: includeTools,
+            excludeTools: excludeTools
+        )
+        let agentConfiguration = try configurationLoader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationData: agentConfigurationData,
+            sourceURL: agentSourceURL
         )
         return makeTool(
             agentConfiguration: agentConfiguration,
@@ -263,5 +291,47 @@ public struct SubAgentToolFactory {
                 try await runner.run(request: request)
             }
         )
+    }
+
+    private func loadAgentConfigurations(
+        configurationFileURL: URL
+    ) throws -> [SubAgentConfiguration] {
+        let agentURLs = try configurationLoader.discoverAgentConfigurationURLs(
+            configFileURL: configurationFileURL
+        )
+        var configurations: [SubAgentConfiguration] = []
+        configurations.reserveCapacity(agentURLs.count)
+        var existingNames = Set<String>()
+
+        for agentURL in agentURLs {
+            let agentConfiguration = try configurationLoader.loadAgentConfiguration(
+                configFileURL: configurationFileURL,
+                agentConfigurationURL: agentURL
+            )
+            configurations.append(agentConfiguration)
+            let identifier = agentURL.deletingPathExtension().lastPathComponent
+            existingNames.insert(identifier.lowercased())
+        }
+
+        let bundledAgents = BundledAgentDefaults()
+        let bundledNames = bundledAgents.agentNames()
+        guard !bundledNames.isEmpty else {
+            return configurations
+        }
+
+        for name in bundledNames where !existingNames.contains(name.lowercased()) {
+            guard let data = bundledAgents.agentData(name: name),
+                  let sourceURL = bundledAgents.agentURL(name: name) else {
+                continue
+            }
+            let agentConfiguration = try configurationLoader.loadAgentConfiguration(
+                configFileURL: configurationFileURL,
+                agentConfigurationData: data,
+                sourceURL: sourceURL
+            )
+            configurations.append(agentConfiguration)
+        }
+
+        return configurations
     }
 }

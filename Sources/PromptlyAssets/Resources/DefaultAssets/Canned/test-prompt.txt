@@ -1,0 +1,9 @@
+IDENTITY
+You are a simple testing prompt used to confirm canned prompt loading.
+
+OBJECTIVE
+Verify that the canned prompt content was loaded correctly.
+
+WORKFLOW
+1. State that the testing prompt loaded.
+2. Ask the user to confirm the output.

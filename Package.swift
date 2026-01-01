@@ -22,6 +22,10 @@ let package = Package(
             targets: ["PromptlyKitUtils"]
         ),
         .library(
+            name: "PromptlyAssets",
+            targets: ["PromptlyAssets"]
+        ),
+        .library(
             name: "PromptlyKitTooling",
             targets: ["PromptlyKitTooling"]
         ),
@@ -45,6 +49,7 @@ let package = Package(
             name: "Promptly",
             dependencies: [
                 "PromptlyConsole",
+                "PromptlyAssets",
                 "PromptlyKit",
                 "PromptlyKitTooling",
                 "PromptlyKitUtils",
@@ -66,6 +71,7 @@ let package = Package(
         .target(
             name: "PromptlyConsole",
             dependencies: [
+                "PromptlyAssets",
                 "PromptlyKit",
                 "PromptlyKitUtils"
             ]
@@ -75,12 +81,18 @@ let package = Package(
             dependencies: ["PromptlyKit", "PromptlyKitUtils"]
         ),
         .target(
+            name: "PromptlyAssets",
+            dependencies: ["PromptlyKitUtils"],
+            resources: [.copy("Resources/DefaultAssets")]
+        ),
+        .target(
             name: "PromptlyKitUtils",
             dependencies: []
         ),
         .target(
             name: "PromptlySubAgents",
             dependencies: [
+                "PromptlyAssets",
                 "PromptlyKit",
                 "PromptlyKitTooling",
                 "PromptlyKitUtils"

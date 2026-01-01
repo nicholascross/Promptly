@@ -48,42 +48,65 @@ struct SubAgentConfigurationLoader {
         configFileURL: URL,
         agentConfigurationURL: URL
     ) throws -> SubAgentConfiguration {
+        let data = try fileManager.readData(at: agentConfigurationURL)
+        return try loadAgentConfiguration(
+            configFileURL: configFileURL,
+            agentConfigurationData: data,
+            sourceURL: agentConfigurationURL
+        )
+    }
+
+    func loadAgentConfiguration(
+        configFileURL: URL,
+        agentConfigurationData: Data,
+        sourceURL: URL
+    ) throws -> SubAgentConfiguration {
         let baseDocument = try loadJSONValue(from: configFileURL)
-        let agentDocument = try loadJSONValue(from: agentConfigurationURL)
+        let agentDocument = try loadJSONValue(from: agentConfigurationData, sourceURL: sourceURL)
         let merged = merge(base: baseDocument, override: agentDocument)
 
         let configuration = try decodeMerged(
             merged,
             as: Config.self,
             baseURL: configFileURL,
-            agentURL: agentConfigurationURL
+            agentURL: sourceURL
         )
 
         let definition = try decodeAgentDefinition(
             from: merged,
             baseURL: configFileURL,
-            agentURL: agentConfigurationURL
+            agentURL: sourceURL
         )
 
         return SubAgentConfiguration(
             configuration: configuration,
             definition: definition,
-            sourceURL: agentConfigurationURL
+            sourceURL: sourceURL
         )
     }
 
     private func loadJSONValue(from url: URL) throws -> JSONValue {
         do {
             let data = try fileManager.readData(at: url)
+            return try loadJSONValue(from: data, sourceURL: url)
+        } catch let error as SubAgentConfigurationLoaderError {
+            throw error
+        } catch {
+            throw SubAgentConfigurationLoaderError.invalidConfiguration(url, error)
+        }
+    }
+
+    private func loadJSONValue(from data: Data, sourceURL: URL) throws -> JSONValue {
+        do {
             let value = try JSONDecoder().decode(JSONValue.self, from: data)
             guard case .object = value else {
-                throw SubAgentConfigurationLoaderError.invalidRootValue(url)
+                throw SubAgentConfigurationLoaderError.invalidRootValue(sourceURL)
             }
             return value
         } catch let error as SubAgentConfigurationLoaderError {
             throw error
         } catch {
-            throw SubAgentConfigurationLoaderError.invalidConfiguration(url, error)
+            throw SubAgentConfigurationLoaderError.invalidConfiguration(sourceURL, error)
         }
     }
 

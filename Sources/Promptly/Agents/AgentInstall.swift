@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PromptlyAssets
 import PromptlyKitUtils
 
 /// `promptly agent install` - install default agents into the config directory
@@ -21,23 +22,35 @@ struct AgentInstall: ParsableCommand {
             attributes: nil
         )
 
-        guard !DefaultAgentConfigurations.configurations.isEmpty else {
+        let bundledAgents = BundledAgentDefaults()
+        let agentNames = bundledAgents.agentNames()
+        guard !agentNames.isEmpty else {
             print("no default agents available")
             return
         }
 
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = .prettyPrinted
-
-        for entry in DefaultAgentConfigurations.configurations {
-            let fileURL = agentsDirectoryURL.appendingPathComponent("\(entry.fileName).json")
+        for name in agentNames {
+            guard let data = bundledAgents.agentData(name: name) else {
+                throw AgentInstallError.bundledDefaultsUnavailable
+            }
+            let fileURL = agentsDirectoryURL.appendingPathComponent("\(name).json")
             if fileManager.fileExists(atPath: fileURL.path) {
                 print("Skipped existing agent configuration at \(fileURL.path)")
                 continue
             }
-            let data = try encoder.encode(entry.configuration)
             try fileManager.writeData(data, to: fileURL)
             print("Installed agent configuration to \(fileURL.path)")
+        }
+    }
+}
+
+private enum AgentInstallError: Error, LocalizedError {
+    case bundledDefaultsUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .bundledDefaultsUnavailable:
+            return "Bundled agent defaults are unavailable."
         }
     }
 }

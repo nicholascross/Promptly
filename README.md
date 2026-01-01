@@ -87,6 +87,8 @@ To install Promptly, execute the following steps:
    cp .build/release/Promptly ~/bin/promptly
    ```
 
+Bundled default agents and canned prompts ship in the PromptlyAssets resource bundle. Swift Package Manager runs (`swift run`) load them automatically. For manual installs, copy the resource bundle next to the executable or set `PROMPTLY_RESOURCE_BUNDLE` to the bundle path; otherwise default agents and canned prompts are unavailable. Homebrew installs include the resource bundle alongside the executable.
+
 ## Configuration
 
 - See [Configuration](Docs/configuration.md)
@@ -140,13 +142,31 @@ Note that UI mode requires a TTY for interactive input, but piped initial input 
 
 You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option one or more times. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.
 
-Create canned prompts as text files in the `~/.config/promptly/canned/` directory. 
+Promptly ships bundled canned prompts and loads them on demand. To override or add new prompts, create text files in the `~/.config/promptly/canned/` directory.
 
 You can invoke one or multiple canned prompts as follows:
 
 
 ```bash
 echo "something" | promptly --canned "example1" --canned "example2"
+```
+
+List available canned prompts:
+
+```bash
+promptly canned list
+```
+
+Add a canned prompt:
+
+```bash
+promptly canned add example --content "Your canned prompt text"
+```
+
+Remove a canned prompt:
+
+```bash
+promptly canned remove example
 ```
 
 ## Tool Management
@@ -203,16 +223,6 @@ promptly agent install
 # Remove an agent (use --force to skip confirmation)
 promptly agent remove <name> [--force] [--config-file <path>]
 ```
-
-### Install Default Canned Prompts
-
-Install the bundled canned prompts (including helpers for registering tools, generating new canned prompts, and drafting commit messages) into `~/.config/promptly/canned`:
-
-```bash
-promptly canned install
-```
-
-Use `--overwrite` to replace any existing canned prompt files with the defaults.
 
 ### Role based messages
 

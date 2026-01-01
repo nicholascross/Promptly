@@ -1,0 +1,2 @@
+Examine the contents of this diff and ruminate about what the commit message should be for these changes.
+Please provide your ruminations first before writing the commit message. Always provide the commit message in your response, do not wait until later to provide it.

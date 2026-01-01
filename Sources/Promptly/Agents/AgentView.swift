@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PromptlyAssets
 import PromptlyKitUtils
 
 /// `promptly agent view <name>` - show details for one agent
@@ -18,13 +19,20 @@ struct AgentView: ParsableCommand {
     func run() throws {
         let fileManager: FileManagerProtocol = FileManager.default
         let agentConfigurationURL = options.agentConfigurationURL(agentName: name)
+        let bundledAgentIdentifier = options.agentIdentifier(agentName: name).lowercased()
 
-        guard fileManager.fileExists(atPath: agentConfigurationURL.path) else {
+        let agentDocument: JSONValue
+        if fileManager.fileExists(atPath: agentConfigurationURL.path) {
+            agentDocument = try loadJSONValue(from: agentConfigurationURL, fileManager: fileManager)
+        } else if let bundledDocument = try loadBundledAgentDocument(
+            agentIdentifier: bundledAgentIdentifier
+        ) {
+            FileHandle.standardError.write(Data("source: bundled\n".utf8))
+            agentDocument = bundledDocument
+        } else {
             FileHandle.standardError.write(Data("agent \(name) not found\n".utf8))
             throw ExitCode(3)
         }
-
-        let agentDocument = try loadJSONValue(from: agentConfigurationURL, fileManager: fileManager)
 
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
@@ -36,11 +44,24 @@ struct AgentView: ParsableCommand {
 
     private func loadJSONValue(from url: URL, fileManager: FileManagerProtocol) throws -> JSONValue {
         let data = try fileManager.readData(at: url)
+        return try loadJSONValue(from: data, sourceURL: url)
+    }
+
+    private func loadJSONValue(from data: Data, sourceURL: URL) throws -> JSONValue {
         let value = try JSONDecoder().decode(JSONValue.self, from: data)
         guard case .object = value else {
-            throw AgentViewError.invalidRootValue(url)
+            throw AgentViewError.invalidRootValue(sourceURL)
         }
         return value
+    }
+
+    private func loadBundledAgentDocument(agentIdentifier: String) throws -> JSONValue? {
+        let bundledAgents = BundledAgentDefaults()
+        guard let data = bundledAgents.agentData(name: agentIdentifier),
+              let url = bundledAgents.agentURL(name: agentIdentifier) else {
+            return nil
+        }
+        return try loadJSONValue(from: data, sourceURL: url)
     }
 
 }

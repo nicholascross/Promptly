@@ -1,5 +1,6 @@
 import ArgumentParser
 import Foundation
+import PromptlyAssets
 import PromptlyKit
 import PromptlyKitTooling
 import PromptlyKitUtils
@@ -66,9 +67,10 @@ struct AgentRun: AsyncParsableCommand {
         let configurationFileURL = configurationOptions.configurationFileURL()
         let agentConfigurationURL = configurationOptions.agentConfigurationURL(agentName: name)
 
-        guard fileManager.fileExists(atPath: agentConfigurationURL.path) else {
-            throw AgentRunError.agentConfigurationNotFound(agentConfigurationURL.path)
-        }
+        let bundledAgents = BundledAgentDefaults()
+        let bundledAgentIdentifier = configurationOptions.agentIdentifier(agentName: name).lowercased()
+        let bundledAgentData = bundledAgents.agentData(name: bundledAgentIdentifier)
+        let bundledAgentURL = bundledAgents.agentURL(name: bundledAgentIdentifier)
 
         let config = try Config.loadConfig(
             url: configurationFileURL,
@@ -93,18 +95,37 @@ struct AgentRun: AsyncParsableCommand {
             fputs(stream, stdout)
             fflush(stdout)
         }
-        let agentTool = try subAgentToolFactory.makeTool(
-            configurationFileURL: configurationFileURL,
-            agentConfigurationURL: agentConfigurationURL,
-            defaultToolsConfigURL: defaultToolsConfigURL,
-            localToolsConfigURL: localToolsConfigURL,
-            sessionState: subAgentSessionState,
-            modelOverride: modelOverride,
-            apiOverride: apiSelection?.configValue,
-            includeTools: includeTools,
-            excludeTools: excludeTools,
-            toolOutput: toolOutput
-        )
+        let agentTool: any ExecutableTool
+        if fileManager.fileExists(atPath: agentConfigurationURL.path) {
+            agentTool = try subAgentToolFactory.makeTool(
+                configurationFileURL: configurationFileURL,
+                agentConfigurationURL: agentConfigurationURL,
+                defaultToolsConfigURL: defaultToolsConfigURL,
+                localToolsConfigURL: localToolsConfigURL,
+                sessionState: subAgentSessionState,
+                modelOverride: modelOverride,
+                apiOverride: apiSelection?.configValue,
+                includeTools: includeTools,
+                excludeTools: excludeTools,
+                toolOutput: toolOutput
+            )
+        } else if let bundledAgentData, let bundledAgentURL {
+            agentTool = try subAgentToolFactory.makeTool(
+                configurationFileURL: configurationFileURL,
+                agentConfigurationData: bundledAgentData,
+                agentSourceURL: bundledAgentURL,
+                defaultToolsConfigURL: defaultToolsConfigURL,
+                localToolsConfigURL: localToolsConfigURL,
+                sessionState: subAgentSessionState,
+                modelOverride: modelOverride,
+                apiOverride: apiSelection?.configValue,
+                includeTools: includeTools,
+                excludeTools: excludeTools,
+                toolOutput: toolOutput
+            )
+        } else {
+            throw AgentRunError.agentConfigurationNotFound(agentConfigurationURL.path)
+        }
 
         let coordinator = try PromptRunCoordinator(
             config: config,

@@ -25,6 +25,13 @@ struct AgentConfigOptions: ParsableArguments {
             .appendingPathComponent(normalizedAgentFileName(agentName), isDirectory: false)
     }
 
+    func agentIdentifier(agentName: String) -> String {
+        if agentName.hasSuffix(".json") {
+            return String(agentName.dropLast(5))
+        }
+        return agentName
+    }
+
     private func normalizedAgentFileName(_ agentName: String) -> String {
         if agentName.hasSuffix(".json") {
             return agentName
