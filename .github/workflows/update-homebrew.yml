@@ -66,7 +66,9 @@ jobs:
               # inject version placeholder replacement into source
               inreplace "Sources/Promptly/Promptly.swift", "__VERSION__", version.to_s
               system "swift", "build", "-c", "release", "--disable-sandbox"
-              bin.install ".build/release/promptly"
+              libexec.install ".build/release/promptly"
+              libexec.install ".build/release/Promptly_PromptlyAssets.bundle"
+              bin.install_symlink libexec/"promptly"
             end
 
             test do
