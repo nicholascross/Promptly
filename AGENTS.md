@@ -12,14 +12,18 @@ These notes capture the best practices learned while extending Promptly’s tool
 - When demonstrating workflows, include the relevant tool names with `--include-tools …` only to expose the tools, then describe the desired outcome in the message body.
 
 ### 3. Canned Prompts
-- Keep the bundled canned prompts installed: `promptly canned install` (add `--overwrite` to refresh). When you introduce a new canned prompt, define it in `Sources/PromptlyKit/Canned/DefaultCannedPrompts.swift`, mirror the text in `Docs/canned.md`, and refresh references in the documentation as needed.
+- When you introduce a new canned prompt, define it in `Sources/PromptlyKit/Canned/DefaultCannedPrompts.swift`, mirror the text in `Docs/canned.md`, and refresh references in the documentation as needed.
 
 ### 4. Validation Guidance
 - When documenting example workflows, prefer commands that can run safely in diverse environments (avoid destructive defaults; require opt-in tools for changes).
 
-### 5. Installing Defaults
-- Default shell tools: `promptly tool install [--tools <basename>]`.
-- Default canned prompts: `promptly canned install [--overwrite]`.
+### 5. Architecture and Testing Principles
+- Favor additive changes: introduce new types alongside existing code, then migrate callers after characterization tests lock in behavior.
+- Preserve behavior for Responses and Chat Completions surfaces when refactoring core flows.
+- Keep application programming interface data transfer objects defined with Codable; avoid ad hoc JavaScript Object Notation lookups.
+- Keep PromptlyKit core policy-light; move Promptly-specific defaults into higher-level modules.
+- Add protocol seams only at boundaries needed for testing or reuse; avoid unnecessary abstraction.
+- Use Swift Testing and prefer deterministic tests without network access or time-based flakiness, using fake transports and tool execution boundaries.
 
 ### 6. Updating This Document
 - At the end of each work session, automation agents should review any new constraints or patterns they discovered and append concise guidance here.
@@ -93,7 +97,7 @@ These notes capture the best practices learned while extending Promptly’s tool
 - When bundled resources are missing, optional features should degrade gracefully instead of failing the entire command.
 - Homebrew installs should place the resource bundle alongside the executable (for example, under `libexec`) with a symlink in `bin`.
 - Support `PROMPTLY_RESOURCE_BUNDLE` as an override to point to a resource bundle directory.
-- Bundle canned prompts and default agents by default.
+- Bundle canned prompts, default agents, and default shell tools by default.
 - Use `PromptlyAssets` types like `BundledResourceLoader` and `BundledDefaultAssetPaths` for default assets so missing bundles do not crash the process.
 - Canned prompts load from bundled assets on demand; there is no install command for canned prompts.
 
