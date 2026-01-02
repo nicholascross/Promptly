@@ -2,7 +2,6 @@ import ArgumentParser
 import Foundation
 import PromptlyAssets
 import PromptlyKit
-import PromptlyKitTooling
 import PromptlyKitUtils
 import PromptlySubAgents
 
@@ -77,14 +76,6 @@ struct AgentRun: AsyncParsableCommand {
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
         )
-        let defaultToolsConfigURL = ToolFactory.defaultToolsConfigURL(
-            fileManager: fileManager,
-            toolsFileName: toolsFileName
-        )
-        let localToolsConfigURL = ToolFactory.localToolsConfigURL(
-            fileManager: fileManager,
-            toolsFileName: toolsFileName
-        )
 
         let subAgentSessionState = SubAgentSessionState()
         let subAgentToolFactory = SubAgentToolFactory(
@@ -100,8 +91,7 @@ struct AgentRun: AsyncParsableCommand {
             agentTool = try subAgentToolFactory.makeTool(
                 configurationFileURL: configurationFileURL,
                 agentConfigurationURL: agentConfigurationURL,
-                defaultToolsConfigURL: defaultToolsConfigURL,
-                localToolsConfigURL: localToolsConfigURL,
+                toolsFileName: toolsFileName,
                 sessionState: subAgentSessionState,
                 modelOverride: modelOverride,
                 apiOverride: apiSelection?.configValue,
@@ -114,8 +104,7 @@ struct AgentRun: AsyncParsableCommand {
                 configurationFileURL: configurationFileURL,
                 agentConfigurationData: bundledAgentData,
                 agentSourceURL: bundledAgentURL,
-                defaultToolsConfigURL: defaultToolsConfigURL,
-                localToolsConfigURL: localToolsConfigURL,
+                toolsFileName: toolsFileName,
                 sessionState: subAgentSessionState,
                 modelOverride: modelOverride,
                 apiOverride: apiSelection?.configValue,

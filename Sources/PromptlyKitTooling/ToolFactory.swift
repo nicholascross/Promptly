@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyAssets
 import PromptlyKit
 import PromptlyKitUtils
 
@@ -6,10 +7,12 @@ public struct ToolFactory {
     private let fileManager: FileManagerProtocol
     private let defaultToolsConfigURL: URL
     private let localToolsConfigURL: URL
+    private let bundledToolsConfigURL: URL?
 
     public init(
         fileManager: FileManagerProtocol,
-        toolsFileName: String = "tools.json"
+        toolsFileName: String = "tools.json",
+        bundledResourceLoader: BundledResourceLoader = BundledResourceLoader()
     ) {
         self.fileManager = fileManager
         let normalizedToolsFileName = Self.normalizedToolsFileName(toolsFileName)
@@ -21,16 +24,22 @@ public struct ToolFactory {
             fileManager: fileManager,
             toolsFileName: normalizedToolsFileName
         )
+        self.bundledToolsConfigURL = Self.bundledToolsConfigURL(
+            toolsFileName: normalizedToolsFileName,
+            resourceLoader: bundledResourceLoader
+        )
     }
 
     public init(
         fileManager: FileManagerProtocol,
         defaultToolsConfigURL: URL,
-        localToolsConfigURL: URL
+        localToolsConfigURL: URL,
+        bundledToolsConfigURL: URL? = nil
     ) {
         self.fileManager = fileManager
         self.defaultToolsConfigURL = defaultToolsConfigURL.standardizedFileURL
         self.localToolsConfigURL = localToolsConfigURL.standardizedFileURL
+        self.bundledToolsConfigURL = bundledToolsConfigURL?.standardizedFileURL
     }
 
     /// Create executable tools from configuration and wrap shell-command tools with log-slicing middleware.
@@ -57,7 +66,7 @@ public struct ToolFactory {
         sampleLines: Int = 10,
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
-        let defaultTools = try loadShellCommandConfig(
+        let userTools = try loadShellCommandConfig(
             configURL: defaultToolsConfigURL,
             config: config,
             includeTools: includeTools,
@@ -77,10 +86,20 @@ public struct ToolFactory {
             toolOutput: toolOutput
         )
 
-        // Merge the default tools with local tools, giving precedence to local tools.
+        let bundledTools = try loadShellCommandConfig(
+            configURL: bundledToolsConfigURL,
+            config: config,
+            includeTools: includeTools,
+            headLines: headLines,
+            tailLines: tailLines,
+            sampleLines: sampleLines,
+            toolOutput: toolOutput
+        )
+
+        // Merge the tools with precedence local, then user, then bundled.
         var tools = builtinTools(toolOutput: toolOutput)
         var toolNames = Set(tools.map { $0.name })
-        for tool in localTools + defaultTools where !toolNames.contains(tool.name) {
+        for tool in localTools + userTools + bundledTools where !toolNames.contains(tool.name) {
             tools.append(tool)
             toolNames.insert(tool.name)
         }
@@ -106,7 +125,7 @@ public struct ToolFactory {
     }
 
     // Build the correct URL for tools.json, respecting --config-file override,
-    // then local (./tools.json), then global (~/.config/promptly/tools.json).
+    // then local (./tools.json), then user config (~/.config/promptly/tools.json).
     public func toolsConfigURL(_ override: String?) -> URL {
         if let path = override {
             return URL(fileURLWithPath: path).standardizedFileURL
@@ -117,33 +136,50 @@ public struct ToolFactory {
         return defaultToolsConfigURL
     }
 
-    /// Load and merge shell command config entries from an optional override config file,
-    /// falling back to local (./tools.json) then global (~/.config/promptly/tools.json).
-    /// Returned entries give precedence to local entries with the same name.
+    /// Load and merge shell command config entries from an optional override config file.
+    /// Returned entries give precedence to local entries, then user entries, then bundled entries.
     public func loadConfigEntries(overrideConfigFile override: String? = nil) throws -> [ShellCommandConfigEntry] {
+        let entriesWithSources = try loadConfigEntriesWithSources(overrideConfigFile: override)
+        return entriesWithSources.map { $0.entry }
+    }
+
+    /// Load and merge shell command config entries from an optional override config file.
+    /// Returned entries give precedence to local entries, then user entries, then bundled entries.
+    public func loadConfigEntriesWithSources(
+        overrideConfigFile override: String? = nil
+    ) throws -> [ToolConfigEntryWithSource] {
         if let path = override {
             let url = URL(fileURLWithPath: path).standardizedFileURL
             let config = try decodeShellCommandConfig(from: url)
-            return config.shellCommands
+            return config.shellCommands.map {
+                ToolConfigEntryWithSource(entry: $0, source: .user)
+            }
         }
 
-        let defaultEntries: [ShellCommandConfigEntry] = {
-            guard let config = try? decodeShellCommandConfig(from: defaultToolsConfigURL) else { return [] }
-            return config.shellCommands
-        }()
+        let bundledEntries = loadConfigEntriesIfPresent(at: bundledToolsConfigURL)
+        let userEntries = loadConfigEntriesIfPresent(at: defaultToolsConfigURL)
+        let localEntries = loadConfigEntriesIfPresent(at: localToolsConfigURL)
 
-        let localEntries: [ShellCommandConfigEntry] = {
-            guard let config = try? decodeShellCommandConfig(from: localToolsConfigURL) else { return [] }
-            return config.shellCommands
-        }()
+        var seenNames = Set<String>()
+        var merged: [ToolConfigEntryWithSource] = []
+        let sources: [(ToolConfigEntrySource, [ShellCommandConfigEntry])] = [
+            (.local, localEntries),
+            (.user, userEntries),
+            (.bundled, bundledEntries)
+        ]
+        for (source, entries) in sources {
+            for entry in entries where !seenNames.contains(entry.name) {
+                merged.append(ToolConfigEntryWithSource(entry: entry, source: source))
+                seenNames.insert(entry.name)
+            }
+        }
 
-        let localIDs = Set(localEntries.map { $0.name })
-        return localEntries + defaultEntries.filter { !localIDs.contains($0.name) }
+        return merged
     }
 
     /// Load and instantiate shell command tools from an allow list config file in JSON format.
     private func loadShellCommandConfig(
-        configURL url: URL,
+        configURL url: URL?,
         config: Config,
         includeTools: [String],
         headLines: Int,
@@ -151,6 +187,9 @@ public struct ToolFactory {
         sampleLines: Int,
         toolOutput: @Sendable @escaping (String) -> Void
     ) throws -> [any ExecutableTool] {
+        guard let url else {
+            return []
+        }
         guard fileManager.fileExists(atPath: url.path) else {
             return []
         }
@@ -230,6 +269,34 @@ public struct ToolFactory {
             return toolsFileName
         }
         return "\(toolsFileName).json"
+    }
+
+    public static func bundledToolsConfigURL(
+        toolsFileName: String,
+        resourceLoader: BundledResourceLoader = BundledResourceLoader()
+    ) -> URL? {
+        let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
+        let url = URL(fileURLWithPath: normalizedToolsFileName)
+        let name = url.deletingPathExtension().lastPathComponent
+        let fileExtension = url.pathExtension.isEmpty ? "json" : url.pathExtension
+        return resourceLoader.resourceURL(
+            subdirectory: BundledDefaultAssetPaths.tools,
+            name: name,
+            fileExtension: fileExtension
+        )
+    }
+
+    private func loadConfigEntriesIfPresent(
+        at url: URL?
+    ) -> [ShellCommandConfigEntry] {
+        guard let url else {
+            return []
+        }
+        guard fileManager.fileExists(atPath: url.path),
+              let config = try? decodeShellCommandConfig(from: url) else {
+            return []
+        }
+        return config.shellCommands
     }
 
     /// Decode a shell-command config from JSON at the given URL.

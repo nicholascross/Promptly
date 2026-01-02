@@ -8,12 +8,14 @@ Promptly can expose allow-listed shell commands as tools. Tools are configured i
 
 - `tools.json` in the current working directory.
 - `~/.config/promptly/tools.json` in the configuration directory.
-- `--tools <basename>` to override the default tools file basename.
+- Bundled defaults at `Resources/DefaultAssets/Tools/<basename>.json` (lowest priority).
+- `--tools <basename>` to override the default tools file basename across local, user, and bundled sources.
 
 ## Loading and filtering
 
 - `--include-tools <substring>` loads tools whose names include the substring. This also enables tools marked as opt-in.
 - `--exclude-tools <substring>` removes tools whose names include the substring.
+- Tool definitions merge in order local, then user, then bundled; earlier sources override later ones.
 
 Promptly runs tools based on natural language instructions in the message body rather than explicit command flags.
 
@@ -23,7 +25,6 @@ Promptly runs tools based on natural language instructions in the message body r
 promptly tool list
 promptly tool view <tool-id>
 promptly tool add --id <id> --name \"<description>\" --command \"<executable>\"
-promptly tool install [--tools <basename>]
 promptly tool remove <tool-id> [--force] [--config-file <path>]
 ```
 

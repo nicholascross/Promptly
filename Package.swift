@@ -78,7 +78,7 @@ let package = Package(
         ),
         .target(
             name: "PromptlyKitTooling",
-            dependencies: ["PromptlyKit", "PromptlyKitUtils"]
+            dependencies: ["PromptlyAssets", "PromptlyKit", "PromptlyKitUtils"]
         ),
         .target(
             name: "PromptlyAssets",

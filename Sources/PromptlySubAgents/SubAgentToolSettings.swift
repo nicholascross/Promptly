@@ -1,8 +1,7 @@
 import Foundation
 
 struct SubAgentToolSettings: Sendable {
-    let defaultToolsConfigURL: URL
-    let localToolsConfigURL: URL
+    let toolsFileName: String
     let includeTools: [String]
     let excludeTools: [String]
 }

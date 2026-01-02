@@ -20,8 +20,7 @@ public struct SubAgentToolFactory {
 
     public func makeTools(
         configurationFileURL: URL,
-        defaultToolsConfigURL: URL,
-        localToolsConfigURL: URL,
+        toolsFileName: String,
         sessionState: SubAgentSessionState,
         modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
@@ -29,9 +28,9 @@ public struct SubAgentToolFactory {
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
+        let normalizedFileName = normalizedToolsFileName(toolsFileName)
         let toolDefaults = SubAgentToolSettings(
-            defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
-            localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
+            toolsFileName: normalizedFileName,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -90,8 +89,7 @@ public struct SubAgentToolFactory {
     public func makeTool(
         configurationFileURL: URL,
         agentConfigurationURL: URL,
-        defaultToolsConfigURL: URL,
-        localToolsConfigURL: URL,
+        toolsFileName: String,
         sessionState: SubAgentSessionState,
         modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
@@ -99,9 +97,9 @@ public struct SubAgentToolFactory {
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> any ExecutableTool {
+        let normalizedFileName = normalizedToolsFileName(toolsFileName)
         let toolDefaults = SubAgentToolSettings(
-            defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
-            localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
+            toolsFileName: normalizedFileName,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -124,8 +122,7 @@ public struct SubAgentToolFactory {
         configurationFileURL: URL,
         agentConfigurationData: Data,
         agentSourceURL: URL,
-        defaultToolsConfigURL: URL,
-        localToolsConfigURL: URL,
+        toolsFileName: String,
         sessionState: SubAgentSessionState,
         modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
@@ -133,9 +130,9 @@ public struct SubAgentToolFactory {
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> any ExecutableTool {
+        let normalizedFileName = normalizedToolsFileName(toolsFileName)
         let toolDefaults = SubAgentToolSettings(
-            defaultToolsConfigURL: defaultToolsConfigURL.standardizedFileURL,
-            localToolsConfigURL: localToolsConfigURL.standardizedFileURL,
+            toolsFileName: normalizedFileName,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -204,24 +201,14 @@ public struct SubAgentToolFactory {
 
         guard let toolsFileName = overrides.toolsFileName else {
             return SubAgentToolSettings(
-                defaultToolsConfigURL: defaults.defaultToolsConfigURL,
-                localToolsConfigURL: defaults.localToolsConfigURL,
+                toolsFileName: defaults.toolsFileName,
                 includeTools: includeTools,
                 excludeTools: excludeTools
             )
         }
 
-        let normalizedToolsFileName = normalizedToolsFileName(toolsFileName)
-        let defaultToolsDirectoryURL = defaults.defaultToolsConfigURL.deletingLastPathComponent()
-        let localToolsDirectoryURL = defaults.localToolsConfigURL.deletingLastPathComponent()
-
         return SubAgentToolSettings(
-            defaultToolsConfigURL: defaultToolsDirectoryURL
-                .appendingPathComponent(normalizedToolsFileName)
-                .standardizedFileURL,
-            localToolsConfigURL: localToolsDirectoryURL
-                .appendingPathComponent(normalizedToolsFileName)
-                .standardizedFileURL,
+            toolsFileName: normalizedToolsFileName(toolsFileName),
             includeTools: includeTools,
             excludeTools: excludeTools
         )

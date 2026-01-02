@@ -257,8 +257,7 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
     ) throws -> [any ExecutableTool] {
         let toolFactory = ToolFactory(
             fileManager: fileManager,
-            defaultToolsConfigURL: toolSettings.defaultToolsConfigURL,
-            localToolsConfigURL: toolSettings.localToolsConfigURL
+            toolsFileName: toolSettings.toolsFileName
         )
         let baseTools = try toolFactory.makeTools(
             config: configuration.configuration,

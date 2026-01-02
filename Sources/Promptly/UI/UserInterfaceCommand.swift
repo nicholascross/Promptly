@@ -32,18 +32,9 @@ struct UserInterfaceCommand: AsyncParsableCommand {
         )
         let run = try PromptConsoleBuilder(input: runInput).build()
         let fileManager = FileManager.default
-        let defaultToolsConfigURL = ToolFactory.defaultToolsConfigURL(
-            fileManager: fileManager,
-            toolsFileName: run.toolsFileName
-        )
-        let localToolsConfigURL = ToolFactory.localToolsConfigURL(
-            fileManager: fileManager,
-            toolsFileName: run.toolsFileName
-        )
         let toolFactory = ToolFactory(
             fileManager: fileManager,
-            defaultToolsConfigURL: defaultToolsConfigURL,
-            localToolsConfigURL: localToolsConfigURL
+            toolsFileName: run.toolsFileName
         )
         let subAgentSessionState = SubAgentSessionState()
         let subAgentToolFactory = SubAgentToolFactory(
@@ -62,8 +53,7 @@ struct UserInterfaceCommand: AsyncParsableCommand {
             )
             let subAgentTools = try subAgentToolFactory.makeTools(
                 configurationFileURL: configurationFileURL,
-                defaultToolsConfigURL: defaultToolsConfigURL,
-                localToolsConfigURL: localToolsConfigURL,
+                toolsFileName: run.toolsFileName,
                 sessionState: subAgentSessionState,
                 modelOverride: run.modelOverride,
                 apiOverride: run.apiOverride,

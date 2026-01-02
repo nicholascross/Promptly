@@ -20,12 +20,14 @@ struct ToolView: ParsableCommand {
     func run() throws {
         let fileManager: FileManagerProtocol = FileManager.default
         let entries = try ToolFactory(fileManager: fileManager)
-            .loadConfigEntries(overrideConfigFile: options.configFile)
-        guard let entry = entries.first(where: { $0.name == id }) else {
+            .loadConfigEntriesWithSources(overrideConfigFile: options.configFile)
+        guard let entryWithSource = entries.first(where: { $0.entry.name == id }) else {
             FileHandle.standardError.write(Data("tool \(id) not found\n".utf8))
             throw ExitCode(3)
         }
+        let entry = entryWithSource.entry
         print("id: \(entry.name)")
+        print("source: \(entryWithSource.source.rawValue)")
         print("description: \(entry.description)")
         print("executable: \(entry.executable)")
         if let echoOuptut = entry.echoOutput { print("echoOutput: \(echoOuptut)") }

@@ -458,13 +458,11 @@ public struct SelfTestRunner: Sendable {
                 fileManager: fileManager,
                 credentialSource: SystemCredentialSource()
             )
-            let toolsConfigurationURL = toolsConfiguration.toolsConfigURL
             let subAgentSessionState = SubAgentSessionState()
 
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
-                defaultToolsConfigURL: toolsConfigurationURL,
-                localToolsConfigURL: toolsConfigurationURL,
+                toolsFileName: toolsConfiguration.toolsFileName,
                 sessionState: subAgentSessionState,
                 modelOverride: nil,
                 apiOverride: apiOverride,
@@ -585,13 +583,11 @@ public struct SelfTestRunner: Sendable {
                 fileManager: fileManager,
                 credentialSource: SystemCredentialSource()
             )
-            let toolsConfigurationURL = toolsConfiguration.toolsConfigURL
             let subAgentSessionState = SubAgentSessionState()
 
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
-                defaultToolsConfigURL: toolsConfigurationURL,
-                localToolsConfigURL: toolsConfigurationURL,
+                toolsFileName: toolsConfiguration.toolsFileName,
                 sessionState: subAgentSessionState,
                 modelOverride: nil,
                 apiOverride: apiOverride,
