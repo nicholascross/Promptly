@@ -4,53 +4,49 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Homebrew](https://img.shields.io/badge/homebrew-promptly-informational?logo=homebrew)](https://github.com/nicholascross/homebrew-promptly)
 
-Promptly is a Swift-based CLI tool that streamlines interaction with large language models. It supports OpenAI and OpenAI-compatible providers (Azure OpenAI, OpenRouter, Gemini, Mistral, DeepSeek, xAI, Groq, ArceeAI) as well as local hosts (Ollama, llama.cpp). Promptly features secure API token management, interactive and piped modes, customizable canned prompts, and sandboxed shell command integrations for flexible automation.
+Promptly is a Swift-based command line tool that helps you work with large language models from the terminal. It supports OpenAI and compatible providers including local hosts (Ollama, llama.cpp). Promptly includes secure token storage, canned prompts, sub agents, and safe shell command integrations for automation.
+
+## Project status
+
+This is a source available project. API and feature stability are not a goal, and breaking changes are expected as the project evolves.
+
+## Highlights
+
+- Multi-provider support across hosted services and local hosts.
+- Secure token storage in the system Keychain.
+- One-off commands with piped input and an interactive session mode.
+- Canned prompts and configurable shell tools for repeatable workflows.
+- Sub agents for specialized workflows and tool isolation.
+
+For more details on configuration, shell tools, canned prompts, and sub agents, see the documentation links in the Documentation section.
+
+## Quick start
+
+```bash
+brew tap nicholascross/promptly
+brew install promptly
+
+promptly token setup
+
+echo "Summarize this change log." | promptly "Write a short release note summary."
+```
 
 ## Examples
 
 ```bash
 # Generate a concise commit message from the staged diff and copy to clipboard
-git diff --staged | promptly --message "user:Write a concise commit message for the staged changes" | pbcopy
+git diff --staged | promptly --message "user:Write a concise commit message for the staged changes." | pbcopy
 ```
 
 ```bash
-# Update project README from staged diff using default tools.json configuration
-git diff --staged | promptly --message "user:Update the README for the changes in the diff"
-```
-
-```bash
-# Use a canned prompt named 'refactor' to improve Main.swift
+# Use a canned prompt named "refactor" to improve Main.swift
 cat Sources/App/Main.swift | promptly --canned refactor
 ```
 
 ```bash
-# Display the project's directory structure using the ShowFileTree tool
-promptly --include-tools ShowFileTree --message "user:Display the project's directory structure"
+# Display the project directory structure using the ShowFileTree tool
+promptly --include-tools ShowFileTree --message "user:Display the project directory structure."
 ```
-
-## Features
-
-- **Multi‑provider support**: Work with OpenAI and OpenAI‑compatible services (Azure OpenAI, OpenRouter, Gemini, Mistral, DeepSeek, xAI, Groq, ArceeAI) as well as local hosts (Ollama, llama.cpp).
-- **Secure API token storage**: Safely store your API keys in the system Keychain.
-- **Piped and interactive modes**: Send context through stdin in one‑off commands or start a persistent interactive REPL session.
-- **Canned prompts**: Create and reuse predefined prompts via text files in `~/.config/promptly/canned`.
-- **Sandboxed shell command integrations**: Expose allow‑listed shell tools with path validation to automate common workflows.
-- **Flexible configuration**: Customize providers, models, and tool behaviors through JSON config files.
-
-## Quick Reference
-
-| Flag                    | Description                                      |
-|-------------------------|--------------------------------------------------|
-| `-v`, `--version`       | Show the current version of the tool             |
-| `-i`, `--interactive`   | Start REPL mode                                  |
-| `ui`                    | Launch the terminal-based UI powered by TerminalUI |
-| `-p`, `--canned <name>` | Use one or more canned prompts from `~/.config/promptly/canned` |
-| `--include-tools`       | Include shell tools by substring; explicitly enable opt-in tools when listed |
-| `--exclude-tools`       | Exclude shell tools by substring               |
-| `-c`, `--config <path>`  | Override config file path (default `~/.config/promptly/config.json`) |
-| `--tools <name>`         | Override shell tools config basename (default `tools`) |
-| `--model <id>`           | Override the default model identifier            |
-| `--message <role:msg>`   | Send a prefixed chat message (roles: user, system, assistant; e.g. `user:Hi`) |
 
 ## Requirements
 
@@ -60,16 +56,14 @@ promptly --include-tools ShowFileTree --message "user:Display the project's dire
 
 ## Installation
 
-### Homebrew
+### Homebrew (recommended)
 
 ```bash
 brew tap nicholascross/promptly
 brew install promptly
 ```
 
-### Manual
-
-To install Promptly, execute the following steps:
+### Manual build
 
 1. Clone the repository:
    ```bash
@@ -82,174 +76,89 @@ To install Promptly, execute the following steps:
    swift build -c release
    ```
 
-3. Copy the executable to your PATH:
+3. Copy the executable to your path:
    ```bash
    cp .build/release/Promptly ~/bin/promptly
    ```
 
-Bundled default agents and canned prompts ship in the PromptlyAssets resource bundle. Swift Package Manager runs (`swift run`) load them automatically. For manual installs, copy the resource bundle next to the executable or set `PROMPTLY_RESOURCE_BUNDLE` to the bundle path; otherwise default agents and canned prompts are unavailable. Homebrew installs include the resource bundle alongside the executable.
-
-## Configuration
-
-- See [Configuration](Docs/configuration.md)
-- See [Self Tests](Docs/self-test.md) for built in self test usage and output.
+Default agents and canned prompts ship in the PromptlyAssets resource bundle. When building manually, copy the resource bundle next to the executable or set `PROMPTLY_RESOURCE_BUNDLE` to the bundle path. Homebrew installs include the resource bundle alongside the executable.
 
 ## Usage
 
-### Setting Up Your API Token
+### Store your application programming interface token
 
-Before utilizing the tool to make API requests, you must store your API token. Execute the following command and adhere to the prompts:
 ```bash
 promptly token setup
 ```
 
-### Making API Requests
+For provider, model, and token configuration, see [Configuration](Docs/configuration.md).
 
-After setting up your API token, you can initiate requests by passing a context string as an argument:
-```bash
-echo "some output to send the LLM" | promptly "Your context about what to do with the input"
-```
-
-### Interactive Mode
-
-To start an interactive session where you can send multiple prompts without restarting the command, use the `--interactive` flag. For example:
+### Send input by pipe
 
 ```bash
-# Start an interactive session with an initial system prompt
-promptly --interactive --message "user:You are a helpful assistant."
-
-# At each '>' prompt, type your input and press Enter:
-> Hello, how are you?
-I'm doing well, thank you! How can I assist you today?
-
-> Tell me a joke.
-Why did the developer go broke? Because he used up all his cache.
-
-# Press Ctrl-D (EOF) / Ctrl-C to exit interactive mode.
+echo "some output to send" | promptly "Your context about what to do with the input"
 ```
 
-### UI Mode
+### Interactive session
 
-To launch the terminal-based UI powered by TerminalUI, use:
+```bash
+promptly --interactive --message "system:You are an bumbling assistant."
+```
+
+Press Control-D or Control-C to exit the interactive session.
+
+### Terminal user interface
 
 ```bash
 promptly ui
 ```
 
-Note that UI mode requires a TTY for interactive input, but piped initial input into `promptly ui` is now supported.
+Terminal user interface mode requires an interactive terminal.
 
 ### Canned prompts
 
-You can now use predefined prompts for frequent tasks by utilizing the `--canned` (or `-p`) option one or more times. This feature simplifies repeated interactions and helps maintain consistency in complex command sequences.
-
-Promptly ships bundled canned prompts and loads them on demand. To override or add new prompts, create text files in the `~/.config/promptly/canned/` directory.
-
-You can invoke one or multiple canned prompts as follows:
-
-
-```bash
-echo "something" | promptly --canned "example1" --canned "example2"
-```
-
-List available canned prompts:
+Promptly ships bundled canned prompts and loads them on demand. To override or add new prompts, create text files in `~/.config/promptly/canned/`.
+See [Canned prompts](Docs/canned.md) for bundled prompt content and examples.
 
 ```bash
 promptly canned list
+
+echo "something" | promptly --canned example
 ```
 
-Add a canned prompt:
+### Messages with roles
 
-```bash
-promptly canned add example --content "Your canned prompt text"
-```
-
-Remove a canned prompt:
-
-```bash
-promptly canned remove example
-```
-
-## Tool Management
-
-Promptly provides commands to manage shell-command tools: listing, viewing, adding, and removing.
-
-```bash
-# List all registered tools (merges ~/.config/promptly/tools.json and ./tools.json)
-promptly tool list
-
-# View detailed information about a tool
-promptly tool view <tool-id>
-
-# Add a new tool
-promptly tool add \
-  --id <id> \
-  --name "<description>" \
-  --command "<executable>" \
-  [--echo-output] \
-  [--truncate-output] \
-  [--exclusive-argument-template] \
-  [--argument-template <tokens>...] \
-  [--parameters <json-schema> | --parameters-file <path>] \
-  [--opt-in] \
-  [--config-file <path>]
-
-# Install default tools into configuration directory
-promptly tool install [--tools <basename>]
-
-# Remove a tool (use --force to skip confirmation)
-promptly tool remove <tool-id> [--force] [--config-file <path>]
-```
-
-## Sub Agent Management
-
-Promptly provides commands to manage sub agent configurations stored under the agents directory relative to the configuration file:
-
-```bash
-# List all configured agents
-promptly agent list
-
-# View the agent configuration file
-promptly agent view <name>
-
-# Add a new agent configuration
-promptly agent add <name> \
-  --agent-name "Refactor Agent" \
-  --description "Refactor code while preserving behavior." \
-  --system-prompt "You are a refactoring specialist."
-
-# Install the bundled default agents
-promptly agent install
-
-# Remove an agent (use --force to skip confirmation)
-promptly agent remove <name> [--force] [--config-file <path>]
-```
-
-### Role based messages
-
-You can use the `--message` option to send a predefined series of messages to the chat interface. Supported roles are `system`, `assistant`, and `user`.
+Use the `--message` option to send multiple role-prefixed messages (system, assistant, user).
 
 ```bash
 promptly --message "system:Respond as a pirate." --message "assistant:Ahoy" --message "user:Can you tell me a story?"
 ```
 
-In this example:
-- The `system` message sets the context of the conversation.
-- The `assistant` message is meant to guide the interaction.
-- The `user` message is the inquiry from the user.
+### Shell tools
 
-### Filtering Available Tools
-
-You can restrict which shell-command tools are exposed to the LLM by using the `--include-tools` option. Provide one or more tool name substrings; only matching tools will be loaded. This flag also explicitly enables any tools marked as opt-in.
-
-You can also exclude specific shell-command tools by using the `--exclude-tools` option. Provide one or more tool name substrings; any matching tools will be omitted from the loaded set.
+Shell tools are allow listed and can be limited with include or exclude filters. Provide natural language instructions in your message body.
+See [Shell tools](Docs/shell-tools.md) for configuration details and [Shell tools reference](Docs/tools.json) for the default tool definitions.
 
 ```bash
-promptly --include-tools ShowFileTree --message "user:what is this project"
+promptly --include-tools ShowFileTree --message "user:Display the project directory structure."
 ```
 
+### Sub agents
+
+Manage sub agents with the `promptly agent` commands. For a full list of options, run `promptly agent --help`.
+See [Sub agents](Docs/sub-agents.md) for configuration details and [Self tests](Docs/self-test.md) for the sub agent self test workflow.
+
 ```bash
-promptly --exclude-tools RemoveMe --message "user:what is this project"
+promptly agent list
 ```
+
+## Documentation
+
+- Configuration guide: [Configuration](Docs/configuration.md)
+- Sub agents: [Sub agents](Docs/sub-agents.md)
+- Shell tools: [Shell tools](Docs/shell-tools.md)
+- Self tests: [Self tests](Docs/self-test.md)
+- Bundled canned prompts: [Canned prompts](Docs/canned.md)
 
 ## License
 
@@ -257,4 +166,4 @@ Promptly is released under the MIT License. See the LICENSE file for more detail
 
 ## Acknowledgements
 
-This project has utilized generative AI tools in various aspects of its development, including coding assistance, testing, and documentation enhancement. The use of these tools has contributed to the efficiency and effectiveness of the development process.
+This project has utilized generative artificial intelligence tools in various aspects of its development, including coding assistance, testing, and documentation enhancement. The use of these tools has contributed to the efficiency and effectiveness of the development process.

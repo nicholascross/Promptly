@@ -1,103 +1,115 @@
 # Configuration
 
-1. Create the Config File
+## Overview
+
+Promptly reads configuration from `~/.config/promptly/config.json` by default. Use `--config-file` to point to a different file.
+
+## Create the config file
+
+1. Create the configuration directory and file:
    ```bash
    mkdir -p ~/.config/promptly
    touch ~/.config/promptly/config.json
    ```
 
-2. Example Configuration
-   ```json
-   {
-     "modelAliases": {
-       "o4": "o4-mini"
-     },
-     "model": "o4-mini",
-     "api": "responses",
-     "provider": "openai",
-     "providers": {
-       "openai": {
-         "name": "OpenAI",
-         "baseURL": "https://api.openai.com/v1",
-         "envKey": "OPENAI_API_KEY"
-       },
-       "azure": {
-         "name": "AzureOpenAI",
-         "baseURL": "https://YOUR_PROJECT_NAME.openai.azure.com/openai",
-         "envKey": "AZURE_OPENAI_API_KEY"
-       },
-       "openrouter": {
-         "name": "OpenRouter",
-         "baseURL": "https://openrouter.ai/api/v1",
-         "envKey": "OPENROUTER_API_KEY"
-       },
-       "gemini": {
-         "name": "Gemini",
-         "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
-         "envKey": "GEMINI_API_KEY"
-       },
-       "ollama": {
-         "name": "Ollama",
-         "baseURL": "http://localhost:11434/v1",
-         "envKey": "OLLAMA_API_KEY"
-       },
-       "mistral": {
-         "name": "Mistral",
-         "baseURL": "https://api.mistral.ai/v1",
-         "envKey": "MISTRAL_API_KEY"
-       },
-       "deepseek": {
-         "name": "DeepSeek",
-         "baseURL": "https://api.deepseek.com",
-         "envKey": "DEEPSEEK_API_KEY"
-       },
-       "xai": {
-         "name": "xAI",
-         "baseURL": "https://api.x.ai/v1",
-         "envKey": "XAI_API_KEY"
-       },
-       "groq": {
-         "name": "Groq",
-         "baseURL": "https://api.groq.com/openai/v1",
-         "envKey": "GROQ_API_KEY"
-       },
-       "arceeai": {
-         "name": "ArceeAI",
-         "baseURL": "https://conductor.arcee.ai/v1",
-         "envKey": "ARCEEAI_API_KEY"
-       }
-     }
-   }
-   ```
+## Example configuration
 
-3. Parameter Overview
-  - modelAliases: Map of alias names to model identifiers. Aliases can be used in place of model names when specifying `--model`.
-  - model: Model identifier.
-  - api (optional): Chooses which OpenAI-compatible surface to use. Valid values are `responses` (default) and `chat` (alias for `chat_completions`).
-  - provider: Selected provider key. Must match one of the entries in the `providers` map.
-   - providers: Map of provider configurations. Each entry contains:
-     - name: Human-readable name of the provider.
-     - baseURL: Full base URL for the provider API (may include path prefix). **(If baseURL is specified, other URL components (scheme, host, port, path) should not be used.)**
-     - scheme: URL scheme (e.g., http or https).
-     - host: API host address.
-    - port: API port number.
-    - path: API path prefix (used when `api` is omitted or set to `responses`).
-    - responsesPath (optional): Overrides the path appended to `baseURL` when using the Responses API.
-    - chatPath (optional): Overrides the path appended to `baseURL` when using the Chat Completions API.
-     - envKey: Environment variable name to read the API token from. **(Mutually exclusive with tokenName)**
-     - tokenName: Keychain account name for reading the API token. **(Mutually exclusive with envKey)**
-- organizationId (optional): Your organization ID for OpenAI-compatible APIs.
+```json
+{
+  "modelAliases": {
+    "o4": "o4-mini"
+  },
+  "model": "o4-mini",
+  "api": "responses",
+  "provider": "openai",
+  "providers": {
+    "openai": {
+      "name": "OpenAI",
+      "baseURL": "https://api.openai.com/v1",
+      "envKey": "OPENAI_API_KEY"
+    },
+    "azure": {
+      "name": "AzureOpenAI",
+      "baseURL": "https://YOUR_PROJECT_NAME.openai.azure.com/openai",
+      "envKey": "AZURE_OPENAI_API_KEY"
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "baseURL": "https://openrouter.ai/api/v1",
+      "envKey": "OPENROUTER_API_KEY"
+    },
+    "gemini": {
+      "name": "Gemini",
+      "baseURL": "https://generativelanguage.googleapis.com/v1beta/openai",
+      "envKey": "GEMINI_API_KEY"
+    },
+    "ollama": {
+      "name": "Ollama",
+      "baseURL": "http://localhost:11434/v1",
+      "envKey": "OLLAMA_API_KEY"
+    },
+    "mistral": {
+      "name": "Mistral",
+      "baseURL": "https://api.mistral.ai/v1",
+      "envKey": "MISTRAL_API_KEY"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "baseURL": "https://api.deepseek.com",
+      "envKey": "DEEPSEEK_API_KEY"
+    },
+    "xai": {
+      "name": "xAI",
+      "baseURL": "https://api.x.ai/v1",
+      "envKey": "XAI_API_KEY"
+    },
+    "groq": {
+      "name": "Groq",
+      "baseURL": "https://api.groq.com/openai/v1",
+      "envKey": "GROQ_API_KEY"
+    },
+    "arceeai": {
+      "name": "ArceeAI",
+      "baseURL": "https://conductor.arcee.ai/v1",
+      "envKey": "ARCEEAI_API_KEY"
+    }
+  }
+}
+```
 
-You can override the configured API for a single run by passing `prompt --api chat` or `prompt --api responses`.
+## Configuration keys
 
-## Using llama.cpp
+- `modelAliases`: Map of alias names to model identifiers. Aliases can be used in place of model names when specifying `--model`.
+- `model`: Default model identifier.
+- `api` (optional): Selects the API surface. Valid values are `responses` (default) and `chat` (alias for `chat_completions`).
+- `provider`: Selected provider key. Must match one of the entries in `providers`.
+- `providers`: Map of provider configurations. Each entry contains:
+  - `name`: Human-readable name of the provider.
+  - `baseURL`: Full base URL for the provider API (may include a path prefix). If `baseURL` is set, do not set `scheme`, `host`, `port`, or `path`.
+  - `scheme`: URL scheme (for example `http` or `https`).
+  - `host`: API host address.
+  - `port`: API port number.
+  - `path`: API path prefix (used when `api` is omitted or set to `responses`).
+  - `responsesPath` (optional): Overrides the path appended to `baseURL` when using the Responses API.
+  - `chatPath` (optional): Overrides the path appended to `baseURL` when using the Chat Completions API.
+  - `envKey`: Environment variable name to read the API token from. Mutually exclusive with `tokenName`.
+  - `tokenName`: Keychain account name for reading the API token. Mutually exclusive with `envKey`.
+- `organizationId` (optional): Organization ID for OpenAI-compatible APIs.
+
+You can override the configured API for a single run by passing `promptly --api chat` or `promptly --api responses`.
+
+## Provider examples
+
+### Using llama.cpp
 
 Launch the llama server:
+
 ```bash
 llama-server -hf bartowski/DeepSeek-R1-Distill-Qwen-32B-GGUF
 ```
 
 Example config (no token required):
+
 ```json
 {
   "provider": "llama",
@@ -114,9 +126,10 @@ Example config (no token required):
 }
 ```
 
-## Using Ollama
+### Using Ollama
 
 Example config:
+
 ```json
 {
   "provider": "ollama",
@@ -130,9 +143,10 @@ Example config:
 }
 ```
 
-## Using OpenAI
+### Using OpenAI
 
 Example config:
+
 ```json
 {
   "provider": "openai",
@@ -148,9 +162,10 @@ Example config:
 }
 ```
 
-## Using OpenWebUI
+### Using OpenWebUI
 
 Example config:
+
 ```json
 {
   "provider": "openwebui",
@@ -164,23 +179,11 @@ Example config:
 }
 ```
 
-## Shell Commands Configuration
+## Shell tools
 
-Promptly can expose a curated set of shell-based tools defined in a JSON config file named `tools.json` located in your current working directory, or `~/.config/promptly/tools.json`. You can override the default tools config basename by passing the `--tools` option.
-You can include specific tools at runtime by using the `--include-tools` option. Provide one or more substrings; only tools whose names contain at least one of the specified substrings will be loaded.
+Shell tools are configured in `tools.json` files. See [Shell tools](shell-tools.md) for setup, schema details, and filtering.
 
-You can also exclude specific tools at runtime by using the `--exclude-tools` option. Provide one or more substrings; any tool whose name contains at least one of the specified substrings will be omitted.
-Each entry may include:
+## Related docs
 
-- `name`: Unique identifier for the tool.
-- `description`: Human-readable description of the command's purpose.
-- `executable`: Path or name of the executable to invoke.
-- `argumentTemplate`: Array of arrays of strings, where each subarray represents a group of tokens (flags and/or placeholders) to include together. Within each subarray, placeholders of the form `{{paramName}}` or `{(paramName)}` will be replaced with provided parameter values; if any placeholder in a group is missing, the entire subarray is omitted, preventing partial flags without values. To enforce sandboxed paths, use `{(paramName)}` for parameters representing file or directory paths; these values will be validated to reside within the project sandbox.
-- `parameters`: A JSON Schema object describing the allowed parameters, their types, and required/optional status.
-- `echoOutput`: Optional boolean. When true, stdout and stderr of the command are echoed directly.
-- `truncateOutput`: Optional boolean. When true, large outputs are truncated via smart log-slicing middleware (retaining head/tail lines and reinjecting regex matches).
-- `exclusiveArgumentTemplate`: Optional boolean. When true, argumentTemplate groups are treated as alternatives; Promptly will use only the first group whose placeholders can be fully resolved, ignoring others.
-- `optIn`: Optional boolean. When true, the tool is disabled by default and only loaded when its name matches one of the substrings provided via `--include-tools`.
-  - **Note:** Order argumentTemplate groups from most specific to most general (e.g. chunked tail/head first, full-file fallback last).
-
-Example layout of [tools.json](tools.json):
+- [Canned prompts](canned.md)
+- [Sub agents](sub-agents.md)

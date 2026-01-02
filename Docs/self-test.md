@@ -1,6 +1,8 @@
-# Self Tests
+# Self tests
 
-Promptly includes built in self tests to validate configuration health, tool loading, and sub agent configuration. Each level makes at least one model call, so a working configuration and network access are required. These calls may incur provider usage costs.
+## Overview
+
+Promptly includes built-in self tests to validate configuration health, tool loading, and sub agent configuration. Each level makes at least one model call, so a working configuration and network access are required. These calls may incur provider usage costs.
 
 ## List available levels
 
@@ -29,12 +31,13 @@ Each level performs these checks:
 
 - `basic`: Loads the configuration and runs a short model conversation that includes a unique token and a required opening word.
 - `tools`: Loads tool configurations, verifies include and exclude filtering, then asks the model to list the current working directory and report the current date and time using tools. The model summary must include the date/time output and at least one listed file name.
-- `agents`: Creates a temporary agent configuration, runs the agent (which calls the model and returns a payload), then removes the temporary configuration.
+- `agents`: Creates a temporary agent configuration, runs supervisor model calls that invoke the sub agent tool (including a two-step incident intake continuation), and verifies the supervisor summaries include the sub agent payloads.
 
-Optional flags:
+## Optional flags
 
 - `-c`, `--config-file`: Override the default configuration file path (default `~/.config/promptly/config.json`).
 - `--tools`: Override the default tools configuration basename (default `tools`).
+- `--api`: Select backend API (responses or chat). Overrides configuration.
 
 ## Output format
 
@@ -68,3 +71,8 @@ Each run prints a structured JSON summary to standard output. Example:
 ```
 
 Failures include a `details` message explaining the reason. Optional output fields (`modelOutput`, `toolOutput`, `toolOutputs`, `agentOutput`) appear when available. Self tests do not modify user content; temporary configuration and agent files are created under the system temporary directory and removed after each run.
+
+## Related docs
+
+- [Configuration](configuration.md)
+- [Sub agents](sub-agents.md)
