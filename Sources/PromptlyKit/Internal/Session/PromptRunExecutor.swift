@@ -54,7 +54,7 @@ struct PromptRunExecutor {
             }
         }
 
-        let conversationEntries = await conversationRecorder.finish()
+        let conversationEntries = try await conversationRecorder.finish()
         return PromptRunResult(
             conversationEntries: conversationEntries,
             resumeToken: latestResumeToken

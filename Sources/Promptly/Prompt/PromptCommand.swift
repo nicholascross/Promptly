@@ -64,7 +64,7 @@ struct PromptCommand: AsyncParsableCommand {
                     includeTools: run.includeTools,
                     excludeTools: run.excludeTools
                 )
-                return shellTools + subAgentTools
+                return subAgentTools + shellTools
             },
             modelOverride: run.modelOverride,
             apiOverride: run.apiOverride,

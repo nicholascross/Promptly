@@ -91,8 +91,7 @@ struct SubAgentRunnerTests {
         try fileManager.writeShellCommandConfig(shellCommandConfig, to: localToolsConfigURL)
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: localToolsConfigURL,
+            toolsFileName: "tools.json",
             includeTools: [],
             excludeTools: []
         )
@@ -171,8 +170,7 @@ struct SubAgentRunnerTests {
         try fileManager.writeShellCommandConfig(shellCommandConfig, to: localToolsConfigURL)
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: localToolsConfigURL,
+            toolsFileName: "tools.json",
             includeTools: ["MissingTool"],
             excludeTools: []
         )
@@ -201,7 +199,7 @@ struct SubAgentRunnerTests {
     }
 
     @Test
-    func throwsWhenReturnPayloadIsMissingAndLogsRuntimeStop() async throws {
+    func returnsFallbackPayloadWhenReturnPayloadIsMissingAndLogsRuntimeStop() async throws {
         let fileManager = InMemoryFileManager()
         let credentialSource = TestCredentialSource(token: "test-token")
         let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
@@ -229,8 +227,7 @@ struct SubAgentRunnerTests {
         )
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            toolsFileName: "tools.json",
             includeTools: [],
             excludeTools: []
         )
@@ -261,18 +258,20 @@ struct SubAgentRunnerTests {
             resumeId: nil
         )
 
-        do {
-            _ = try await runner.run(request: request)
-            Issue.record("Expected missing return payload error.")
-        } catch let error as SubAgentToolError {
-            switch error {
-            case let .missingReturnPayload(agentName):
-                #expect(agentName == "Return Agent")
-            case .invalidResumeId, .resumeAgentMismatch, .missingResponsesResumeToken:
-                Issue.record("Unexpected error: \(error)")
+        let payload = try await runner.run(request: request)
+        if let payloadObject = objectValue(payload) {
+            let result = stringValue(payloadObject["result"])
+            #expect(result?.contains("Sub agent did not complete the task.") == true)
+            #expect(result?.contains("No return tool call") == true)
+            #expect(stringValue(payloadObject["summary"]) == "Sub agent did not complete the task.")
+            if let supervisorMessage = objectValue(payloadObject["supervisorMessage"]) {
+                #expect(stringValue(supervisorMessage["role"]) == "user")
+                #expect(stringValue(supervisorMessage["content"])?.contains("No return tool call") == true)
+            } else {
+                Issue.record("Expected supervisorMessage to be present.")
             }
-        } catch {
-            Issue.record("Unexpected error: \(error)")
+        } else {
+            Issue.record("Expected missing return payload object.")
         }
 
         let logFiles = try fileManager.contentsOfDirectory(
@@ -295,6 +294,196 @@ struct SubAgentRunnerTests {
             }
         } else {
             Issue.record("Expected log file to be created.")
+        }
+    }
+
+    @Test
+    func retriesWhenReturnPayloadIsMissing() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Return Agent",
+            description: "Test return retry behavior.",
+            systemPrompt: "Always return payloads."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("return.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            toolsFileName: "tools.json",
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let firstEntries = [
+            PromptMessage(role: .assistant, content: .text("No return tool call"))
+        ]
+        let returnPayload: JSONValue = .object([
+            "result": .string("All set."),
+            "summary": .string("All set.")
+        ])
+        let secondEntries = [
+            PromptMessage(
+                role: .assistant,
+                content: .empty,
+                toolCalls: [
+                    PromptToolCall(
+                        id: "return-1",
+                        name: ReturnToSupervisorTool.toolName,
+                        arguments: returnPayload
+                    )
+                ]
+            ),
+            PromptMessage(
+                role: .tool,
+                content: .json(returnPayload),
+                toolCallId: "return-1"
+            )
+        ]
+        let stubEndpoint = SequencedPromptEndpoint(results: [
+            PromptRunResult(
+                conversationEntries: firstEntries,
+                resumeToken: "response-1"
+            ),
+            PromptRunResult(
+                conversationEntries: secondEntries,
+                resumeToken: "response-2"
+            )
+        ])
+
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: SubAgentSessionState(),
+            modelOverride: nil,
+            coordinatorFactory: { _ in stubEndpoint }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Summarize the changes",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: nil
+        )
+
+        let payload = try await runner.run(request: request)
+        guard case let .object(object) = payload else {
+            Issue.record("Expected return payload object.")
+            return
+        }
+        #expect(stringValue(object["result"]) == "All set.")
+        #expect(stringValue(object["summary"]) == "All set.")
+    }
+
+    @Test
+    func addsSupervisorMessageWhenReturnPayloadIsMissing() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Return Agent",
+            description: "Test missing return handling.",
+            systemPrompt: "Ask questions when you need more information."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("return.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            toolsFileName: "tools.json",
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let assistantText = """
+        Need more details:
+        - What is the target?
+        - When is the deadline?
+        """
+        let conversationEntries = [
+            PromptMessage(role: .assistant, content: .text(assistantText))
+        ]
+        let stubEndpoint = StubPromptEndpoint(
+            result: PromptRunResult(conversationEntries: conversationEntries)
+        )
+
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: SubAgentSessionState(),
+            modelOverride: nil,
+            coordinatorFactory: { _ in stubEndpoint }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Summarize the changes",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: nil
+        )
+
+        let payload = try await runner.run(request: request)
+        guard case let .object(object) = payload else {
+            Issue.record("Expected missing return payload object.")
+            return
+        }
+        if case let .bool(needsDecision)? = object["needsSupervisorDecision"] {
+            #expect(needsDecision)
+        } else {
+            Issue.record("Expected needsSupervisorDecision to be true.")
+        }
+
+        if case let .string(reason)? = object["decisionReason"] {
+            #expect(reason.contains("did not call ReturnToSupervisor"))
+        } else {
+            Issue.record("Expected decisionReason to be present.")
+        }
+
+        if let supervisorMessage = objectValue(object["supervisorMessage"]) {
+            #expect(stringValue(supervisorMessage["role"]) == "user")
+            let content = stringValue(supervisorMessage["content"])
+            #expect(content?.contains("What is the target?") == true)
+            #expect(content?.contains("When is the deadline?") == true)
+        } else {
+            Issue.record("Expected supervisorMessage to be present.")
         }
     }
 
@@ -327,8 +516,7 @@ struct SubAgentRunnerTests {
         )
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            toolsFileName: "tools.json",
             includeTools: [],
             excludeTools: []
         )
@@ -404,6 +592,108 @@ struct SubAgentRunnerTests {
     }
 
     @Test
+    func storesResumeEntryWhenSupervisorDecisionIsNeeded() async throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration = makeAgentConfigurationJSON(
+            name: "Resume Agent",
+            description: "Test supervisor decision resume storage.",
+            systemPrompt: "Ask for approval when needed."
+        )
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("resume.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        let toolSettings = SubAgentToolSettings(
+            toolsFileName: "tools.json",
+            includeTools: [],
+            excludeTools: []
+        )
+
+        let returnPayload: JSONValue = .object([
+            "result": .string("Draft ready."),
+            "summary": .string("Awaiting approval."),
+            "needsSupervisorDecision": .bool(true),
+            "decisionReason": .string("Supervisor approval is required.")
+        ])
+        let conversationEntries = [
+            PromptMessage(
+                role: .assistant,
+                content: .empty,
+                toolCalls: [
+                    PromptToolCall(
+                        id: "return-1",
+                        name: ReturnToSupervisorTool.toolName,
+                        arguments: returnPayload
+                    )
+                ]
+            ),
+            PromptMessage(
+                role: .tool,
+                content: .json(returnPayload),
+                toolCallId: "return-1"
+            )
+        ]
+        let stubEndpoint = StubPromptEndpoint(
+            result: PromptRunResult(
+                conversationEntries: conversationEntries,
+                resumeToken: "response-2"
+            )
+        )
+
+        let sessionState = SubAgentSessionState()
+        let runner = SubAgentRunner(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
+            toolOutput: { _ in },
+            fileManager: fileManager,
+            sessionState: sessionState,
+            modelOverride: nil,
+            coordinatorFactory: { _ in stubEndpoint }
+        )
+
+        let request = SubAgentToolRequest(
+            task: "Prepare a draft.",
+            contextPack: nil,
+            goals: nil,
+            constraints: nil,
+            resumeId: nil
+        )
+        let payload = try await runner.run(request: request)
+
+        guard case let .object(object) = payload else {
+            Issue.record("Expected resume payload to be an object.")
+            return
+        }
+        guard let resumeId = stringValue(object["resumeId"]) else {
+            Issue.record("Expected resume identifier in payload.")
+            return
+        }
+        #expect(!resumeId.isEmpty)
+
+        let storedEntry = await sessionState.entry(for: resumeId)
+        #expect(storedEntry?.agentName == "Resume Agent")
+        #expect(storedEntry?.resumeToken == "response-2")
+        #expect(storedEntry?.conversationEntries.count == conversationEntries.count)
+    }
+
+    @Test
     func ignoresNonUuidResumeIdentifier() async throws {
         let fileManager = InMemoryFileManager()
         let credentialSource = TestCredentialSource(token: "test-token")
@@ -432,8 +722,7 @@ struct SubAgentRunnerTests {
         )
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            toolsFileName: "tools.json",
             includeTools: [],
             excludeTools: []
         )
@@ -536,8 +825,7 @@ struct SubAgentRunnerTests {
         )
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            toolsFileName: "tools.json",
             includeTools: [],
             excludeTools: []
         )
@@ -606,8 +894,7 @@ struct SubAgentRunnerTests {
         )
 
         let toolSettings = SubAgentToolSettings(
-            defaultToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("default-tools.json"),
-            localToolsConfigURL: fileManager.currentDirectoryURL.appendingPathComponent("local-tools.json"),
+            toolsFileName: "tools.json",
             includeTools: [],
             excludeTools: []
         )
@@ -665,6 +952,27 @@ private struct StubPromptEndpoint: PromptEndpoint {
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptRunResult {
         result
+    }
+}
+
+private actor SequencedPromptEndpoint: PromptEndpoint {
+    private let results: [PromptRunResult]
+    private var nextIndex = 0
+
+    init(results: [PromptRunResult]) {
+        self.results = results
+    }
+
+    func prompt(
+        context: PromptRunContext,
+        onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
+    ) async throws -> PromptRunResult {
+        guard !results.isEmpty else {
+            return PromptRunResult()
+        }
+        let result = results[min(nextIndex, results.count - 1)]
+        nextIndex += 1
+        return result
     }
 }
 

@@ -97,20 +97,30 @@ public struct PromptConsoleRunner {
             }
         )
 
-        var updatedConversation = conversation
-        let assistantMessages = result.conversationEntries.compactMap { entry -> String? in
-            guard entry.role == .assistant else { return nil }
-            guard case let .text(message) = entry.content else { return nil }
-            return message
+        let updatedConversation = Self.appendConversationEntries(
+            conversation,
+            from: result
+        )
+
+        let hasAssistantText = result.conversationEntries.contains { entry in
+            guard entry.role == .assistant else { return false }
+            guard case let .text(message) = entry.content else { return false }
+            return !message.isEmpty
         }
-        if !assistantMessages.isEmpty {
-            for message in assistantMessages {
-                updatedConversation.append(PromptMessage(role: .assistant, content: .text(message)))
-            }
+        if hasAssistantText {
             fputs("\n", stdout)
             fflush(stdout)
         }
 
+        return updatedConversation
+    }
+
+    static func appendConversationEntries(
+        _ conversation: [PromptMessage],
+        from result: PromptRunResult
+    ) -> [PromptMessage] {
+        var updatedConversation = conversation
+        updatedConversation.append(contentsOf: result.conversationEntries)
         return updatedConversation
     }
 }

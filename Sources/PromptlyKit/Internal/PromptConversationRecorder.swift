@@ -3,6 +3,7 @@ import Foundation
 actor PromptConversationRecorder {
     private var assistantBuffer = ""
     private var entries: [PromptMessage]
+    private var pendingError: PromptRunExecutorError?
 
     init() {
         entries = []
@@ -14,6 +15,10 @@ actor PromptConversationRecorder {
             assistantBuffer += text
 
         case let .toolCallRequested(id, name, arguments):
+            guard let id else {
+                recordError(.missingToolCallIdentifier)
+                return
+            }
             flushAssistantBufferIfNeeded()
             entries.append(
                 PromptMessage(
@@ -30,6 +35,10 @@ actor PromptConversationRecorder {
             )
 
         case let .toolCallCompleted(id, _, output):
+            guard let id else {
+                recordError(.missingToolOutputIdentifier)
+                return
+            }
             flushAssistantBufferIfNeeded()
             entries.append(
                 PromptMessage(
@@ -41,8 +50,11 @@ actor PromptConversationRecorder {
         }
     }
 
-    func finish() -> [PromptMessage] {
+    func finish() throws -> [PromptMessage] {
         flushAssistantBufferIfNeeded()
+        if let pendingError {
+            throw pendingError
+        }
         return entries
     }
 
@@ -50,5 +62,11 @@ actor PromptConversationRecorder {
         guard !assistantBuffer.isEmpty else { return }
         entries.append(PromptMessage(role: .assistant, content: .text(assistantBuffer)))
         assistantBuffer = ""
+    }
+
+    private func recordError(_ error: PromptRunExecutorError) {
+        if pendingError == nil {
+            pendingError = error
+        }
     }
 }

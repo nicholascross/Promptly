@@ -32,12 +32,24 @@ private struct PromptRunCoordinatorAdapter: PromptEndpoint {
 }
 
 struct SubAgentRunner: Sendable {
-    private static let baseSystemPrompt = """
+private static let baseSystemPrompt = """
 You are a Promptly sub agent running in an isolated session.
 Follow the system guidance and the user request.
 Use the available tools when they help you.
+Do not ask for confirmation of provided details; if the request is actionable, proceed and note any assumptions.
+Never ask the user questions directly. If you need more input, call \(ReturnToSupervisorTool.toolName) with needsMoreInformation set to true and include requestedInformation.
 When you finish, call \(ReturnToSupervisorTool.toolName) exactly once with the required payload and stop.
 You may send status updates with \(ReportProgressToSupervisorTool.toolName).
+"""
+    private static let maximumReturnPayloadAttempts = 2
+    private static let emptyAssistantFallbackText = "Sub agent response was empty."
+    private static let missingReturnPayloadSummary = "Sub agent did not complete the task."
+    private static let missingReturnDecisionReason = "Sub agent did not call ReturnToSupervisor after reminder."
+    private static let returnPayloadReminderText = """
+Your previous response did not call \(ReturnToSupervisorTool.toolName).
+Stop and call \(ReturnToSupervisorTool.toolName) exactly once with the required payload.
+If you need more input, set needsMoreInformation to true and include requestedInformation.
+Do not ask the user questions directly.
 """
 
     private let configuration: SubAgentConfiguration
@@ -85,7 +97,9 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         )
         var didFinishLogging = false
 
+        let systemMessage = makeSystemMessage()
         let userMessage = makeUserMessage(for: request)
+        let reminderMessage = makeReturnPayloadReminderMessage()
         let resumeIdentifier = normalizeResumeIdentifier(request.resumeId)
         let resumeEntry = try await resolveResumeEntry(for: resumeIdentifier)
         let context: PromptRunContext
@@ -120,44 +134,81 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         let coordinator = try coordinatorFactory(tools)
 
         do {
-            let result = try await coordinator.prompt(
-                context: context,
-                onEvent: { event in
-                    await transcriptLogger?.handle(event: event)
-                }
-            )
+            var currentContext = context
+            var attempt = 0
+            var combinedConversationEntries: [PromptMessage] = []
+            var latestResumeToken = resumeEntry?.resumeToken
+            var payload: JSONValue?
+            var usedMissingReturnPayload = false
 
-            guard let payload = firstReturnPayload(from: result.conversationEntries) else {
-                await transcriptLogger?.finish(status: "missing_return_payload", error: nil)
-                didFinishLogging = true
-                throw SubAgentToolError.missingReturnPayload(agentName: configuration.definition.name)
+            while payload == nil {
+                attempt += 1
+                let result = try await coordinator.prompt(
+                    context: currentContext,
+                    onEvent: { event in
+                        await transcriptLogger?.handle(event: event)
+                    }
+                )
+                if let resumeToken = result.resumeToken {
+                    latestResumeToken = resumeToken
+                }
+                combinedConversationEntries.append(contentsOf: result.conversationEntries)
+
+                if let returnedPayload = firstReturnPayload(from: result.conversationEntries) {
+                    payload = returnedPayload
+                    break
+                }
+
+                if attempt >= Self.maximumReturnPayloadAttempts {
+                    payload = missingReturnPayload(from: combinedConversationEntries)
+                    usedMissingReturnPayload = true
+                    break
+                }
+
+                let followUpMessages = chatMessages(
+                    systemMessage: systemMessage,
+                    userMessage: userMessage,
+                    resumeEntry: resumeEntry,
+                    conversationEntries: combinedConversationEntries
+                )
+                currentContext = followUpContext(
+                    effectiveApi: effectiveApi,
+                    resumeToken: latestResumeToken,
+                    chatMessages: followUpMessages,
+                    reminderMessage: reminderMessage
+                )
             }
 
+            let resolvedPayload = payload ?? missingReturnPayload(from: combinedConversationEntries)
+            let didUseMissingReturnPayload = usedMissingReturnPayload || payload == nil
+
             var payloadWithLogPath = attachLogPath(
-                to: payload,
+                to: resolvedPayload,
                 logPath: transcriptLogger?.logPath
             )
-            payloadWithLogPath = removeResumeIdIfNotNeeded(from: payloadWithLogPath)
-            if needsMoreInformation(in: payloadWithLogPath) {
+            if needsFollowUp(in: payloadWithLogPath) {
                 let mergedConversationEntries: [PromptMessage]
                 if let resumeEntry, effectiveApi == .responses {
-                    mergedConversationEntries = resumeEntry.conversationEntries + result.conversationEntries
+                    mergedConversationEntries = resumeEntry.conversationEntries + combinedConversationEntries
                 } else {
-                    mergedConversationEntries = result.conversationEntries
+                    mergedConversationEntries = combinedConversationEntries
                 }
                 let storedResumeEntry = await sessionState.storeResumeEntry(
                     resumeId: resumeIdentifier,
                     agentName: configuration.definition.name,
                     conversationEntries: mergedConversationEntries,
-                    resumeToken: result.resumeToken
+                    resumeToken: latestResumeToken
                 )
                 payloadWithLogPath = attachResumeId(
                     storedResumeEntry.resumeId,
                     to: payloadWithLogPath
                 )
+            } else {
+                payloadWithLogPath = removeResumeId(from: payloadWithLogPath)
             }
             await transcriptLogger?.recordReturnPayload(payloadWithLogPath)
-            await transcriptLogger?.finish(status: "completed", error: nil)
+            let status = didUseMissingReturnPayload ? "missing_return_payload" : "completed"
+            await transcriptLogger?.finish(status: status, error: nil)
             didFinishLogging = true
 
             return payloadWithLogPath
@@ -186,6 +237,56 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
             role: .user,
             content: .text(buildUserMessageBody(for: request))
         )
+    }
+
+    private func makeReturnPayloadReminderMessage() -> PromptMessage {
+        PromptMessage(
+            role: .user,
+            content: .text(Self.returnPayloadReminderText)
+        )
+    }
+
+    private func chatMessages(
+        systemMessage: PromptMessage,
+        userMessage: PromptMessage,
+        resumeEntry: SubAgentResumeEntry?,
+        conversationEntries: [PromptMessage]
+    ) -> [PromptMessage] {
+        var messages: [PromptMessage]
+        if let resumeEntry {
+            messages = resumeEntry.conversationEntries
+            messages.append(userMessage)
+        } else {
+            messages = [systemMessage, userMessage]
+        }
+        if !conversationEntries.isEmpty {
+            messages.append(contentsOf: conversationEntries)
+        }
+        return messages
+    }
+
+    private func followUpContext(
+        effectiveApi: Config.API,
+        resumeToken: String?,
+        chatMessages: [PromptMessage],
+        reminderMessage: PromptMessage
+    ) -> PromptRunContext {
+        switch effectiveApi {
+        case .responses:
+            if let resumeToken {
+                return .resume(
+                    resumeToken: resumeToken,
+                    requestMessages: [reminderMessage]
+                )
+            }
+            var messages = chatMessages
+            messages.append(reminderMessage)
+            return .messages(messages)
+        case .chatCompletions:
+            var messages = chatMessages
+            messages.append(reminderMessage)
+            return .messages(messages)
+        }
     }
 
     private func buildUserMessageBody(for request: SubAgentToolRequest) -> String {
@@ -339,14 +440,25 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         return .object(updated)
     }
 
-    private func needsMoreInformation(in payload: JSONValue) -> Bool {
+    private func needsFollowUp(in payload: JSONValue) -> Bool {
         guard case let .object(object) = payload else {
             return false
         }
-        guard case let .bool(needsMore)? = object["needsMoreInformation"] else {
-            return false
+        let needsMoreInformation: Bool
+        if case let .bool(needsMore)? = object["needsMoreInformation"] {
+            needsMoreInformation = needsMore
+        } else {
+            needsMoreInformation = false
         }
-        return needsMore
+
+        let needsSupervisorDecision: Bool
+        if case let .bool(needsDecision)? = object["needsSupervisorDecision"] {
+            needsSupervisorDecision = needsDecision
+        } else {
+            needsSupervisorDecision = false
+        }
+
+        return needsMoreInformation || needsSupervisorDecision
     }
 
     private func attachResumeId(_ resumeId: String, to payload: JSONValue) -> JSONValue {
@@ -358,16 +470,73 @@ You may send status updates with \(ReportProgressToSupervisorTool.toolName).
         return .object(updated)
     }
 
-    private func removeResumeIdIfNotNeeded(from payload: JSONValue) -> JSONValue {
+    private func removeResumeId(from payload: JSONValue) -> JSONValue {
         guard case let .object(object) = payload else {
             return payload
         }
-        guard case let .bool(needsMoreInformation) = object["needsMoreInformation"],
-              needsMoreInformation else {
-            var updated = object
-            updated.removeValue(forKey: "resumeId")
-            return .object(updated)
+        var updated = object
+        updated.removeValue(forKey: "resumeId")
+        return .object(updated)
+    }
+
+    private func missingReturnPayload(
+        from conversationEntries: [PromptMessage]
+    ) -> JSONValue {
+        let assistantText = lastAssistantResponseText(from: conversationEntries)
+        let message = """
+Sub agent did not complete the task.
+Last assistant response:
+\(assistantText)
+"""
+        return .object([
+            "result": .string(message),
+            "summary": .string(Self.missingReturnPayloadSummary),
+            "needsSupervisorDecision": .bool(true),
+            "decisionReason": .string(Self.missingReturnDecisionReason),
+            "supervisorMessage": .object([
+                "role": .string("user"),
+                "content": .string(message)
+            ])
+        ])
+    }
+
+    private func lastAssistantResponseText(
+        from conversationEntries: [PromptMessage]
+    ) -> String {
+        guard let content = latestAssistantContent(in: conversationEntries) else {
+            return Self.emptyAssistantFallbackText
         }
-        return payload
+        return assistantText(from: content)
+    }
+
+    private func latestAssistantContent(
+        in conversationEntries: [PromptMessage]
+    ) -> PromptContent? {
+        for entry in conversationEntries.reversed() {
+            guard entry.role == .assistant else { continue }
+            return entry.content
+        }
+        return nil
+    }
+
+    private func assistantText(from content: PromptContent) -> String {
+        switch content {
+        case let .text(text):
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? Self.emptyAssistantFallbackText : text
+        case let .json(value):
+            return encodedJSONText(from: value) ?? value.description
+        case .empty:
+            return Self.emptyAssistantFallbackText
+        }
+    }
+
+    private func encodedJSONText(from value: JSONValue) -> String? {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        guard let data = try? encoder.encode(value) else {
+            return nil
+        }
+        return String(data: data, encoding: .utf8)
     }
 }

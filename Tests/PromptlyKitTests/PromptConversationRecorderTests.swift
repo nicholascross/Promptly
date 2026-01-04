@@ -5,12 +5,12 @@ import PromptlyKitUtils
 
 struct PromptConversationRecorderTests {
     @Test
-    func groupsAssistantDeltasIntoSingleMessage() async {
+    func groupsAssistantDeltasIntoSingleMessage() async throws {
         let recorder = PromptConversationRecorder()
         await recorder.handle(.assistantTextDelta("Hel"))
         await recorder.handle(.assistantTextDelta("lo"))
 
-        let entries = await recorder.finish()
+        let entries = try await recorder.finish()
         #expect(entries.count == 1)
 
         #expect(entries[0].role == .assistant)
@@ -22,7 +22,7 @@ struct PromptConversationRecorderTests {
     }
 
     @Test
-    func flushesAssistantBeforeToolCallAndRecordsToolOutput() async {
+    func flushesAssistantBeforeToolCallAndRecordsToolOutput() async throws {
         let recorder = PromptConversationRecorder()
 
         await recorder.handle(.assistantTextDelta("Checking..."))
@@ -30,7 +30,7 @@ struct PromptConversationRecorderTests {
         await recorder.handle(.toolCallCompleted(id: "call_1", name: "Echo", output: .string("ok")))
         await recorder.handle(.assistantTextDelta("Done."))
 
-        let entries = await recorder.finish()
+        let entries = try await recorder.finish()
         #expect(entries.count == 4)
 
         #expect(entries[0].role == .assistant)

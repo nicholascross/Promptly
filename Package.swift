@@ -112,6 +112,14 @@ let package = Package(
             dependencies: ["PromptlyKit"]
         ),
         .testTarget(
+            name: "PromptlyConsoleTests",
+            dependencies: [
+                "PromptlyConsole",
+                "PromptlyKit",
+                "PromptlyKitUtils"
+            ]
+        ),
+        .testTarget(
             name: "PromptlySubAgentsTests",
             dependencies: [
                 "PromptlySubAgents",

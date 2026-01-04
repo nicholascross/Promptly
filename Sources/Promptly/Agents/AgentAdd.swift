@@ -64,12 +64,18 @@ struct AgentAdd: ParsableCommand {
             throw ExitCode(2)
         }
 
+        let normalizedAgentName = normalizedOptionalString(agentName)
+        let normalizedSupervisorHint = normalizedOptionalString(supervisorHint)
+        let normalizedModel = normalizedOptionalString(model)
+        let normalizedProvider = normalizedOptionalString(provider)
+        let normalizedToolsFileName = normalizedOptionalString(toolsFileName)
+
         let includeOverrides = includeTools.isEmpty ? nil : includeTools
         let excludeOverrides = excludeTools.isEmpty ? nil : excludeTools
         let toolOverrides: AgentToolOverrides?
-        if toolsFileName != nil || includeOverrides != nil || excludeOverrides != nil {
+        if normalizedToolsFileName != nil || includeOverrides != nil || excludeOverrides != nil {
             toolOverrides = AgentToolOverrides(
-                toolsFileName: toolsFileName,
+                toolsFileName: normalizedToolsFileName,
                 include: includeOverrides,
                 exclude: excludeOverrides
             )
@@ -78,13 +84,13 @@ struct AgentAdd: ParsableCommand {
         }
 
         let document = AgentConfigurationDocument(
-            model: model,
-            provider: provider,
+            model: normalizedModel,
+            provider: normalizedProvider,
             api: apiString(from: apiSelection),
             agent: AgentDefinitionDocument(
-                name: agentName ?? name,
+                name: normalizedAgentName ?? name,
                 description: description,
-                supervisorHint: supervisorHint,
+                supervisorHint: normalizedSupervisorHint,
                 systemPrompt: systemPrompt,
                 tools: toolOverrides
             )
@@ -99,6 +105,12 @@ struct AgentAdd: ParsableCommand {
             attributes: nil
         )
         try fileManager.writeData(data, to: agentConfigurationURL)
+    }
+
+    private func normalizedOptionalString(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : value
     }
 
     private func apiString(from selection: APISelection?) -> String? {

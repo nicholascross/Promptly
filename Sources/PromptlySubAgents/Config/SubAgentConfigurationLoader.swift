@@ -63,7 +63,8 @@ struct SubAgentConfigurationLoader {
     ) throws -> SubAgentConfiguration {
         let baseDocument = try loadJSONValue(from: configFileURL)
         let agentDocument = try loadJSONValue(from: agentConfigurationData, sourceURL: sourceURL)
-        let merged = merge(base: baseDocument, override: agentDocument)
+        let sanitizedAgentDocument = sanitizeOverrides(agentDocument)
+        let merged = merge(base: baseDocument, override: sanitizedAgentDocument)
 
         let configuration = try decodeMerged(
             merged,
@@ -175,6 +176,60 @@ struct SubAgentConfigurationLoader {
             return .array(overrideArray)
         default:
             return override
+        }
+    }
+
+    private func sanitizeOverrides(_ value: JSONValue) -> JSONValue {
+        switch value {
+        case let .object(object):
+            return .object(sanitizeObject(object, originalWasEmpty: object.isEmpty))
+        case let .array(array):
+            let sanitized = array.compactMap { sanitizeValue($0) }
+            return .array(sanitized)
+        default:
+            return value
+        }
+    }
+
+    private func sanitizeObject(
+        _ object: [String: JSONValue],
+        originalWasEmpty: Bool
+    ) -> [String: JSONValue] {
+        guard !originalWasEmpty else {
+            return object
+        }
+
+        var sanitized: [String: JSONValue] = [:]
+        sanitized.reserveCapacity(object.count)
+
+        for (key, value) in object {
+            guard let sanitizedValue = sanitizeValue(value) else {
+                continue
+            }
+            sanitized[key] = sanitizedValue
+        }
+
+        return sanitized
+    }
+
+    private func sanitizeValue(_ value: JSONValue) -> JSONValue? {
+        switch value {
+        case let .string(string):
+            let trimmed = string.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? nil : value
+        case .null:
+            return nil
+        case let .object(object):
+            let sanitizedObject = sanitizeObject(object, originalWasEmpty: object.isEmpty)
+            if !object.isEmpty, sanitizedObject.isEmpty {
+                return nil
+            }
+            return .object(sanitizedObject)
+        case let .array(array):
+            let sanitized = array.compactMap { sanitizeValue($0) }
+            return .array(sanitized)
+        default:
+            return value
         }
     }
 }

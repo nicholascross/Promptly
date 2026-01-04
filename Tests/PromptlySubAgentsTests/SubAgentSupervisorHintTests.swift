@@ -87,7 +87,11 @@ struct SubAgentSupervisorHintTests {
 
         let expected = """
         Available sub agents (call tools by name when helpful):
+        Prefer a matching sub agent over a shell tool when both can handle the request.
         - SubAgent-review-agent: Use when you need a focused review of proposed changes.
+
+        When a sub agent returns needsMoreInformation or needsSupervisorDecision, gather the requested input or decision from the user.
+        Then call the same sub agent tool again with the resumeId, and include the user's answers in the task or context pack notes.
         """
 
         #expect(hintSection == expected)

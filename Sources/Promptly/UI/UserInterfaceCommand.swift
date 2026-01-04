@@ -61,7 +61,7 @@ struct UserInterfaceCommand: AsyncParsableCommand {
                 excludeTools: run.excludeTools,
                 toolOutput: toolOutput
             )
-            return shellTools + subAgentTools
+            return subAgentTools + shellTools
         }
         let runner = await PromptTerminalUIRunner(
             config: run.config,

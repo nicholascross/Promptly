@@ -1,0 +1,197 @@
+{
+  "shellCommands": [
+    {
+      "name": "PromptlyAgentList",
+      "description": "List available sub agent configurations.",
+      "executable": "promptly",
+      "argumentTemplate": [["agent", "list"]],
+      "parameters": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "description": "Parameters for promptly agent list command."
+      }
+    },
+    {
+      "name": "PromptlyAgentView",
+      "description": "Show a specific sub agent configuration.",
+      "executable": "promptly",
+      "argumentTemplate": [["agent", "view", "{{name}}"]],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string", "description": "Name of the agent configuration to view." }
+        },
+        "required": ["name"],
+        "description": "Parameters for promptly agent view command."
+      }
+    },
+    {
+      "name": "PromptlyAgentAdd",
+      "optIn": true,
+      "description": "Create a new sub agent configuration.",
+      "executable": "promptly",
+      "argumentTemplate": [
+        ["agent", "add", "{{name}}"],
+        ["--agent-name", "{{agentName}}"],
+        ["--description", "{{description}}"],
+        ["--supervisor-hint", "{{supervisorHint}}"],
+        ["--system-prompt", "{{systemPrompt}}"],
+        ["--model", "{{model}}"],
+        ["--provider", "{{provider}}"],
+        ["--api", "{{api}}"],
+        ["--tools-file-name", "{{toolsFileName}}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "File name for the agent configuration without the .json suffix."
+          },
+          "agentName": {
+            "type": "string",
+            "description": "Display name for the agent."
+          },
+          "description": {
+            "type": "string",
+            "description": "Short description for the agent."
+          },
+          "supervisorHint": {
+            "type": "string",
+            "description": "Short hint for when the supervisor should call this agent."
+          },
+          "systemPrompt": {
+            "type": "string",
+            "description": "System prompt for the agent."
+          },
+          "model": {
+            "type": "string",
+            "description": "Model override for the agent."
+          },
+          "provider": {
+            "type": "string",
+            "description": "Provider override for the agent."
+          },
+          "api": {
+            "type": "string",
+            "description": "Application programming interface selection for the agent, such as responses or chat."
+          },
+          "toolsFileName": {
+            "type": "string",
+            "description": "Tools file name override for the agent."
+          }
+        },
+        "required": ["name", "description", "systemPrompt"],
+        "description": "Parameters for promptly agent add command."
+      }
+    },
+    {
+      "name": "PromptlyToolList",
+      "description": "List tools from a tools configuration file.",
+      "executable": "promptly",
+      "argumentTemplate": [
+        ["tool", "list"],
+        ["--config-file", "{{configFile}}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "configFile": {
+            "type": "string",
+            "description": "Optional tools configuration file path to list."
+          }
+        },
+        "required": [],
+        "description": "Parameters for promptly tool list command."
+      }
+    },
+    {
+      "name": "PromptlyToolView",
+      "description": "Show a specific tool entry from a tools configuration file.",
+      "executable": "promptly",
+      "argumentTemplate": [
+        ["tool", "view", "{{identifier}}"],
+        ["--config-file", "{{configFile}}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Identifier of the tool to view."
+          },
+          "configFile": {
+            "type": "string",
+            "description": "Optional tools configuration file path to use."
+          }
+        },
+        "required": ["identifier"],
+        "description": "Parameters for promptly tool view command."
+      }
+    },
+    {
+      "name": "PromptlyToolAdd",
+      "optIn": true,
+      "description": "Add a tool to a tools configuration file.",
+      "executable": "promptly",
+      "argumentTemplate": [
+        ["tool", "add", "--id", "{{identifier}}", "--name", "{{toolDescription}}", "--command", "{{command}}"],
+        ["--argument-template", "{{argumentTemplate}}"],
+        ["--argument-template", "{{argumentTemplateSecondary}}"],
+        ["--argument-template", "{{argumentTemplateTertiary}}"],
+        ["--parameters", "{{parameters}}"],
+        ["--parameters-file", "{{parametersFile}}"],
+        ["--config-file", "{{configFile}}"],
+        ["{{optInFlag}}"]
+      ],
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "identifier": {
+            "type": "string",
+            "description": "Identifier for the tool."
+          },
+          "toolDescription": {
+            "type": "string",
+            "description": "Description for the tool."
+          },
+          "command": {
+            "type": "string",
+            "description": "Executable or command to run."
+          },
+          "argumentTemplate": {
+            "type": "string",
+            "description": "Comma-separated list of tokens for the first argument template group."
+          },
+          "argumentTemplateSecondary": {
+            "type": "string",
+            "description": "Comma-separated list of tokens for the second argument template group."
+          },
+          "argumentTemplateTertiary": {
+            "type": "string",
+            "description": "Comma-separated list of tokens for the third argument template group."
+          },
+          "parameters": {
+            "type": "string",
+            "description": "JSON schema string describing allowed parameters."
+          },
+          "parametersFile": {
+            "type": "string",
+            "description": "Path to a JSON schema file describing allowed parameters."
+          },
+          "configFile": {
+            "type": "string",
+            "description": "Optional tools configuration file path to update."
+          },
+          "optInFlag": {
+            "type": "string",
+            "description": "Set to --opt-in to mark the tool as opt-in."
+          }
+        },
+        "required": ["identifier", "toolDescription", "command"],
+        "description": "Parameters for promptly tool add command."
+      }
+    }
+  ]
+}

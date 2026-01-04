@@ -1,6 +1,7 @@
 import Foundation
 @testable import PromptlySubAgents
 import PromptlyKit
+import PromptlyKitUtils
 import Testing
 
 struct SubAgentConfigurationLoaderTests {
@@ -96,5 +97,41 @@ struct SubAgentConfigurationLoaderTests {
         )
 
         #expect(configuration.definition.supervisorHint == "Use when you need a focused review of proposed changes.")
+    }
+
+    @Test
+    func ignoresEmptyStringOverridesForModelAndProvider() throws {
+        let fileManager = InMemoryFileManager()
+        let credentialSource = TestCredentialSource(token: "test-token")
+        let configurationFileURL = fileManager.currentDirectoryURL.appendingPathComponent("config.json")
+        let agentsDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("agents", isDirectory: true)
+        try fileManager.createDirectory(at: agentsDirectoryURL, withIntermediateDirectories: true, attributes: nil)
+
+        let baseConfiguration = makeBaseConfigurationJSON(model: "base-model")
+        try fileManager.writeJSONValue(baseConfiguration, to: configurationFileURL)
+
+        let agentConfiguration: JSONValue = .object([
+            "model": .string(""),
+            "provider": .string(""),
+            "agent": .object([
+                "name": .string("Release Notes"),
+                "description": .string("Build release notes."),
+                "systemPrompt": .string("Summarize release notes.")
+            ])
+        ])
+        let agentFileURL = agentsDirectoryURL.appendingPathComponent("release-notes.json")
+        try fileManager.writeJSONValue(agentConfiguration, to: agentFileURL)
+
+        let loader = SubAgentConfigurationLoader(
+            fileManager: fileManager,
+            credentialSource: credentialSource
+        )
+        let configuration = try loader.loadAgentConfiguration(
+            configFileURL: configurationFileURL,
+            agentConfigurationURL: agentFileURL
+        )
+
+        #expect(configuration.configuration.model == "base-model")
+        #expect(configuration.definition.name == "Release Notes")
     }
 }

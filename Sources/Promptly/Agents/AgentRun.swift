@@ -188,6 +188,7 @@ private extension AgentRun {
         If the required task is missing, ask the user for it instead of guessing.
         Do not fabricate goals, constraints, context pack content, or resume identifiers.
         If the user provides goals, constraints, a context pack, or a resume identifier, include them.
+        When the tool returns needsMoreInformation or needsSupervisorDecision, gather the requested input or decision and call the tool again with the resumeId.
         When you have enough information, call the tool exactly once.
         After the tool completes, respond briefly based on the user prompt and the tool result.
         """
@@ -227,15 +228,14 @@ private extension AgentRun {
         )
 
         var updatedConversation = conversation
-        let assistantMessages = result.conversationEntries.compactMap { entry -> String? in
-            guard entry.role == .assistant else { return nil }
-            guard case let .text(message) = entry.content else { return nil }
-            return message
+        updatedConversation.append(contentsOf: result.conversationEntries)
+
+        let hasAssistantText = result.conversationEntries.contains { entry in
+            guard entry.role == .assistant else { return false }
+            guard case let .text(message) = entry.content else { return false }
+            return !message.isEmpty
         }
-        if !assistantMessages.isEmpty {
-            for message in assistantMessages {
-                updatedConversation.append(PromptMessage(role: .assistant, content: .text(message)))
-            }
+        if hasAssistantText {
             fputs("\n", stdout)
             fflush(stdout)
         }

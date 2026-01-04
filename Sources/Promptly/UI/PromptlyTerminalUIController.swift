@@ -20,11 +20,11 @@ final class PromptlyTerminalUIController {
                 },
                 onToolCallRequested: { [weak self] text in
                     guard let self else { return }
-                    await self.appendToolOutput(text)
+                    await self.appendToolOutputText(text)
                 },
                 onToolCallCompleted: { [weak self] text in
                     guard let self else { return }
-                    await self.appendToolOutput(text)
+                    await self.appendToolOutputText(text)
                 }
             )
         )
@@ -123,7 +123,9 @@ final class PromptlyTerminalUIController {
             case .empty:
                 content = ""
             }
-            return "\(role): \(content)"
+            let toolCallDescription = toolCallDescription(from: message.toolCalls)
+            let combinedContent = combineContent(content, with: toolCallDescription)
+            return "\(role): \(combinedContent)"
         }.joined(separator: "\n\n")
         Task { @MainActor in
             messagesArea.text = text
@@ -141,22 +143,71 @@ final class PromptlyTerminalUIController {
 
     private func handle(event: PromptStreamEvent) async {
         await outputHandler.handle(event)
+        switch event {
+        case let .toolCallRequested(id, name, arguments):
+            appendToolCallMessage(id: id, name: name, arguments: arguments)
+        case let .toolCallCompleted(id, _, output):
+            appendToolOutputMessage(toolCallId: id, output: output)
+        case .assistantTextDelta:
+            break
+        }
     }
 
     private func appendAssistantDelta(_ delta: String) {
         if conversation.last?.role != .assistant {
             conversation.append(PromptMessage(role: .assistant, content: .text(delta)))
         } else if case let .text(prev) = conversation[conversation.count - 1].content {
+            let previousMessage = conversation[conversation.count - 1]
             conversation[conversation.count - 1] = PromptMessage(
                 role: .assistant,
-                content: .text(prev + delta)
+                content: .text(prev + delta),
+                toolCalls: previousMessage.toolCalls,
+                toolCallId: previousMessage.toolCallId
             )
+        } else {
+            conversation.append(PromptMessage(role: .assistant, content: .text(delta)))
         }
         updateConversation(conversation)
     }
 
-    private func appendToolOutput(_ text: String) {
+    private func appendToolOutputText(_ text: String) {
         toolOutputArea.text += text
+    }
+
+    private func appendToolCallMessage(
+        id: String?,
+        name: String,
+        arguments: JSONValue
+    ) {
+        guard let toolCallId = id else {
+            return
+        }
+        let toolCall = PromptToolCall(id: toolCallId, name: name, arguments: arguments)
+        conversation.append(
+            PromptMessage(
+                role: .assistant,
+                content: .empty,
+                toolCalls: [toolCall]
+            )
+        )
+        updateConversation(conversation)
+    }
+
+    private func appendToolOutputMessage(
+        toolCallId: String?,
+        output: JSONValue
+    ) {
+        guard let toolCallId else {
+            return
+        }
+        conversation.append(
+            PromptMessage(
+                role: .tool,
+                content: .json(output),
+                toolCallId: toolCallId
+            )
+        )
+        updateConversation(conversation)
     }
 
     /// Returns a handler that appends tool output to the tool output area.
@@ -172,5 +223,24 @@ final class PromptlyTerminalUIController {
     private func teardown() {
         terminal.showCursor()
         terminal.clearScreen()
+    }
+
+    private func toolCallDescription(from toolCalls: [PromptToolCall]?) -> String? {
+        guard let toolCalls, !toolCalls.isEmpty else {
+            return nil
+        }
+        let toolNames = toolCalls.map { $0.name }
+        let joinedNames = toolNames.joined(separator: ", ")
+        return "Tool call: \(joinedNames)"
+    }
+
+    private func combineContent(_ content: String, with toolCallDescription: String?) -> String {
+        guard let toolCallDescription else {
+            return content
+        }
+        if content.isEmpty {
+            return toolCallDescription
+        }
+        return "\(content)\n\(toolCallDescription)"
     }
 }
