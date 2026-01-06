@@ -97,7 +97,13 @@ struct SubAgentRunner: Sendable {
         )
         let context = initialContext.context
         let effectiveApi = initialContext.effectiveApi
-        let tools = try makeTools(transcriptLogger: transcriptLogger)
+        let toolBuilder = SubAgentToolBuilder(
+            configuration: configuration,
+            toolSettings: toolSettings,
+            fileManager: fileManager,
+            toolOutput: toolOutput
+        )
+        let tools = try toolBuilder.makeTools(transcriptLogger: transcriptLogger)
         let coordinator = try coordinatorFactory(tools)
 
         do {
@@ -191,47 +197,4 @@ struct SubAgentRunner: Sendable {
         }
     }
 
-    func makeTools(
-        transcriptLogger: SubAgentTranscriptLogger?
-    ) throws -> [any ExecutableTool] {
-        let toolFactory = ToolFactory(
-            fileManager: fileManager,
-            toolsFileName: toolSettings.toolsFileName
-        )
-        let baseTools = try toolFactory.makeTools(
-            config: configuration.configuration,
-            includeTools: toolSettings.includeTools,
-            excludeTools: toolSettings.excludeTools,
-            toolOutput: toolOutput
-        )
-
-        let filteredTools = baseTools.filter { tool in
-            !isDisallowedToolName(tool.name)
-        }
-
-        var tools = filteredTools
-        tools.append(
-            ReturnToSupervisorTool()
-        )
-        tools.append(
-            ReportProgressToSupervisorTool(
-                agentName: configuration.definition.name,
-                toolOutput: toolOutput,
-                transcriptLogger: transcriptLogger
-            )
-        )
-
-        return tools
-    }
-
-    private func isDisallowedToolName(_ name: String) -> Bool {
-        if name.hasPrefix("SubAgent-") {
-            return true
-        }
-        let reservedNames = [
-            ReturnToSupervisorTool.toolName,
-            ReportProgressToSupervisorTool.toolName
-        ]
-        return reservedNames.contains(name)
-    }
 }
