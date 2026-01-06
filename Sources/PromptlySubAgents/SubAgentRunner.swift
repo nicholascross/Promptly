@@ -32,7 +32,7 @@ private struct PromptRunCoordinatorAdapter: PromptEndpoint {
 }
 
 struct SubAgentRunner: Sendable {
-private static let baseSystemPrompt = """
+    private static let baseSystemPrompt = """
 You are a Promptly sub agent running in an isolated session.
 Follow the system guidance and the user request.
 Use the available tools when they help you.
@@ -42,9 +42,6 @@ When you finish, call \(ReturnToSupervisorTool.toolName) exactly once with the r
 You may send status updates with \(ReportProgressToSupervisorTool.toolName).
 """
     private static let maximumReturnPayloadAttempts = 2
-    private static let emptyAssistantFallbackText = "Sub agent response was empty."
-    private static let missingReturnPayloadSummary = "Sub agent did not complete the task."
-    private static let missingReturnDecisionReason = "Sub agent did not call ReturnToSupervisor after reminder."
     private static let returnPayloadReminderText = """
 Your previous response did not call \(ReturnToSupervisorTool.toolName).
 Stop and call \(ReturnToSupervisorTool.toolName) exactly once with the required payload.
@@ -96,6 +93,7 @@ Do not ask the user questions directly.
             fileManager: fileManager
         )
         var didFinishLogging = false
+        let payloadHandler = SubAgentReturnPayloadHandler()
 
         let systemMessage = makeSystemMessage()
         let userMessage = makeUserMessage(for: request)
@@ -139,7 +137,6 @@ Do not ask the user questions directly.
             var combinedConversationEntries: [PromptMessage] = []
             var latestResumeToken = resumeEntry?.resumeToken
             var payload: JSONValue?
-            var usedMissingReturnPayload = false
 
             while payload == nil {
                 attempt += 1
@@ -154,14 +151,14 @@ Do not ask the user questions directly.
                 }
                 combinedConversationEntries.append(contentsOf: result.conversationEntries)
 
-                if let returnedPayload = firstReturnPayload(from: result.conversationEntries) {
+                if let returnedPayload = payloadHandler.extractReturnPayload(
+                    from: result.conversationEntries
+                ) {
                     payload = returnedPayload
                     break
                 }
 
                 if attempt >= Self.maximumReturnPayloadAttempts {
-                    payload = missingReturnPayload(from: combinedConversationEntries)
-                    usedMissingReturnPayload = true
                     break
                 }
 
@@ -179,14 +176,17 @@ Do not ask the user questions directly.
                 )
             }
 
-            let resolvedPayload = payload ?? missingReturnPayload(from: combinedConversationEntries)
-            let didUseMissingReturnPayload = usedMissingReturnPayload || payload == nil
+            let resolution = payloadHandler.resolvePayload(
+                candidate: payload,
+                conversationEntries: combinedConversationEntries
+            )
+            let didUseMissingReturnPayload = resolution.didUseFallback
 
-            var payloadWithLogPath = attachLogPath(
-                to: resolvedPayload,
+            var payloadWithLogPath = payloadHandler.attachLogPath(
+                to: resolution.payload,
                 logPath: transcriptLogger?.logPath
             )
-            if needsFollowUp(in: payloadWithLogPath) {
+            if resolution.needsFollowUp {
                 let mergedConversationEntries: [PromptMessage]
                 if let resumeEntry, effectiveApi == .responses {
                     mergedConversationEntries = resumeEntry.conversationEntries + combinedConversationEntries
@@ -199,12 +199,14 @@ Do not ask the user questions directly.
                     conversationEntries: mergedConversationEntries,
                     resumeToken: latestResumeToken
                 )
-                payloadWithLogPath = attachResumeId(
+                payloadWithLogPath = payloadHandler.attachResumeIdentifier(
                     storedResumeEntry.resumeId,
                     to: payloadWithLogPath
                 )
             } else {
-                payloadWithLogPath = removeResumeId(from: payloadWithLogPath)
+                payloadWithLogPath = payloadHandler.removeResumeIdentifier(
+                    from: payloadWithLogPath
+                )
             }
             await transcriptLogger?.recordReturnPayload(payloadWithLogPath)
             let status = didUseMissingReturnPayload ? "missing_return_payload" : "completed"
@@ -395,148 +397,5 @@ Do not ask the user questions directly.
             ReportProgressToSupervisorTool.toolName
         ]
         return reservedNames.contains(name)
-    }
-
-    private func firstReturnPayload(from conversationEntries: [PromptMessage]) -> JSONValue? {
-        for entry in conversationEntries {
-            guard entry.role == .assistant else { continue }
-            guard let toolCalls = entry.toolCalls else { continue }
-            for toolCall in toolCalls where toolCall.name == ReturnToSupervisorTool.toolName {
-                if let output = toolOutput(for: toolCall.id, in: conversationEntries) {
-                    return output
-                }
-                return toolCall.arguments
-            }
-        }
-        return nil
-    }
-
-    private func toolOutput(
-        for toolCallIdentifier: String?,
-        in conversationEntries: [PromptMessage]
-    ) -> JSONValue? {
-        guard let toolCallIdentifier else {
-            return nil
-        }
-        for entry in conversationEntries {
-            guard entry.role == .tool else { continue }
-            guard entry.toolCallId == toolCallIdentifier else { continue }
-            if case let .json(value) = entry.content {
-                return value
-            }
-        }
-        return nil
-    }
-
-    private func attachLogPath(to payload: JSONValue, logPath: String?) -> JSONValue {
-        guard let logPath else {
-            return payload
-        }
-        guard case let .object(object) = payload else {
-            return payload
-        }
-        var updated = object
-        updated["logPath"] = .string(logPath)
-        return .object(updated)
-    }
-
-    private func needsFollowUp(in payload: JSONValue) -> Bool {
-        guard case let .object(object) = payload else {
-            return false
-        }
-        let needsMoreInformation: Bool
-        if case let .bool(needsMore)? = object["needsMoreInformation"] {
-            needsMoreInformation = needsMore
-        } else {
-            needsMoreInformation = false
-        }
-
-        let needsSupervisorDecision: Bool
-        if case let .bool(needsDecision)? = object["needsSupervisorDecision"] {
-            needsSupervisorDecision = needsDecision
-        } else {
-            needsSupervisorDecision = false
-        }
-
-        return needsMoreInformation || needsSupervisorDecision
-    }
-
-    private func attachResumeId(_ resumeId: String, to payload: JSONValue) -> JSONValue {
-        guard case let .object(object) = payload else {
-            return payload
-        }
-        var updated = object
-        updated["resumeId"] = .string(resumeId)
-        return .object(updated)
-    }
-
-    private func removeResumeId(from payload: JSONValue) -> JSONValue {
-        guard case let .object(object) = payload else {
-            return payload
-        }
-        var updated = object
-        updated.removeValue(forKey: "resumeId")
-        return .object(updated)
-    }
-
-    private func missingReturnPayload(
-        from conversationEntries: [PromptMessage]
-    ) -> JSONValue {
-        let assistantText = lastAssistantResponseText(from: conversationEntries)
-        let message = """
-Sub agent did not complete the task.
-Last assistant response:
-\(assistantText)
-"""
-        return .object([
-            "result": .string(message),
-            "summary": .string(Self.missingReturnPayloadSummary),
-            "needsSupervisorDecision": .bool(true),
-            "decisionReason": .string(Self.missingReturnDecisionReason),
-            "supervisorMessage": .object([
-                "role": .string("user"),
-                "content": .string(message)
-            ])
-        ])
-    }
-
-    private func lastAssistantResponseText(
-        from conversationEntries: [PromptMessage]
-    ) -> String {
-        guard let content = latestAssistantContent(in: conversationEntries) else {
-            return Self.emptyAssistantFallbackText
-        }
-        return assistantText(from: content)
-    }
-
-    private func latestAssistantContent(
-        in conversationEntries: [PromptMessage]
-    ) -> PromptContent? {
-        for entry in conversationEntries.reversed() {
-            guard entry.role == .assistant else { continue }
-            return entry.content
-        }
-        return nil
-    }
-
-    private func assistantText(from content: PromptContent) -> String {
-        switch content {
-        case let .text(text):
-            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? Self.emptyAssistantFallbackText : text
-        case let .json(value):
-            return encodedJSONText(from: value) ?? value.description
-        case .empty:
-            return Self.emptyAssistantFallbackText
-        }
-    }
-
-    private func encodedJSONText(from value: JSONValue) -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        guard let data = try? encoder.encode(value) else {
-            return nil
-        }
-        return String(data: data, encoding: .utf8)
     }
 }
