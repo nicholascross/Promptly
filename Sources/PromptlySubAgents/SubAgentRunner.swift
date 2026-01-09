@@ -77,26 +77,9 @@ struct SubAgentRunner: Sendable {
             logsDirectoryURL: logDirectoryURL,
             fileManager: fileManager
         )
-        var didFinishLogging = false
-        let promptAssembler = SubAgentPromptAssembler(
-            configuration: configuration,
-            sessionState: sessionState,
-            apiOverride: apiOverride
+        let transcriptFinalizer = SubAgentTranscriptFinalizer(
+            logger: transcriptLogger
         )
-        let payloadHandler = SubAgentReturnPayloadHandler()
-
-        let systemMessage = promptAssembler.makeSystemMessage()
-        let userMessage = promptAssembler.makeUserMessage(for: request)
-        let reminderMessage = promptAssembler.makeReturnPayloadReminderMessage()
-        let resumeIdentifier = promptAssembler.normalizeResumeIdentifier(request.resumeId)
-        let resumeEntry = try await promptAssembler.resolveResumeEntry(for: resumeIdentifier)
-        let initialContext = try promptAssembler.initialContext(
-            systemMessage: systemMessage,
-            userMessage: userMessage,
-            resumeEntry: resumeEntry
-        )
-        let context = initialContext.context
-        let effectiveApi = initialContext.effectiveApi
         let toolBuilder = SubAgentToolBuilder(
             configuration: configuration,
             toolSettings: toolSettings,
@@ -107,92 +90,28 @@ struct SubAgentRunner: Sendable {
         let coordinator = try coordinatorFactory(tools)
 
         do {
-            var currentContext = context
-            var attempt = 0
-            var combinedConversationEntries: [PromptMessage] = []
-            var latestResumeToken = resumeEntry?.resumeToken
-            var payload: JSONValue?
-
-            while payload == nil {
-                attempt += 1
-                let result = try await coordinator.prompt(
-                    context: currentContext,
-                    onEvent: { event in
-                        await transcriptLogger?.handle(event: event)
-                    }
-                )
-                if let resumeToken = result.resumeToken {
-                    latestResumeToken = resumeToken
-                }
-                combinedConversationEntries.append(contentsOf: result.conversationEntries)
-
-                if let returnedPayload = payloadHandler.extractReturnPayload(
-                    from: result.conversationEntries
-                ) {
-                    payload = returnedPayload
-                    break
-                }
-
-                if attempt >= Self.maximumReturnPayloadAttempts {
-                    break
-                }
-
-                let followUpMessages = promptAssembler.chatMessages(
-                    systemMessage: systemMessage,
-                    userMessage: userMessage,
-                    resumeEntry: resumeEntry,
-                    conversationEntries: combinedConversationEntries
-                )
-                currentContext = promptAssembler.followUpContext(
-                    effectiveApi: effectiveApi,
-                    resumeToken: latestResumeToken,
-                    chatMessages: followUpMessages,
-                    reminderMessage: reminderMessage
-                )
-            }
-
-            let resolution = payloadHandler.resolvePayload(
-                candidate: payload,
-                conversationEntries: combinedConversationEntries
+            let promptAssembler = SubAgentPromptAssembler(
+                configuration: configuration,
+                sessionState: sessionState,
+                apiOverride: apiOverride
             )
-            let didUseMissingReturnPayload = resolution.didUseFallback
-
-            var payloadWithLogPath = payloadHandler.attachLogPath(
-                to: resolution.payload,
-                logPath: transcriptLogger?.logPath
+            let payloadHandler = SubAgentReturnPayloadHandler()
+            let runSession = SubAgentRunSession(
+                promptAssembler: promptAssembler,
+                payloadHandler: payloadHandler,
+                sessionState: sessionState,
+                transcriptLogger: transcriptLogger,
+                transcriptFinalizer: transcriptFinalizer,
+                agentName: configuration.definition.name,
+                maximumReturnPayloadAttempts: Self.maximumReturnPayloadAttempts
             )
-            if resolution.needsFollowUp {
-                let mergedConversationEntries: [PromptMessage]
-                if let resumeEntry, effectiveApi == .responses {
-                    mergedConversationEntries = resumeEntry.conversationEntries + combinedConversationEntries
-                } else {
-                    mergedConversationEntries = combinedConversationEntries
-                }
-                let storedResumeEntry = await sessionState.storeResumeEntry(
-                    resumeId: resumeIdentifier,
-                    agentName: configuration.definition.name,
-                    conversationEntries: mergedConversationEntries,
-                    resumeToken: latestResumeToken
-                )
-                payloadWithLogPath = payloadHandler.attachResumeIdentifier(
-                    storedResumeEntry.resumeId,
-                    to: payloadWithLogPath
-                )
-            } else {
-                payloadWithLogPath = payloadHandler.removeResumeIdentifier(
-                    from: payloadWithLogPath
-                )
-            }
-            await transcriptLogger?.recordReturnPayload(payloadWithLogPath)
-            let status = didUseMissingReturnPayload ? "missing_return_payload" : "completed"
-            await transcriptLogger?.finish(status: status, error: nil)
-            didFinishLogging = true
-
-            return payloadWithLogPath
+            let payload = try await runSession.run(
+                request: request,
+                coordinator: coordinator
+            )
+            return payload
         } catch {
-            if !didFinishLogging {
-                await transcriptLogger?.finish(status: "failed", error: error)
-            }
+            await transcriptFinalizer.recordFailure(error)
             throw error
         }
     }

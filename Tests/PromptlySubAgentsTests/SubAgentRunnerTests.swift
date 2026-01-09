@@ -96,17 +96,14 @@ struct SubAgentRunnerTests {
             excludeTools: []
         )
 
-        let runner = SubAgentRunner(
+        let toolBuilder = SubAgentToolBuilder(
             configuration: configuration,
             toolSettings: toolSettings,
-            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
-            toolOutput: { _ in },
             fileManager: fileManager,
-            sessionState: SubAgentSessionState(),
-            modelOverride: nil
+            toolOutput: { _ in }
         )
 
-        let tools = try runner.makeTools(transcriptLogger: nil)
+        let tools = try toolBuilder.makeTools(transcriptLogger: nil)
         let toolNames = tools.map { $0.name }
 
         #expect(toolNames.contains("EchoTool"))
@@ -175,18 +172,14 @@ struct SubAgentRunnerTests {
             excludeTools: []
         )
 
-        let runner = SubAgentRunner(
-            configuration: configuration,
-            toolSettings: toolSettings,
-            logDirectoryURL: fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true),
-            toolOutput: { _ in },
-            fileManager: fileManager,
-            sessionState: SubAgentSessionState(),
-            modelOverride: nil
-        )
-
         do {
-            _ = try runner.makeTools(transcriptLogger: nil)
+            let toolBuilder = SubAgentToolBuilder(
+                configuration: configuration,
+                toolSettings: toolSettings,
+                fileManager: fileManager,
+                toolOutput: { _ in }
+            )
+            _ = try toolBuilder.makeTools(transcriptLogger: nil)
             Issue.record("Expected include filter validation error.")
         } catch let error as ToolFactoryError {
             switch error {
