@@ -39,13 +39,31 @@ struct SubAgentRunSession: Sendable {
         let reminderMessage = promptAssembler.makeReturnPayloadReminderMessage()
         let resumeIdentifier = promptAssembler.normalizeResumeIdentifier(request.resumeId)
         let resumeEntry = try await promptAssembler.resolveResumeEntry(for: resumeIdentifier)
-        let initialContext = try promptAssembler.initialContext(
+        let handoffPlan = try promptAssembler.makeHandoffPlan(
+            for: request,
             systemMessage: systemMessage,
             userMessage: userMessage,
             resumeEntry: resumeEntry
         )
-        let context = initialContext.context
-        let effectiveApi = initialContext.effectiveApi
+        let effectiveApi = promptAssembler.effectiveApi()
+        let resumePrefixMessages: [PromptMessage]
+        if resumeEntry != nil, effectiveApi == .chatCompletions {
+            resumePrefixMessages = try handoffPlan.resumePrefixProvider(
+                SubAgentResumePrefixContext(
+                    request: request,
+                    resumeEntry: resumeEntry
+                )
+            )
+        } else {
+            resumePrefixMessages = []
+        }
+        let context = try promptAssembler.initialContext(
+            effectiveApi: effectiveApi,
+            handoffMessages: handoffPlan.handoffMessages,
+            resumePrefixMessages: resumePrefixMessages,
+            userMessage: userMessage,
+            resumeEntry: resumeEntry
+        )
 
         var currentContext = context
         var attempt = 0
@@ -77,11 +95,15 @@ struct SubAgentRunSession: Sendable {
                 break
             }
 
-            let followUpMessages = promptAssembler.chatMessages(
-                systemMessage: systemMessage,
-                userMessage: userMessage,
-                resumeEntry: resumeEntry,
-                conversationEntries: combinedConversationEntries
+            let followUpMessages = handoffPlan.followUpMessageProvider(
+                SubAgentFollowUpContext(
+                    request: request,
+                    userMessage: userMessage,
+                    handoffMessages: handoffPlan.handoffMessages,
+                    resumePrefixMessages: resumePrefixMessages,
+                    resumeEntry: resumeEntry,
+                    conversationEntries: combinedConversationEntries
+                )
             )
             currentContext = promptAssembler.followUpContext(
                 effectiveApi: effectiveApi,
@@ -97,11 +119,22 @@ struct SubAgentRunSession: Sendable {
         )
         let didUseMissingReturnPayload = resolution.didUseFallback
 
+        let processedPayload = handoffPlan.returnPayloadProcessor(
+            SubAgentReturnProcessingContext(
+                request: request,
+                handoffMessages: handoffPlan.handoffMessages,
+                conversationEntries: combinedConversationEntries,
+                payload: resolution.payload,
+                didUseFallback: didUseMissingReturnPayload
+            )
+        )
+        let needsFollowUp = payloadHandler.needsFollowUp(in: processedPayload)
+
         var payloadWithLogPath = payloadHandler.attachLogPath(
-            to: resolution.payload,
+            to: processedPayload,
             logPath: transcriptFinalizer.logPath
         )
-        if resolution.needsFollowUp {
+        if needsFollowUp {
             let mergedConversationEntries: [PromptMessage]
             if let resumeEntry, effectiveApi == .responses {
                 mergedConversationEntries = resumeEntry.conversationEntries + combinedConversationEntries
@@ -112,7 +145,11 @@ struct SubAgentRunSession: Sendable {
                 resumeId: resumeIdentifier,
                 agentName: agentName,
                 conversationEntries: mergedConversationEntries,
-                resumeToken: latestResumeToken
+                resumeToken: latestResumeToken,
+                forkedTranscript: forkedTranscriptForStorage(
+                    request: request,
+                    resumeEntry: resumeEntry
+                )
             )
             payloadWithLogPath = payloadHandler.attachResumeIdentifier(
                 storedResumeEntry.resumeId,
@@ -129,5 +166,20 @@ struct SubAgentRunSession: Sendable {
         )
 
         return payloadWithLogPath
+    }
+
+    private func forkedTranscriptForStorage(
+        request: SubAgentToolRequest,
+        resumeEntry: SubAgentResumeEntry?
+    ) -> [SubAgentForkedTranscriptEntry]? {
+        switch request.handoff {
+        case .contextPack:
+            return nil
+        case let .forkedContext(entries):
+            if !entries.isEmpty {
+                return entries
+            }
+            return resumeEntry?.forkedTranscript
+        }
     }
 }

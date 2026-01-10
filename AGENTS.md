@@ -71,6 +71,7 @@ These notes capture the best practices learned while extending Promptly’s tool
 - Self tests should make real model calls at each level so operators can confirm provider connectivity.
 - Tools-level self tests should invoke a safe, read-only tool such as listing the current directory through the model tool call path.
 - Agents-level self tests should create, run, and remove a temporary agent configuration under a temporary directory to avoid mutating user content.
+- When generating temporary self test tool configurations, use absolute tools file paths so include filters resolve to available tools.
 
 ### 16. Testing Credentials
 - Prefer injecting a `CredentialSource` in tests instead of mutating process environment variables.
@@ -100,5 +101,27 @@ These notes capture the best practices learned while extending Promptly’s tool
 - Bundle canned prompts, default agents, and default shell tools by default.
 - Use `PromptlyAssets` types like `BundledResourceLoader` and `BundledDefaultAssetPaths` for default assets so missing bundles do not crash the process.
 - Canned prompts load from bundled assets on demand; there is no install command for canned prompts.
+
+### 19. Tool Listing
+- Include built-in tools in tool listings; they are not defined in tools configuration files and should be represented explicitly.
+- Built-in tool names take precedence over tools configuration entries when listing to match runtime loading behavior.
+
+### 20. Sub Agent Return Contract
+- Sub agents must not ask the user questions directly; they should return via ReturnToSupervisor with needsMoreInformation and requestedInformation when input is required.
+- If the return payload is missing, issue a short reminder prompt to call ReturnToSupervisor and retry before falling back, with a bounded number of attempts.
+- If the return payload is still missing, return a minimal payload that marks needsSupervisorDecision, includes decisionReason, and provides a supervisorMessage with role user and the last assistant response while logging missing_return_payload.
+
+### 21. Argument Template Placeholders
+- Treat empty string or null values for single-placeholder template tokens as missing so optional flag groups are omitted.
+- Keep embedded placeholders (within longer strings) unchanged so empty substitutions remain possible when intended.
+
+### 22. Sub Agent Preference
+- Prefer sub agent tools over shell command tools when a supervisor hint matches the request; list sub agent tools before shell tools and reinforce the preference in supervisor hints.
+
+### 23. Supervisor Resume Plumbing
+- Preserve ReturnToSupervisor tool outputs in supervising conversation state so resume identifiers are available for follow up tool calls without user re-entry.
+
+### 24. Agent Configuration Hygiene
+- Avoid writing empty strings for optional agent configuration overrides (model, provider, tools file name). Treat empty strings and nulls as absent when merging overrides.
 
 Following these conventions keeps Promptly’s automation surface predictable and safe for both human operators and LLM agents. Edit this file whenever fresh insights arise so future contributors inherit the full context.

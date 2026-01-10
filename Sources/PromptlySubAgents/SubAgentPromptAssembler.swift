@@ -53,6 +53,33 @@ Do not ask the user questions directly.
         )
     }
 
+    func makeHandoffPlan(
+        for request: SubAgentToolRequest,
+        systemMessage: PromptMessage,
+        userMessage: PromptMessage,
+        resumeEntry: SubAgentResumeEntry?
+    ) throws -> SubAgentHandoffPlan {
+        let behavior = request.handoff.makeBehavior()
+        let handoffMessages = try behavior.makeHandoffMessages(
+            request: request,
+            systemMessage: systemMessage,
+            userMessage: userMessage,
+            resumeEntry: resumeEntry
+        )
+        return SubAgentHandoffPlan(
+            handoffMessages: handoffMessages,
+            resumePrefixProvider: { context in
+                try behavior.resumePrefixMessages(context: context)
+            },
+            followUpMessageProvider: { context in
+                behavior.makeFollowUpMessages(context: context)
+            },
+            returnPayloadProcessor: { context in
+                behavior.returnPayloadProcessor(context: context)
+            }
+        )
+    }
+
     func makeReturnPayloadReminderMessage() -> PromptMessage {
         PromptMessage(
             role: .user,
@@ -93,14 +120,17 @@ Do not ask the user questions directly.
         return resumeEntry
     }
 
+    func effectiveApi() -> Config.API {
+        apiOverride ?? configuration.configuration.api
+    }
+
     func initialContext(
-        systemMessage: PromptMessage,
+        effectiveApi: Config.API,
+        handoffMessages: [PromptMessage],
+        resumePrefixMessages: [PromptMessage],
         userMessage: PromptMessage,
         resumeEntry: SubAgentResumeEntry?
-    ) throws -> (context: PromptRunContext, effectiveApi: Config.API) {
-        let effectiveApi = apiOverride ?? configuration.configuration.api
-
-        let context: PromptRunContext
+    ) throws -> PromptRunContext {
         if let resumeEntry {
             switch effectiveApi {
             case .responses:
@@ -110,42 +140,19 @@ Do not ask the user questions directly.
                         resumeId: resumeEntry.resumeId
                     )
                 }
-                context = .resume(
+                return .resume(
                     resumeToken: storedResumeToken,
                     requestMessages: [userMessage]
                 )
             case .chatCompletions:
-                context = .messages(
-                    resumeEntry.conversationEntries + [userMessage]
-                )
+                var messages = resumePrefixMessages
+                messages.append(contentsOf: resumeEntry.conversationEntries)
+                messages.append(userMessage)
+                return .messages(messages)
             }
-        } else {
-            context = .messages([
-                systemMessage,
-                userMessage
-            ])
         }
 
-        return (context, effectiveApi)
-    }
-
-    func chatMessages(
-        systemMessage: PromptMessage,
-        userMessage: PromptMessage,
-        resumeEntry: SubAgentResumeEntry?,
-        conversationEntries: [PromptMessage]
-    ) -> [PromptMessage] {
-        var messages: [PromptMessage]
-        if let resumeEntry {
-            messages = resumeEntry.conversationEntries
-            messages.append(userMessage)
-        } else {
-            messages = [systemMessage, userMessage]
-        }
-        if !conversationEntries.isEmpty {
-            messages.append(contentsOf: conversationEntries)
-        }
-        return messages
+        return .messages(handoffMessages)
     }
 
     func followUpContext(

@@ -58,6 +58,27 @@ private extension SubAgentTool {
             description: "File snippet metadata."
         )
 
+        let forkedTranscriptEntrySchema = JSONSchema.object(
+            requiredProperties: [
+                "role": .string(
+                    minLength: 1,
+                    maxLength: nil,
+                    pattern: "^(user|assistant)$",
+                    format: nil,
+                    description: "Transcript role (user or assistant)."
+                ),
+                "content": .string(
+                    minLength: 1,
+                    maxLength: nil,
+                    pattern: nil,
+                    format: nil,
+                    description: "Transcript message content."
+                )
+            ],
+            optionalProperties: [:],
+            description: "Forked transcript entry."
+        )
+
         let contextPackSchema = JSONSchema.object(
             requiredProperties: [:],
             optionalProperties: [
@@ -94,6 +115,13 @@ private extension SubAgentTool {
                     pattern: nil,
                     format: nil,
                     description: "Task statement for the sub agent."
+                ),
+                "handoffStrategy": .string(
+                    minLength: 1,
+                    maxLength: nil,
+                    pattern: "^(contextPack|forkedContext)$",
+                    format: nil,
+                    description: "Handoff strategy for context (contextPack or forkedContext)."
                 )
             ],
             optionalProperties: [
@@ -117,6 +145,10 @@ private extension SubAgentTool {
                         description: "Constraint statement."
                     ),
                     description: "Ordered constraints."
+                ),
+                "forkedTranscript": .array(
+                    items: forkedTranscriptEntrySchema,
+                    description: "Forked transcript entries when handoffStrategy is forkedContext."
                 ),
                 "resumeId": .string(
                     minLength: 1,

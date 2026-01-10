@@ -18,4 +18,10 @@ struct SelfTestOptions: ParsableArguments {
         help: "Select backend API (responses or chat). Overrides configuration."
     )
     var apiSelection: APISelection?
+
+    @Option(
+        name: .customLong("handoff-strategy"),
+        help: "Select the sub agent handoff strategy (automatic, contextPack, or forkedContext)."
+    )
+    var handoffStrategy: SelfTestHandoffStrategySelection?
 }

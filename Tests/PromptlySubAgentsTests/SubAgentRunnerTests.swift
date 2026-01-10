@@ -248,7 +248,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: nil
+            resumeId: nil,
+            handoff: .contextPack
         )
 
         let payload = try await runner.run(request: request)
@@ -376,7 +377,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: nil
+            resumeId: nil,
+            handoff: .contextPack
         )
 
         let payload = try await runner.run(request: request)
@@ -450,7 +452,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: nil
+            resumeId: nil,
+            handoff: .contextPack
         )
 
         let payload = try await runner.run(request: request)
@@ -564,7 +567,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: nil
+            resumeId: nil,
+            handoff: .contextPack
         )
         let payload = try await runner.run(request: request)
 
@@ -666,7 +670,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: nil
+            resumeId: nil,
+            handoff: .contextPack
         )
         let payload = try await runner.run(request: request)
 
@@ -770,7 +775,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: "self-test"
+            resumeId: "self-test",
+            handoff: .contextPack
         )
         let payload = try await runner.run(request: request)
 
@@ -840,7 +846,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: "11111111-1111-1111-1111-111111111111"
+            resumeId: "11111111-1111-1111-1111-111111111111",
+            handoff: .contextPack
         )
 
         do {
@@ -897,7 +904,8 @@ struct SubAgentRunnerTests {
             resumeId: "22222222-2222-2222-2222-222222222222",
             agentName: "Resume Agent",
             conversationEntries: [],
-            resumeToken: nil
+            resumeToken: nil,
+            forkedTranscript: nil
         )
 
         let stubEndpoint = StubPromptEndpoint(result: PromptRunResult(conversationEntries: []))
@@ -917,7 +925,8 @@ struct SubAgentRunnerTests {
             contextPack: nil,
             goals: nil,
             constraints: nil,
-            resumeId: "22222222-2222-2222-2222-222222222222"
+            resumeId: "22222222-2222-2222-2222-222222222222",
+            handoff: .contextPack
         )
 
         do {

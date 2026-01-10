@@ -17,7 +17,8 @@ public actor SubAgentSessionState {
         resumeId: String?,
         agentName: String,
         conversationEntries: [PromptMessage],
-        resumeToken: String?
+        resumeToken: String?,
+        forkedTranscript: [SubAgentForkedTranscriptEntry]?
     ) -> SubAgentResumeEntry {
         if let resumeId, let existing = resumeEntries[resumeId] {
             let updated = SubAgentResumeEntry(
@@ -25,6 +26,7 @@ public actor SubAgentSessionState {
                 agentName: agentName,
                 conversationEntries: conversationEntries,
                 resumeToken: resumeToken,
+                forkedTranscript: forkedTranscript ?? existing.forkedTranscript,
                 createdAt: existing.createdAt
             )
             resumeEntries[resumeId] = updated
@@ -37,6 +39,7 @@ public actor SubAgentSessionState {
             agentName: agentName,
             conversationEntries: conversationEntries,
             resumeToken: resumeToken,
+            forkedTranscript: forkedTranscript,
             createdAt: dateProvider()
         )
         resumeEntries[newResumeId] = entry

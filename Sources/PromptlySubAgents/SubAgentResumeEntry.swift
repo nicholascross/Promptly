@@ -6,5 +6,6 @@ struct SubAgentResumeEntry: Sendable {
     let agentName: String
     let conversationEntries: [PromptMessage]
     let resumeToken: String?
+    let forkedTranscript: [SubAgentForkedTranscriptEntry]?
     let createdAt: Date
 }

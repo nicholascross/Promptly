@@ -59,6 +59,27 @@ struct SubAgentReturnPayloadHandler: Sendable {
         )
     }
 
+    func needsFollowUp(in payload: JSONValue) -> Bool {
+        guard case let .object(object) = payload else {
+            return false
+        }
+        let needsMoreInformation: Bool
+        if case let .bool(needsMore)? = object[PayloadKey.needsMoreInformation] {
+            needsMoreInformation = needsMore
+        } else {
+            needsMoreInformation = false
+        }
+
+        let needsSupervisorDecision: Bool
+        if case let .bool(needsDecision)? = object[PayloadKey.needsSupervisorDecision] {
+            needsSupervisorDecision = needsDecision
+        } else {
+            needsSupervisorDecision = false
+        }
+
+        return needsMoreInformation || needsSupervisorDecision
+    }
+
     func attachLogPath(
         to payload: JSONValue,
         logPath: String?
@@ -110,27 +131,6 @@ struct SubAgentReturnPayloadHandler: Sendable {
             }
         }
         return nil
-    }
-
-    private func needsFollowUp(in payload: JSONValue) -> Bool {
-        guard case let .object(object) = payload else {
-            return false
-        }
-        let needsMoreInformation: Bool
-        if case let .bool(needsMore)? = object[PayloadKey.needsMoreInformation] {
-            needsMoreInformation = needsMore
-        } else {
-            needsMoreInformation = false
-        }
-
-        let needsSupervisorDecision: Bool
-        if case let .bool(needsDecision)? = object[PayloadKey.needsSupervisorDecision] {
-            needsSupervisorDecision = needsDecision
-        } else {
-            needsSupervisorDecision = false
-        }
-
-        return needsMoreInformation || needsSupervisorDecision
     }
 
     private func missingReturnPayload(

@@ -11,6 +11,7 @@ func runSelfTests(level: SelfTestLevel, options: SelfTestOptions) async throws {
         configurationFileURL: configurationFileURL,
         toolsFileName: options.toolsFileName,
         apiOverride: options.apiSelection?.configValue,
+        handoffStrategy: options.handoffStrategy?.selfTestValue ?? .automatic,
         outputHandler: { message in
             print(message)
         }

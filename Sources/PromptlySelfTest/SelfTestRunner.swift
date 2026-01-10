@@ -8,6 +8,7 @@ public struct SelfTestRunner: Sendable {
     public let configurationFileURL: URL
     public let toolsFileName: String
     public let apiOverride: Config.API?
+    public let handoffStrategy: SelfTestHandoffStrategy
     private let outputHandler: (@Sendable (String) -> Void)?
     private let fileManager: FileManagerProtocol
 
@@ -15,12 +16,14 @@ public struct SelfTestRunner: Sendable {
         configurationFileURL: URL,
         toolsFileName: String = "tools",
         apiOverride: Config.API? = nil,
+        handoffStrategy: SelfTestHandoffStrategy = .automatic,
         outputHandler: (@Sendable (String) -> Void)? = nil,
         fileManager: FileManagerProtocol = FileManager.default
     ) {
         self.configurationFileURL = configurationFileURL.standardizedFileURL
         self.toolsFileName = toolsFileName
         self.apiOverride = apiOverride
+        self.handoffStrategy = handoffStrategy
         self.outputHandler = outputHandler
         self.fileManager = fileManager
     }
@@ -443,6 +446,11 @@ public struct SelfTestRunner: Sendable {
             let agentName = "Self Test Supervisor Agent"
             let token = UUID().uuidString
             let tokenLine = "Supervisor Output Token: \(token)"
+            let forkedUserEntry = "Self test transcript entry one."
+            let forkedAssistantEntry = "Self test transcript entry two."
+            let resolvedHandoffStrategy = resolvedHandoffStrategy(
+                preferredStrategy: .forkedContext
+            )
             emit("Supervisor tool invocation: starting.")
             let toolsConfiguration = try createTemporarySubAgentToolsConfiguration(
                 directoryURL: temporaryConfigurationFileURL.deletingLastPathComponent()
@@ -490,7 +498,12 @@ public struct SelfTestRunner: Sendable {
                         Call the tool named \(expectedToolName) exactly once.
                         When you call the tool, set the task to exactly:
                         Return a summary that includes the line "\(tokenLine)".
-                        Provide only task and constraints fields in the tool arguments.
+                        \(handoffInstruction(
+                            strategy: resolvedHandoffStrategy,
+                            forkedUserEntry: forkedUserEntry,
+                            forkedAssistantEntry: forkedAssistantEntry,
+                            includeResumeHandle: false
+                        ))
                         After the tool returns, respond with a short summary that includes the line "\(tokenLine)".
                         Include the sub agent summary exactly as returned, prefixed with "Sub agent summary:".
                         """
@@ -509,6 +522,18 @@ public struct SelfTestRunner: Sendable {
             let toolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
                 conversationEntries: result.conversationEntries
+            )
+            let toolArguments = try toolCallArguments(
+                named: expectedToolName,
+                conversationEntries: result.conversationEntries
+            )
+            emit("Supervisor tool arguments:\n\(formattedJSON(toolArguments))")
+            try validateHandoffStrategy(
+                arguments: toolArguments,
+                expectedStrategy: resolvedHandoffStrategy,
+                forkedUserEntry: forkedUserEntry,
+                forkedAssistantEntry: forkedAssistantEntry,
+                requiresForkedTranscript: resolvedHandoffStrategy == .forkedContext
             )
             guard let output = toolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
@@ -566,7 +591,13 @@ public struct SelfTestRunner: Sendable {
             let incidentTimeToken = UUID().uuidString
             let incidentLocationToken = UUID().uuidString
             let incidentDetailsLine = "Incident Details: \(incidentTimeToken) at \(incidentLocationToken)"
+            let incidentSummaryConstraint = "Include the line \"\(incidentDetailsLine)\" in the ReturnToSupervisor summary and result."
             let missingIncidentDetailsLine = "Incident Details Needed: time and location."
+            let forkedUserEntry = "Self test incident transcript entry one."
+            let forkedAssistantEntry = "Self test incident transcript entry two."
+            let resolvedHandoffStrategy = resolvedHandoffStrategy(
+                preferredStrategy: .contextPack
+            )
             let toolsConfiguration = try createTemporarySubAgentIncidentToolsConfiguration(
                 directoryURL: temporaryConfigurationFileURL.deletingLastPathComponent()
             )
@@ -617,7 +648,12 @@ public struct SelfTestRunner: Sendable {
                         When you call the tool, set the task to exactly:
                         Start the incident intake. Missing time and location.
                         \(intakeAnchorLine)
-                        Provide only task and constraints fields in the tool arguments.
+                        \(handoffInstruction(
+                            strategy: resolvedHandoffStrategy,
+                            forkedUserEntry: forkedUserEntry,
+                            forkedAssistantEntry: forkedAssistantEntry,
+                            includeResumeHandle: false
+                        ))
                         After the tool returns, respond briefly and include the line "\(intakeAnchorLine)".
                         """
                     )
@@ -640,6 +676,18 @@ public struct SelfTestRunner: Sendable {
             let firstToolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
                 conversationEntries: firstResult.conversationEntries
+            )
+            let firstArguments = try toolCallArguments(
+                named: expectedToolName,
+                conversationEntries: firstResult.conversationEntries
+            )
+            emit("Supervisor incident step 1 tool arguments:\n\(formattedJSON(firstArguments))")
+            try validateHandoffStrategy(
+                arguments: firstArguments,
+                expectedStrategy: resolvedHandoffStrategy,
+                forkedUserEntry: forkedUserEntry,
+                forkedAssistantEntry: forkedAssistantEntry,
+                requiresForkedTranscript: resolvedHandoffStrategy == .forkedContext
             )
             guard let firstOutput = firstToolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
@@ -672,7 +720,15 @@ public struct SelfTestRunner: Sendable {
                         When you call the tool, set the task to exactly:
                         Continue the incident intake and complete it.
                         \(incidentDetailsLine)
-                        Provide only task, constraints, and the continuation handle field in the tool arguments.
+                        The task must include the incident details line on its own line.
+                        \(handoffInstruction(
+                            strategy: resolvedHandoffStrategy,
+                            forkedUserEntry: forkedUserEntry,
+                            forkedAssistantEntry: forkedAssistantEntry,
+                            includeResumeHandle: true
+                        ))
+                        Set constraints to include:
+                        - \(incidentSummaryConstraint)
                         Set the continuation handle field named resumeId to: \(requestOutcome.resumeIdentifier).
                         Do not include the "\(intakeAnchorLine)" line in the tool arguments.
                         After the tool returns, respond with a short summary that includes the line "\(incidentDetailsLine)" and "\(intakeAnchorLine)".
@@ -683,7 +739,12 @@ public struct SelfTestRunner: Sendable {
                 ),
                 PromptMessage(
                     role: .user,
-                    content: .text("Continue the incident intake.")
+                    content: .text(
+                        """
+                        Continue the incident intake.
+                        \(incidentDetailsLine)
+                        """
+                    )
                 )
             ]
             let secondResult = try await secondCoordinator.prompt(
@@ -702,9 +763,28 @@ public struct SelfTestRunner: Sendable {
                 conversationEntries: secondResult.conversationEntries
             )
             emit("Supervisor incident step 2 tool arguments:\n\(formattedJSON(secondArguments))")
+            if !jsonValueContainsString(secondArguments, substring: incidentDetailsLine) {
+                throw SelfTestFailure("Supervisor tool arguments did not include the incident details line.")
+            }
+            if let constraintLines = constraints(from: secondArguments) {
+                let includesConstraint = constraintLines.contains { $0.contains(incidentDetailsLine) }
+                if !includesConstraint {
+                    throw SelfTestFailure("Supervisor tool arguments did not include the incident summary constraint.")
+                }
+            } else {
+                throw SelfTestFailure("Supervisor tool arguments did not include constraints.")
+            }
             if jsonValueContainsString(secondArguments, substring: intakeAnchorLine) {
                 throw SelfTestFailure("Supervisor tool arguments included the intake anchor line.")
             }
+            let requiresForkedTranscript = resolvedHandoffStrategy == .forkedContext
+            try validateHandoffStrategy(
+                arguments: secondArguments,
+                expectedStrategy: resolvedHandoffStrategy,
+                forkedUserEntry: forkedUserEntry,
+                forkedAssistantEntry: forkedAssistantEntry,
+                requiresForkedTranscript: requiresForkedTranscript
+            )
             guard continuationHandle(from: secondArguments) == requestOutcome.resumeIdentifier else {
                 throw SelfTestFailure("Supervisor tool arguments did not include the continuation handle.")
             }
@@ -832,7 +912,7 @@ public struct SelfTestRunner: Sendable {
         let configuration = subAgentToolConfiguration()
         let data = try JSONEncoder().encode(configuration)
         try fileManager.writeData(data, to: toolsConfigURL)
-        return (toolsFileName: toolsFileName, toolsConfigURL: toolsConfigURL, toolName: "SelfTestListDirectory")
+        return (toolsFileName: toolsConfigURL.path, toolsConfigURL: toolsConfigURL, toolName: "SelfTestListDirectory")
     }
 
     private func createTemporarySubAgentIncidentToolsConfiguration(
@@ -843,7 +923,7 @@ public struct SelfTestRunner: Sendable {
         let configuration = ShellCommandConfig(shellCommands: [])
         let data = try JSONEncoder().encode(configuration)
         try fileManager.writeData(data, to: toolsConfigURL)
-        return (toolsFileName: toolsFileName, toolsConfigURL: toolsConfigURL)
+        return (toolsFileName: toolsConfigURL.path, toolsConfigURL: toolsConfigURL)
     }
 
     private func validateSubAgentPayload(_ payload: JSONValue) throws {
@@ -984,11 +1064,150 @@ public struct SelfTestRunner: Sendable {
         return stringValue(object["resumeId"])
     }
 
+    private func handoffStrategy(from arguments: JSONValue) -> String? {
+        guard case let .object(object) = arguments else {
+            return nil
+        }
+        return stringValue(object["handoffStrategy"])
+    }
+
+    private func resolvedHandoffStrategy(
+        preferredStrategy: SelfTestHandoffStrategy
+    ) -> SelfTestHandoffStrategy {
+        switch handoffStrategy {
+        case .automatic:
+            return preferredStrategy
+        case .contextPack:
+            return .contextPack
+        case .forkedContext:
+            return .forkedContext
+        }
+    }
+
+    private func handoffStrategyName(
+        _ strategy: SelfTestHandoffStrategy
+    ) -> String {
+        switch strategy {
+        case .automatic:
+            return "automatic"
+        case .contextPack:
+            return "contextPack"
+        case .forkedContext:
+            return "forkedContext"
+        }
+    }
+
+    private func handoffInstruction(
+        strategy: SelfTestHandoffStrategy,
+        forkedUserEntry: String,
+        forkedAssistantEntry: String,
+        includeResumeHandle: Bool
+    ) -> String {
+        var lines: [String] = []
+
+        switch strategy {
+        case .contextPack:
+            if includeResumeHandle {
+                lines.append(
+                    "Provide only task, constraints, handoffStrategy, and the continuation handle field in the tool arguments."
+                )
+            } else {
+                lines.append(
+                    "Provide only task, constraints, and handoffStrategy fields in the tool arguments."
+                )
+            }
+            lines.append("Set handoffStrategy to contextPack.")
+        case .forkedContext:
+            if includeResumeHandle {
+                lines.append(
+                    "Provide only task, constraints, handoffStrategy, forkedTranscript, and the continuation handle field in the tool arguments."
+                )
+            } else {
+                lines.append(
+                    "Provide only task, constraints, handoffStrategy, and forkedTranscript fields in the tool arguments."
+                )
+            }
+            lines.append("Set handoffStrategy to forkedContext.")
+            lines.append("Set forkedTranscript to:")
+            lines.append("- role: user, content: \"\(forkedUserEntry)\"")
+            lines.append("- role: assistant, content: \"\(forkedAssistantEntry)\"")
+        case .automatic:
+            lines.append("Set handoffStrategy to contextPack.")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func validateHandoffStrategy(
+        arguments: JSONValue,
+        expectedStrategy: SelfTestHandoffStrategy,
+        forkedUserEntry: String,
+        forkedAssistantEntry: String,
+        requiresForkedTranscript: Bool
+    ) throws {
+        let expectedStrategyName = handoffStrategyName(expectedStrategy)
+        guard handoffStrategy(from: arguments) == expectedStrategyName else {
+            throw SelfTestFailure(
+                "Supervisor tool arguments did not include \(expectedStrategyName) handoff strategy."
+            )
+        }
+
+        if expectedStrategy == .contextPack {
+            if let forkedTranscript = forkedTranscriptEntries(from: arguments),
+               !forkedTranscript.isEmpty {
+                throw SelfTestFailure(
+                    "Supervisor tool arguments included forkedTranscript with contextPack handoff."
+                )
+            }
+            return
+        }
+
+        guard expectedStrategy == .forkedContext else {
+            return
+        }
+
+        if requiresForkedTranscript {
+            guard let forkedTranscript = forkedTranscriptEntries(from: arguments),
+                  !forkedTranscript.isEmpty else {
+                throw SelfTestFailure("Supervisor tool arguments did not include forkedTranscript entries.")
+            }
+            guard jsonValueContainsString(arguments, substring: forkedUserEntry),
+                  jsonValueContainsString(arguments, substring: forkedAssistantEntry) else {
+                throw SelfTestFailure("Supervisor tool arguments did not include expected forked transcript entries.")
+            }
+        }
+    }
+
+    private func forkedTranscriptEntries(from arguments: JSONValue) -> [JSONValue]? {
+        guard case let .object(object) = arguments else {
+            return nil
+        }
+        guard case let .array(entries)? = object["forkedTranscript"] else {
+            return nil
+        }
+        return entries
+    }
+
     private func stringValue(_ value: JSONValue?) -> String? {
         guard case let .string(text)? = value else {
             return nil
         }
         return text
+    }
+
+    private func constraints(from arguments: JSONValue) -> [String]? {
+        guard case let .object(object) = arguments else {
+            return nil
+        }
+        guard case let .array(items)? = object["constraints"] else {
+            return nil
+        }
+        return items.compactMap { item in
+            guard case let .string(text) = item else {
+                return nil
+            }
+            return text
+        }
     }
 
     private func jsonValueContainsString(_ value: JSONValue, substring: String) -> Bool {
