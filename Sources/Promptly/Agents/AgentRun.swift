@@ -77,7 +77,6 @@ struct AgentRun: AsyncParsableCommand {
             credentialSource: SystemCredentialSource()
         )
 
-        let subAgentSessionState = SubAgentSessionState()
         let subAgentToolFactory = SubAgentToolFactory(
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
@@ -92,7 +91,6 @@ struct AgentRun: AsyncParsableCommand {
                 configurationFileURL: configurationFileURL,
                 agentConfigurationURL: agentConfigurationURL,
                 toolsFileName: toolsFileName,
-                sessionState: subAgentSessionState,
                 modelOverride: modelOverride,
                 apiOverride: apiSelection?.configValue,
                 includeTools: includeTools,
@@ -105,7 +103,6 @@ struct AgentRun: AsyncParsableCommand {
                 agentConfigurationData: bundledAgentData,
                 agentSourceURL: bundledAgentURL,
                 toolsFileName: toolsFileName,
-                sessionState: subAgentSessionState,
                 modelOverride: modelOverride,
                 apiOverride: apiSelection?.configValue,
                 includeTools: includeTools,

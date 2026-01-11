@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyAssets
+import PromptlyDetachedTask
 import PromptlyKit
 import PromptlyKitUtils
 
@@ -21,7 +22,6 @@ public struct SubAgentToolFactory {
     public func makeTools(
         configurationFileURL: URL,
         toolsFileName: String,
-        sessionState: SubAgentSessionState,
         modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
         includeTools: [String] = [],
@@ -34,6 +34,7 @@ public struct SubAgentToolFactory {
             includeTools: includeTools,
             excludeTools: excludeTools
         )
+        let resumeStore = DetachedTaskResumeStore()
 
         let agentConfigurations = try loadAgentConfigurations(
             configurationFileURL: configurationFileURL
@@ -47,7 +48,7 @@ public struct SubAgentToolFactory {
                 agentConfiguration: agentConfiguration,
                 configurationFileURL: configurationFileURL,
                 toolDefaults: toolDefaults,
-                sessionState: sessionState,
+                resumeStore: resumeStore,
                 modelOverride: modelOverride,
                 apiOverride: apiOverride,
                 toolOutput: toolOutput
@@ -95,7 +96,6 @@ Then call the same sub agent tool again with the resumeId, and include the user'
         configurationFileURL: URL,
         agentConfigurationURL: URL,
         toolsFileName: String,
-        sessionState: SubAgentSessionState,
         modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
         includeTools: [String] = [],
@@ -108,6 +108,7 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             includeTools: includeTools,
             excludeTools: excludeTools
         )
+        let resumeStore = DetachedTaskResumeStore()
         let agentConfiguration = try configurationLoader.loadAgentConfiguration(
             configFileURL: configurationFileURL,
             agentConfigurationURL: agentConfigurationURL
@@ -116,7 +117,7 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             agentConfiguration: agentConfiguration,
             configurationFileURL: configurationFileURL,
             toolDefaults: toolDefaults,
-            sessionState: sessionState,
+            resumeStore: resumeStore,
             modelOverride: modelOverride,
             apiOverride: apiOverride,
             toolOutput: toolOutput
@@ -128,7 +129,6 @@ Then call the same sub agent tool again with the resumeId, and include the user'
         agentConfigurationData: Data,
         agentSourceURL: URL,
         toolsFileName: String,
-        sessionState: SubAgentSessionState,
         modelOverride: String? = nil,
         apiOverride: Config.API? = nil,
         includeTools: [String] = [],
@@ -141,6 +141,7 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             includeTools: includeTools,
             excludeTools: excludeTools
         )
+        let resumeStore = DetachedTaskResumeStore()
         let agentConfiguration = try configurationLoader.loadAgentConfiguration(
             configFileURL: configurationFileURL,
             agentConfigurationData: agentConfigurationData,
@@ -150,7 +151,7 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             agentConfiguration: agentConfiguration,
             configurationFileURL: configurationFileURL,
             toolDefaults: toolDefaults,
-            sessionState: sessionState,
+            resumeStore: resumeStore,
             modelOverride: modelOverride,
             apiOverride: apiOverride,
             toolOutput: toolOutput
@@ -250,11 +251,32 @@ Then call the same sub agent tool again with the resumeId, and include the user'
         agentConfiguration: SubAgentConfiguration,
         configurationFileURL: URL,
         toolDefaults: SubAgentToolSettings,
-        sessionState: SubAgentSessionState,
+        resumeStore: DetachedTaskResumeStore,
         modelOverride: String?,
         apiOverride: Config.API?,
         toolOutput: @Sendable @escaping (String) -> Void
     ) -> any ExecutableTool {
+        makeDetachedTaskTool(
+            agentConfiguration: agentConfiguration,
+            configurationFileURL: configurationFileURL,
+            toolDefaults: toolDefaults,
+            resumeStore: resumeStore,
+            modelOverride: modelOverride,
+            apiOverride: apiOverride,
+            toolOutput: toolOutput
+        )
+    }
+
+    private func makeDetachedTaskTool(
+        agentConfiguration: SubAgentConfiguration,
+        configurationFileURL: URL,
+        toolDefaults: SubAgentToolSettings,
+        resumeStore: DetachedTaskResumeStore,
+        modelOverride: String?,
+        apiOverride: Config.API?,
+        toolOutput: @Sendable @escaping (String) -> Void
+    ) -> any ExecutableTool {
+        let localFileManager = fileManager
         let agentName = agentConfiguration.definition.name
         let toolName = toolName(for: agentName)
         let description = agentConfiguration.definition.description
@@ -266,21 +288,55 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             configurationFileURL: configurationFileURL,
             agentName: agentName
         )
-        let runner = SubAgentRunner(
-            configuration: agentConfiguration,
-            toolSettings: toolSettings,
-            logDirectoryURL: logsDirectoryURL,
-            toolOutput: toolOutput,
-            fileManager: fileManager,
-            sessionState: sessionState,
-            modelOverride: modelOverride,
-            apiOverride: apiOverride
-        )
+        let effectiveApi = apiOverride ?? agentConfiguration.configuration.api
+        let requestAdapter = SubAgentDetachedTaskRequestAdapter()
+        let payloadAdapter = SubAgentDetachedTaskPayloadAdapter()
+
         return SubAgentTool(
             name: toolName,
             description: description,
             executeHandler: { request in
-                try await runner.run(request: request)
+                let toolBuilder = SubAgentToolBuilder(
+                    configuration: agentConfiguration,
+                    toolSettings: toolSettings,
+                    fileManager: localFileManager,
+                    toolOutput: toolOutput
+                )
+                let tools = try toolBuilder.makeTools(
+                    transcriptLogger: nil
+                )
+                let modelRunner = try PromptRunCoordinatorModelRunner(
+                    configuration: agentConfiguration.configuration,
+                    tools: tools,
+                    modelOverride: modelOverride,
+                    apiOverride: apiOverride
+                )
+                let promptAssembler = DetachedTaskPromptAssembler(
+                    agentSystemPrompt: agentConfiguration.definition.systemPrompt,
+                    returnToolName: ReturnToSupervisorTool.toolName,
+                    progressToolName: ReportProgressToSupervisorTool.toolName,
+                    api: effectiveApi
+                )
+                let returnPayloadResolver = DetachedTaskReturnPayloadResolver(
+                    returnToolName: ReturnToSupervisorTool.toolName
+                )
+                let logSink = try? DetachedTaskTranscriptLogSink(
+                    logsDirectoryURL: logsDirectoryURL,
+                    fileManager: localFileManager
+                )
+                let runner = DetachedTaskRunner(
+                    agentName: agentName,
+                    promptAssembler: promptAssembler,
+                    modelRunner: modelRunner,
+                    returnPayloadResolver: returnPayloadResolver,
+                    resumeStore: resumeStore,
+                    logSink: logSink
+                )
+                let detachedRequest = requestAdapter.detachedTaskRequest(
+                    from: request
+                )
+                let result = try await runner.run(request: detachedRequest)
+                return payloadAdapter.jsonValue(from: result.payload)
             }
         )
     }

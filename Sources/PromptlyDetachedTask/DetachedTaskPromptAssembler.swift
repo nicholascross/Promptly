@@ -1,44 +1,43 @@
 import Foundation
 import PromptlyKit
-import PromptlyKitUtils
 
-struct SubAgentPromptAssembler: Sendable {
-    private static let baseSystemPrompt = """
-You are a Promptly sub agent running in an isolated session.
-Follow the system guidance and the user request.
-Use the available tools when they help you.
-Do not ask for confirmation of provided details; if the request is actionable, proceed and note any assumptions.
-Never ask the user questions directly. If you need more input, call \(ReturnToSupervisorTool.toolName) with needsMoreInformation set to true and include requestedInformation.
-When you finish, call \(ReturnToSupervisorTool.toolName) exactly once with the required payload and stop.
-You may send status updates with \(ReportProgressToSupervisorTool.toolName).
-"""
+public struct DetachedTaskPromptAssembler: Sendable {
+    private let agentSystemPrompt: String
+    private let returnToolName: String
+    private let progressToolName: String?
+    public let api: Config.API
 
-    private static let returnPayloadReminderText = """
-Your previous response did not call \(ReturnToSupervisorTool.toolName).
-Stop and call \(ReturnToSupervisorTool.toolName) exactly once with the required payload.
-If you need more input, set needsMoreInformation to true and include requestedInformation.
-Do not ask the user questions directly.
-"""
-
-    private let configuration: SubAgentConfiguration
-    private let sessionState: SubAgentSessionState
-    private let apiOverride: Config.API?
-
-    init(
-        configuration: SubAgentConfiguration,
-        sessionState: SubAgentSessionState,
-        apiOverride: Config.API? = nil
+    public init(
+        agentSystemPrompt: String,
+        returnToolName: String,
+        progressToolName: String?,
+        api: Config.API
     ) {
-        self.configuration = configuration
-        self.sessionState = sessionState
-        self.apiOverride = apiOverride
+        self.agentSystemPrompt = agentSystemPrompt
+        self.returnToolName = returnToolName
+        let trimmedProgressToolName = progressToolName?.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        if let trimmedProgressToolName,
+           !trimmedProgressToolName.isEmpty {
+            self.progressToolName = trimmedProgressToolName
+        } else {
+            self.progressToolName = nil
+        }
+        self.api = api
     }
 
-    func makeSystemMessage() -> PromptMessage {
-        let systemPrompt = [
-            Self.baseSystemPrompt,
-            configuration.definition.systemPrompt
-        ].joined(separator: "\n\n")
+    public func makeSystemMessage() -> PromptMessage {
+        let basePrompt = baseSystemPrompt()
+        let trimmedAgentPrompt = agentSystemPrompt.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
+        let systemPrompt: String
+        if trimmedAgentPrompt.isEmpty {
+            systemPrompt = basePrompt
+        } else {
+            systemPrompt = [basePrompt, trimmedAgentPrompt].joined(separator: "\n\n")
+        }
 
         return PromptMessage(
             role: .system,
@@ -46,7 +45,7 @@ Do not ask the user questions directly.
         )
     }
 
-    func makeUserMessage(for request: SubAgentToolRequest) -> PromptMessage {
+    public func makeUserMessage(for request: DetachedTaskRequest) -> PromptMessage {
         PromptMessage(
             role: .user,
             content: .text(buildUserMessageBody(for: request))
@@ -54,19 +53,19 @@ Do not ask the user questions directly.
     }
 
     func makeHandoffPlan(
-        for request: SubAgentToolRequest,
+        for request: DetachedTaskRequest,
         systemMessage: PromptMessage,
         userMessage: PromptMessage,
-        resumeEntry: SubAgentResumeEntry?
-    ) throws -> SubAgentHandoffPlan {
-        let behavior = request.handoff.makeBehavior()
+        resumeEntry: DetachedTaskResumeEntry?
+    ) throws -> DetachedTaskHandoffPlan {
+        let behavior = request.handoffStrategy.makeBehavior()
         let handoffMessages = try behavior.makeHandoffMessages(
             request: request,
             systemMessage: systemMessage,
             userMessage: userMessage,
             resumeEntry: resumeEntry
         )
-        return SubAgentHandoffPlan(
+        return DetachedTaskHandoffPlan(
             handoffMessages: handoffMessages,
             resumePrefixProvider: { context in
                 try behavior.resumePrefixMessages(context: context)
@@ -80,18 +79,28 @@ Do not ask the user questions directly.
         )
     }
 
-    func makeReturnPayloadReminderMessage() -> PromptMessage {
-        PromptMessage(
+    public func makeReturnPayloadReminderMessage() -> PromptMessage {
+        let reminderText = """
+Your previous response did not call \(returnToolName).
+Stop and call \(returnToolName) exactly once with the required payload.
+If you need more input, set needsMoreInformation to true and include requestedInformation.
+Do not ask the user questions directly.
+"""
+        return PromptMessage(
             role: .user,
-            content: .text(Self.returnPayloadReminderText)
+            content: .text(reminderText)
         )
     }
 
-    func normalizeResumeIdentifier(_ resumeIdentifier: String?) -> String? {
+    public func normalizeResumeIdentifier(
+        _ resumeIdentifier: String?
+    ) -> String? {
         guard let resumeIdentifier else {
             return nil
         }
-        let trimmedIdentifier = resumeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedIdentifier = resumeIdentifier.trimmingCharacters(
+            in: .whitespacesAndNewlines
+        )
         guard !trimmedIdentifier.isEmpty else {
             return nil
         }
@@ -101,43 +110,19 @@ Do not ask the user questions directly.
         return parsedIdentifier.uuidString.lowercased()
     }
 
-    func resolveResumeEntry(
-        for resumeIdentifier: String?
-    ) async throws -> SubAgentResumeEntry? {
-        guard let resumeIdentifier else {
-            return nil
-        }
-        guard let resumeEntry = await sessionState.entry(for: resumeIdentifier) else {
-            throw SubAgentToolError.invalidResumeId(resumeId: resumeIdentifier)
-        }
-        guard resumeEntry.agentName == configuration.definition.name else {
-            throw SubAgentToolError.resumeAgentMismatch(
-                resumeId: resumeIdentifier,
-                expectedAgentName: configuration.definition.name,
-                actualAgentName: resumeEntry.agentName
-            )
-        }
-        return resumeEntry
-    }
-
-    func effectiveApi() -> Config.API {
-        apiOverride ?? configuration.configuration.api
-    }
-
-    func initialContext(
-        effectiveApi: Config.API,
+    public func initialContext(
         handoffMessages: [PromptMessage],
         resumePrefixMessages: [PromptMessage],
         userMessage: PromptMessage,
-        resumeEntry: SubAgentResumeEntry?
+        resumeEntry: DetachedTaskResumeEntry?
     ) throws -> PromptRunContext {
         if let resumeEntry {
-            switch effectiveApi {
+            switch api {
             case .responses:
                 guard let storedResumeToken = resumeEntry.resumeToken else {
-                    throw SubAgentToolError.missingResponsesResumeToken(
-                        agentName: configuration.definition.name,
-                        resumeId: resumeEntry.resumeId
+                    throw DetachedTaskRunnerError.missingResponsesResumeToken(
+                        agentName: resumeEntry.agentName,
+                        resumeIdentifier: resumeEntry.resumeId
                     )
                 }
                 return .resume(
@@ -155,13 +140,12 @@ Do not ask the user questions directly.
         return .messages(handoffMessages)
     }
 
-    func followUpContext(
-        effectiveApi: Config.API,
+    public func followUpContext(
         resumeToken: String?,
         chatMessages: [PromptMessage],
         reminderMessage: PromptMessage
     ) -> PromptRunContext {
-        switch effectiveApi {
+        switch api {
         case .responses:
             if let resumeToken {
                 return .resume(
@@ -179,7 +163,24 @@ Do not ask the user questions directly.
         }
     }
 
-    private func buildUserMessageBody(for request: SubAgentToolRequest) -> String {
+    private func baseSystemPrompt() -> String {
+        var lines = [
+            "You are running a Promptly detached task session.",
+            "Follow the system guidance and the user request.",
+            "Use the available tools when they help you.",
+            "Do not ask for confirmation of provided details; if the request is actionable, proceed and note any assumptions.",
+            "Never ask the user questions directly. If you need more input, call \(returnToolName) with needsMoreInformation set to true and include requestedInformation.",
+            "When you finish, call \(returnToolName) exactly once with the required payload and stop."
+        ]
+        if let progressToolName {
+            lines.append("You may send status updates with \(progressToolName).")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func buildUserMessageBody(
+        for request: DetachedTaskRequest
+    ) -> String {
         var sections: [String] = []
         sections.append("Task:\n\(request.task)")
 
@@ -202,13 +203,13 @@ Do not ask the user questions directly.
         items.map { "- \($0)" }.joined(separator: "\n")
     }
 
-    private func formatContextPack(_ contextPack: JSONValue) -> String {
+    private func formatContextPack(_ contextPack: DetachedTaskContextPack) -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         if let data = try? encoder.encode(contextPack),
            let text = String(data: data, encoding: .utf8) {
             return text
         }
-        return contextPack.description
+        return String(describing: contextPack)
     }
 }

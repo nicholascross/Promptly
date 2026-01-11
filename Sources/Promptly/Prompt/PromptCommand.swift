@@ -39,7 +39,6 @@ struct PromptCommand: AsyncParsableCommand {
             fileManager: fileManager,
             toolsFileName: run.toolsFileName
         )
-        let subAgentSessionState = SubAgentSessionState()
         let subAgentToolFactory = SubAgentToolFactory(
             fileManager: fileManager,
             credentialSource: SystemCredentialSource()
@@ -58,7 +57,6 @@ struct PromptCommand: AsyncParsableCommand {
                 let subAgentTools = try subAgentToolFactory.makeTools(
                     configurationFileURL: configurationFileURL,
                     toolsFileName: run.toolsFileName,
-                    sessionState: subAgentSessionState,
                     modelOverride: run.modelOverride,
                     apiOverride: run.apiOverride,
                     includeTools: run.includeTools,

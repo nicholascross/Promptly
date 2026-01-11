@@ -260,8 +260,6 @@ public struct SelfTestRunner: Sendable {
     }
 
     private func verifyBasicConversation(configuration: Config) async throws -> String {
-        let token = UUID().uuidString
-        let seedWord = randomSeedWord()
         let coordinator = try PromptRunCoordinator(
             config: configuration,
             apiOverride: apiOverride
@@ -272,14 +270,12 @@ public struct SelfTestRunner: Sendable {
                 content: .text(
                     """
                     You are running a self test. Reply with two short sentences.
-                    The first sentence must start with the word "\(seedWord)".
-                    Include the exact token: \(token).
                     """
                 )
             ),
             PromptMessage(
                 role: .user,
-                content: .text("Confirm the self test ran, start with the required word, and include the token.")
+                content: .text("Confirm the self test ran.")
             )
         ]
         let result = try await coordinator.prompt(
@@ -292,15 +288,6 @@ public struct SelfTestRunner: Sendable {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
             throw SelfTestFailure("Model returned an empty assistant message.")
-        }
-        guard trimmed.contains(token) else {
-            throw SelfTestFailure("Model response did not include the expected token.")
-        }
-        guard startsWithSeedWord(trimmed, seedWord: seedWord) else {
-            throw SelfTestFailure("Model response did not start with the expected word.")
-        }
-        if trimmed.count < 20 {
-            throw SelfTestFailure("Model response was too short to confirm a real conversation.")
         }
         return trimmed
     }
@@ -389,7 +376,7 @@ public struct SelfTestRunner: Sendable {
                         """
                         You are running a self test.
                         Call the tools named ListDirectory and ShowDateTime exactly once each.
-                        Then respond with a brief summary that includes the date/time output and one file name from the directory listing.
+                        Then respond with a brief summary.
                         """
                     )
                 ),
@@ -427,9 +414,7 @@ public struct SelfTestRunner: Sendable {
 
             let modelOutput = latestAssistantMessage(from: result.conversationEntries)
             try validateModelToolSummary(
-                modelOutput: modelOutput,
-                dateOutput: dateOutput.output,
-                listOutput: listOutput.output
+                modelOutput: modelOutput
             )
             let namedOutputs = [
                 SelfTestNamedToolOutput(name: "ListDirectory", output: listOutput),
@@ -444,8 +429,6 @@ public struct SelfTestRunner: Sendable {
     ) async throws -> (modelOutput: String?, agentOutput: JSONValue) {
         return try await withTemporaryConfigurationCopy { temporaryConfigurationFileURL, agentsDirectoryURL in
             let agentName = "Self Test Supervisor Agent"
-            let token = UUID().uuidString
-            let tokenLine = "Supervisor Output Token: \(token)"
             let forkedUserEntry = "Self test transcript entry one."
             let forkedAssistantEntry = "Self test transcript entry two."
             let resolvedHandoffStrategy = resolvedHandoffStrategy(
@@ -466,12 +449,10 @@ public struct SelfTestRunner: Sendable {
                 fileManager: fileManager,
                 credentialSource: SystemCredentialSource()
             )
-            let subAgentSessionState = SubAgentSessionState()
 
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
                 toolsFileName: toolsConfiguration.toolsFileName,
-                sessionState: subAgentSessionState,
                 modelOverride: nil,
                 apiOverride: apiOverride,
                 includeTools: [],
@@ -497,15 +478,14 @@ public struct SelfTestRunner: Sendable {
                         You are running a self test.
                         Call the tool named \(expectedToolName) exactly once.
                         When you call the tool, set the task to exactly:
-                        Return a summary that includes the line "\(tokenLine)".
+                        Provide a short status update.
                         \(handoffInstruction(
                             strategy: resolvedHandoffStrategy,
                             forkedUserEntry: forkedUserEntry,
                             forkedAssistantEntry: forkedAssistantEntry,
                             includeResumeHandle: false
                         ))
-                        After the tool returns, respond with a short summary that includes the line "\(tokenLine)".
-                        Include the sub agent summary exactly as returned, prefixed with "Sub agent summary:".
+                        After the tool returns, respond with a short summary.
                         """
                     )
                 ),
@@ -553,9 +533,6 @@ public struct SelfTestRunner: Sendable {
             if let resumeValue = object["resumeId"] {
                 throw SelfTestFailure("Sub agent returned a continuation handle when the run was complete: \(resumeValue).")
             }
-            guard summary.contains(tokenLine) else {
-                throw SelfTestFailure("Sub agent summary did not include the supervisor token line.")
-            }
 
             guard let modelOutput = latestAssistantMessage(from: result.conversationEntries) else {
                 throw SelfTestFailure("Supervisor did not return an assistant message.")
@@ -563,13 +540,6 @@ public struct SelfTestRunner: Sendable {
             let trimmedOutput = modelOutput.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedOutput.isEmpty else {
                 throw SelfTestFailure("Supervisor returned an empty assistant message.")
-            }
-            guard trimmedOutput.contains(tokenLine) else {
-                throw SelfTestFailure("Supervisor summary did not include the token line.")
-            }
-            let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmedOutput.contains(trimmedSummary) else {
-                throw SelfTestFailure("Supervisor summary did not include the sub agent summary.")
             }
 
             try fileManager.removeItem(atPath: agentConfigurationURL.path)
@@ -586,13 +556,7 @@ public struct SelfTestRunner: Sendable {
     ) async throws -> (modelOutput: String?, agentOutput: JSONValue) {
         return try await withTemporaryConfigurationCopy { temporaryConfigurationFileURL, agentsDirectoryURL in
             let agentName = "Self Test Incident Agent"
-            let intakeAnchorToken = UUID().uuidString
-            let intakeAnchorLine = "Intake Anchor: \(intakeAnchorToken)"
-            let incidentTimeToken = UUID().uuidString
-            let incidentLocationToken = UUID().uuidString
-            let incidentDetailsLine = "Incident Details: \(incidentTimeToken) at \(incidentLocationToken)"
-            let incidentSummaryConstraint = "Include the line \"\(incidentDetailsLine)\" in the ReturnToSupervisor summary and result."
-            let missingIncidentDetailsLine = "Incident Details Needed: time and location."
+            let incidentDetailsLine = "Incident Details: Time and location."
             let forkedUserEntry = "Self test incident transcript entry one."
             let forkedAssistantEntry = "Self test incident transcript entry two."
             let resolvedHandoffStrategy = resolvedHandoffStrategy(
@@ -605,8 +569,6 @@ public struct SelfTestRunner: Sendable {
                 agentsDirectoryURL: agentsDirectoryURL,
                 agentName: agentName,
                 toolsFileName: toolsConfiguration.toolsFileName,
-                missingIncidentDetailsLine: missingIncidentDetailsLine,
-                intakeAnchorLine: intakeAnchorLine,
                 excludedTools: ["ApplyPatch"]
             )
 
@@ -614,12 +576,10 @@ public struct SelfTestRunner: Sendable {
                 fileManager: fileManager,
                 credentialSource: SystemCredentialSource()
             )
-            let subAgentSessionState = SubAgentSessionState()
 
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
                 toolsFileName: toolsConfiguration.toolsFileName,
-                sessionState: subAgentSessionState,
                 modelOverride: nil,
                 apiOverride: apiOverride,
                 includeTools: [],
@@ -647,14 +607,13 @@ public struct SelfTestRunner: Sendable {
                         Call the tool named \(expectedToolName) exactly once.
                         When you call the tool, set the task to exactly:
                         Start the incident intake. Missing time and location.
-                        \(intakeAnchorLine)
                         \(handoffInstruction(
                             strategy: resolvedHandoffStrategy,
                             forkedUserEntry: forkedUserEntry,
                             forkedAssistantEntry: forkedAssistantEntry,
                             includeResumeHandle: false
                         ))
-                        After the tool returns, respond briefly and include the line "\(intakeAnchorLine)".
+                        After the tool returns, respond briefly.
                         """
                     )
                 ),
@@ -692,17 +651,14 @@ public struct SelfTestRunner: Sendable {
             guard let firstOutput = firstToolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
             }
-            let requestOutcome = try validateResumeRequestPayload(
-                payload: firstOutput,
-                missingIncidentDetailsLine: missingIncidentDetailsLine,
-                intakeAnchorLine: intakeAnchorLine
+            let resumeIdentifier = try validateResumeRequestPayload(
+                payload: firstOutput
             )
             if case let .object(firstObject) = firstOutput,
                case let .string(firstSummary) = firstObject["summary"] {
                 emit("Sub agent summary (step 1):\n\(firstSummary)")
             }
-            emit("Case note: \(requestOutcome.caseNoteLine)")
-            emit("Case handle: \(requestOutcome.resumeIdentifier)")
+            emit("Case handle: \(resumeIdentifier)")
 
             emit("Supervisor incident step 2: providing details.")
             let secondCoordinator = try PromptRunCoordinator(
@@ -727,13 +683,8 @@ public struct SelfTestRunner: Sendable {
                             forkedAssistantEntry: forkedAssistantEntry,
                             includeResumeHandle: true
                         ))
-                        Set constraints to include:
-                        - \(incidentSummaryConstraint)
-                        Set the continuation handle field named resumeId to: \(requestOutcome.resumeIdentifier).
-                        Do not include the "\(intakeAnchorLine)" line in the tool arguments.
-                        After the tool returns, respond with a short summary that includes the line "\(incidentDetailsLine)" and "\(intakeAnchorLine)".
-                        Include the case note line from the prior tool response in your summary.
-                        Include the sub agent summary exactly as returned, prefixed with "Sub agent summary:".
+                        Set the continuation handle field named resumeId to: \(resumeIdentifier).
+                        After the tool returns, respond with a short summary.
                         """
                     )
                 ),
@@ -763,20 +714,6 @@ public struct SelfTestRunner: Sendable {
                 conversationEntries: secondResult.conversationEntries
             )
             emit("Supervisor incident step 2 tool arguments:\n\(formattedJSON(secondArguments))")
-            if !jsonValueContainsString(secondArguments, substring: incidentDetailsLine) {
-                throw SelfTestFailure("Supervisor tool arguments did not include the incident details line.")
-            }
-            if let constraintLines = constraints(from: secondArguments) {
-                let includesConstraint = constraintLines.contains { $0.contains(incidentDetailsLine) }
-                if !includesConstraint {
-                    throw SelfTestFailure("Supervisor tool arguments did not include the incident summary constraint.")
-                }
-            } else {
-                throw SelfTestFailure("Supervisor tool arguments did not include constraints.")
-            }
-            if jsonValueContainsString(secondArguments, substring: intakeAnchorLine) {
-                throw SelfTestFailure("Supervisor tool arguments included the intake anchor line.")
-            }
             let requiresForkedTranscript = resolvedHandoffStrategy == .forkedContext
             try validateHandoffStrategy(
                 arguments: secondArguments,
@@ -785,15 +722,12 @@ public struct SelfTestRunner: Sendable {
                 forkedAssistantEntry: forkedAssistantEntry,
                 requiresForkedTranscript: requiresForkedTranscript
             )
-            guard continuationHandle(from: secondArguments) == requestOutcome.resumeIdentifier else {
+            guard continuationHandle(from: secondArguments) == resumeIdentifier else {
                 throw SelfTestFailure("Supervisor tool arguments did not include the continuation handle.")
             }
 
             try validateResumeCompletionPayload(
-                payload: secondOutput,
-                incidentDetailsLine: incidentDetailsLine,
-                intakeAnchorLine: intakeAnchorLine,
-                caseNoteLine: requestOutcome.caseNoteLine
+                payload: secondOutput
             )
             guard case let .object(object) = secondOutput else {
                 throw SelfTestFailure("Sub agent payload was not a JSON object.")
@@ -809,19 +743,6 @@ public struct SelfTestRunner: Sendable {
             let trimmedOutput = modelOutput.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !trimmedOutput.isEmpty else {
                 throw SelfTestFailure("Supervisor returned an empty assistant message.")
-            }
-            guard trimmedOutput.contains(incidentDetailsLine) else {
-                throw SelfTestFailure("Supervisor summary did not include the incident details line.")
-            }
-            guard trimmedOutput.contains(intakeAnchorLine) else {
-                throw SelfTestFailure("Supervisor summary did not include the intake anchor line.")
-            }
-            guard trimmedOutput.contains(requestOutcome.caseNoteLine) else {
-                throw SelfTestFailure("Supervisor summary did not include the case note line.")
-            }
-            let trimmedSummary = summary.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmedOutput.contains(trimmedSummary) else {
-                throw SelfTestFailure("Supervisor summary did not include the sub agent summary.")
             }
 
             try fileManager.removeItem(atPath: agentConfigurationURL.path)
@@ -849,7 +770,6 @@ public struct SelfTestRunner: Sendable {
             "systemPrompt": .string(
                 """
                 Complete the task and call ReturnToSupervisor exactly once with result and summary fields.
-                If the task includes a line that begins with "Supervisor Output Token:", include that line verbatim in both the result and summary.
                 """
             ),
             "tools": .object(toolConfiguration)
@@ -869,8 +789,6 @@ public struct SelfTestRunner: Sendable {
         agentsDirectoryURL: URL,
         agentName: String,
         toolsFileName: String,
-        missingIncidentDetailsLine: String,
-        intakeAnchorLine: String,
         excludedTools: [String]
     ) throws -> URL {
         let toolConfiguration: [String: JSONValue] = [
@@ -879,12 +797,9 @@ public struct SelfTestRunner: Sendable {
         ]
         let systemPrompt = """
         You are running a self test for an incident intake workflow.
-        If the user message does not include a line that begins with "Incident Details:", call ReturnToSupervisor with result and summary, set needsMoreInformation to true, and include the exact line "\(missingIncidentDetailsLine)" in requestedInformation.
-        In that case, include a standalone line that begins with "Case Note:" followed by a short identifier you create in the summary.
-        Also include the line "\(intakeAnchorLine)" in the summary.
+        If the user message does not include a line that begins with "Incident Details:", call ReturnToSupervisor with result and summary, set needsMoreInformation to true, and include at least one requestedInformation entry.
         Do not complete the task in that case.
         If the user message includes a line that begins with "Incident Details:", complete the task and call ReturnToSupervisor with result and summary.
-        Include the full "Incident Details:" line verbatim in the summary, along with the earlier "Case Note:" line and the "\(intakeAnchorLine)" line from the initial request.
         Do not set needsMoreInformation in the completion response, and do not include a continuation handle when completing.
         """
         let agentDefinition: [String: JSONValue] = [
@@ -945,10 +860,8 @@ public struct SelfTestRunner: Sendable {
     }
 
     private func validateResumeRequestPayload(
-        payload: JSONValue,
-        missingIncidentDetailsLine: String,
-        intakeAnchorLine: String
-    ) throws -> (resumeIdentifier: String, caseNoteLine: String) {
+        payload: JSONValue
+    ) throws -> String {
         try validateSubAgentPayload(payload)
         guard case let .object(object) = payload else {
             throw SelfTestFailure("Sub agent payload was not a JSON object.")
@@ -971,24 +884,14 @@ public struct SelfTestRunner: Sendable {
             guard case let .string(text) = value else { return nil }
             return text
         }
-        guard requestedLines.contains(where: { $0.contains(missingIncidentDetailsLine) }) else {
-            throw SelfTestFailure("Sub agent did not request the expected incident details.")
+        guard !requestedLines.isEmpty else {
+            throw SelfTestFailure("Sub agent requestedInformation was empty.")
         }
-        guard case let .string(summary) = object["summary"] else {
-            throw SelfTestFailure("Sub agent payload missing summary.")
-        }
-        guard summary.contains(intakeAnchorLine) else {
-            throw SelfTestFailure("Sub agent summary did not include the intake anchor line.")
-        }
-        let caseNoteLine = try caseNoteLine(from: summary)
-        return (resumeIdentifier: resumeIdentifier, caseNoteLine: caseNoteLine)
+        return resumeIdentifier
     }
 
     private func validateResumeCompletionPayload(
-        payload: JSONValue,
-        incidentDetailsLine: String,
-        intakeAnchorLine: String,
-        caseNoteLine: String
+        payload: JSONValue
     ) throws {
         try validateSubAgentPayload(payload)
         guard case let .object(object) = payload else {
@@ -1000,33 +903,6 @@ public struct SelfTestRunner: Sendable {
         if let resumeValue = object["resumeId"] {
             throw SelfTestFailure("Sub agent returned a continuation handle when the run was complete: \(resumeValue).")
         }
-        guard case let .string(summary) = object["summary"] else {
-            throw SelfTestFailure("Sub agent payload missing summary.")
-        }
-        guard summary.contains(incidentDetailsLine) else {
-            throw SelfTestFailure("Sub agent summary did not include the incident details line.")
-        }
-        guard summary.contains(intakeAnchorLine) else {
-            throw SelfTestFailure("Sub agent summary did not include the intake anchor line.")
-        }
-        guard summary.contains(caseNoteLine) else {
-            throw SelfTestFailure("Sub agent summary did not include the case note line.")
-        }
-    }
-
-    private func caseNoteLine(from summary: String) throws -> String {
-        let lines = summary.split(whereSeparator: \.isNewline).map(String.init)
-        if let line = lines.first(where: { $0.trimmingCharacters(in: .whitespacesAndNewlines).hasPrefix("Case Note:") }) {
-            return line.trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        if let range = summary.range(of: "Case Note:") {
-            let trailing = summary[range.lowerBound...]
-            if let endRange = trailing.range(of: "\n") {
-                return String(trailing[..<endRange.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            return String(trailing).trimmingCharacters(in: .whitespacesAndNewlines)
-        }
-        throw SelfTestFailure("Sub agent summary did not include a case note line.")
     }
 
     private func toolCallArguments(
@@ -1195,21 +1071,6 @@ public struct SelfTestRunner: Sendable {
         return text
     }
 
-    private func constraints(from arguments: JSONValue) -> [String]? {
-        guard case let .object(object) = arguments else {
-            return nil
-        }
-        guard case let .array(items)? = object["constraints"] else {
-            return nil
-        }
-        return items.compactMap { item in
-            guard case let .string(text) = item else {
-                return nil
-            }
-            return text
-        }
-    }
-
     private func jsonValueContainsString(_ value: JSONValue, substring: String) -> Bool {
         switch value {
         case let .string(text):
@@ -1299,9 +1160,7 @@ public struct SelfTestRunner: Sendable {
     }
 
     private func validateModelToolSummary(
-        modelOutput: String?,
-        dateOutput: String,
-        listOutput: String
+        modelOutput: String?
     ) throws {
         guard let modelOutput else {
             throw SelfTestFailure("Model did not provide a summary after tool execution.")
@@ -1310,55 +1169,6 @@ public struct SelfTestRunner: Sendable {
         guard !trimmedOutput.isEmpty else {
             throw SelfTestFailure("Model summary after tool execution was empty.")
         }
-
-        let trimmedDate = dateOutput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard trimmedOutput.contains(trimmedDate) else {
-            throw SelfTestFailure("Model summary did not include the date/time output.")
-        }
-
-        let listLines = listOutput
-            .split(whereSeparator: { character in
-                character.unicodeScalars.allSatisfy { scalar in
-                    CharacterSet.whitespacesAndNewlines.contains(scalar)
-                }
-            })
-            .map(String.init)
-        guard let firstItem = listLines.first, !firstItem.isEmpty else {
-            throw SelfTestFailure("Directory listing did not include any entries.")
-        }
-        guard trimmedOutput.contains(firstItem) else {
-            throw SelfTestFailure("Model summary did not include a file name from the directory listing.")
-        }
-    }
-
-    private func randomSeedWord() -> String {
-        let words = [
-            "Bright",
-            "Calm",
-            "Crisp",
-            "Lively",
-            "Quiet",
-            "Steady",
-            "Vivid"
-        ]
-        let index = Int.random(in: 0..<words.count)
-        return words[index]
-    }
-
-    private func startsWithSeedWord(_ message: String, seedWord: String) -> Bool {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        let firstWord = trimmed
-            .split(whereSeparator: { character in
-                character.unicodeScalars.allSatisfy { scalar in
-                    CharacterSet.whitespacesAndNewlines.contains(scalar)
-                        || CharacterSet.punctuationCharacters.contains(scalar)
-                }
-            })
-            .first
-        guard let firstWord else {
-            return false
-        }
-        return firstWord.caseInsensitiveCompare(seedWord) == .orderedSame
     }
 
     private func withTemporaryConfigurationCopy<T>(

@@ -34,6 +34,10 @@ let package = Package(
             targets: ["PromptlySubAgents"]
         ),
         .library(
+            name: "PromptlyDetachedTask",
+            targets: ["PromptlyDetachedTask"]
+        ),
+        .library(
             name: "PromptlySelfTest",
             targets: ["PromptlySelfTest"]
         )
@@ -93,6 +97,15 @@ let package = Package(
             name: "PromptlySubAgents",
             dependencies: [
                 "PromptlyAssets",
+                "PromptlyDetachedTask",
+                "PromptlyKit",
+                "PromptlyKitTooling",
+                "PromptlyKitUtils"
+            ]
+        ),
+        .target(
+            name: "PromptlyDetachedTask",
+            dependencies: [
                 "PromptlyKit",
                 "PromptlyKitTooling",
                 "PromptlyKitUtils"
@@ -126,6 +139,14 @@ let package = Package(
                 "PromptlyKit",
                 "PromptlyKitUtils",
                 "PromptlyKitTooling"
+            ]
+        ),
+        .testTarget(
+            name: "PromptlyDetachedTaskTests",
+            dependencies: [
+                "PromptlyDetachedTask",
+                "PromptlyKit",
+                "PromptlyKitUtils"
             ]
         ),
         .executableTarget(

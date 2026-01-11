@@ -124,4 +124,7 @@ These notes capture the best practices learned while extending Promptly’s tool
 ### 24. Agent Configuration Hygiene
 - Avoid writing empty strings for optional agent configuration overrides (model, provider, tools file name). Treat empty strings and nulls as absent when merging overrides.
 
+### 25. Naming and Abbreviations
+- Avoid unnecessary abbreviations, but keep common terms like API and URL in their standard short form.
+
 Following these conventions keeps Promptly’s automation surface predictable and safe for both human operators and LLM agents. Edit this file whenever fresh insights arise so future contributors inherit the full context.
