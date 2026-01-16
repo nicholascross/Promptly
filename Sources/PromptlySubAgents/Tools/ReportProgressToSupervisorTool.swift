@@ -10,22 +10,17 @@ struct ReportProgressToSupervisorTool: ExecutableTool, Sendable {
 
     private let agentName: String
     private let toolOutput: @Sendable (String) -> Void
-    private let transcriptLogger: SubAgentTranscriptLogger?
-
     init(
         agentName: String,
-        toolOutput: @Sendable @escaping (String) -> Void,
-        transcriptLogger: SubAgentTranscriptLogger? = nil
+        toolOutput: @Sendable @escaping (String) -> Void
     ) {
         self.agentName = agentName.trimmingCharacters(in: .whitespacesAndNewlines)
         self.toolOutput = toolOutput
-        self.transcriptLogger = transcriptLogger
     }
 
     func execute(arguments: JSONValue) async throws -> JSONValue {
         let request = try arguments.decoded(ReportProgressToSupervisorRequest.self)
         toolOutput(formatProgressOutput(from: request))
-        await transcriptLogger?.recordProgressUpdate(arguments: arguments)
         return arguments
     }
 

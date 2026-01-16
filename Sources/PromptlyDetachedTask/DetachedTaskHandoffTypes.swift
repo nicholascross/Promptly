@@ -17,9 +17,17 @@ struct DetachedTaskFollowUpContext: Sendable {
     let conversationEntries: [PromptMessage]
 }
 
-struct DetachedTaskResumePrefixContext: Sendable {
-    let request: DetachedTaskRequest
-    let resumeEntry: DetachedTaskResumeEntry?
+public struct DetachedTaskResumePrefixContext: Sendable {
+    public let request: DetachedTaskRequest
+    public let resumeEntry: DetachedTaskResumeEntry?
+
+    public init(
+        request: DetachedTaskRequest,
+        resumeEntry: DetachedTaskResumeEntry?
+    ) {
+        self.request = request
+        self.resumeEntry = resumeEntry
+    }
 }
 
 struct DetachedTaskHandoffPlan: Sendable {

@@ -5,13 +5,27 @@ public struct DetachedTaskPromptAssembler: Sendable {
     private let agentSystemPrompt: String
     private let returnToolName: String
     private let progressToolName: String?
-    public let api: Config.API
+    private let resumeStrategy: any DetachedTaskResumeStrategy
 
     public init(
         agentSystemPrompt: String,
         returnToolName: String,
         progressToolName: String?,
         api: Config.API
+    ) {
+        self.init(
+            agentSystemPrompt: agentSystemPrompt,
+            returnToolName: returnToolName,
+            progressToolName: progressToolName,
+            resumeStrategy: DetachedTaskResumeStrategyFactory.make(for: api)
+        )
+    }
+
+    public init(
+        agentSystemPrompt: String,
+        returnToolName: String,
+        progressToolName: String?,
+        resumeStrategy: any DetachedTaskResumeStrategy
     ) {
         self.agentSystemPrompt = agentSystemPrompt
         self.returnToolName = returnToolName
@@ -24,7 +38,7 @@ public struct DetachedTaskPromptAssembler: Sendable {
         } else {
             self.progressToolName = nil
         }
-        self.api = api
+        self.resumeStrategy = resumeStrategy
     }
 
     public func makeSystemMessage() -> PromptMessage {
@@ -110,34 +124,30 @@ Do not ask the user questions directly.
         return parsedIdentifier.uuidString.lowercased()
     }
 
+    func resumePrefixMessages(
+        request: DetachedTaskRequest,
+        resumeEntry: DetachedTaskResumeEntry?,
+        resumePrefixProvider: @Sendable (DetachedTaskResumePrefixContext) throws -> [PromptMessage]
+    ) throws -> [PromptMessage] {
+        try resumeStrategy.resumePrefixMessages(
+            request: request,
+            resumeEntry: resumeEntry,
+            resumePrefixProvider: resumePrefixProvider
+        )
+    }
+
     public func initialContext(
         handoffMessages: [PromptMessage],
         resumePrefixMessages: [PromptMessage],
         userMessage: PromptMessage,
         resumeEntry: DetachedTaskResumeEntry?
     ) throws -> PromptRunContext {
-        if let resumeEntry {
-            switch api {
-            case .responses:
-                guard let storedResumeToken = resumeEntry.resumeToken else {
-                    throw DetachedTaskRunnerError.missingResponsesResumeToken(
-                        agentName: resumeEntry.agentName,
-                        resumeIdentifier: resumeEntry.resumeId
-                    )
-                }
-                return .resume(
-                    resumeToken: storedResumeToken,
-                    requestMessages: [userMessage]
-                )
-            case .chatCompletions:
-                var messages = resumePrefixMessages
-                messages.append(contentsOf: resumeEntry.conversationEntries)
-                messages.append(userMessage)
-                return .messages(messages)
-            }
-        }
-
-        return .messages(handoffMessages)
+        try resumeStrategy.initialContext(
+            handoffMessages: handoffMessages,
+            resumePrefixMessages: resumePrefixMessages,
+            userMessage: userMessage,
+            resumeEntry: resumeEntry
+        )
     }
 
     public func followUpContext(
@@ -145,22 +155,11 @@ Do not ask the user questions directly.
         chatMessages: [PromptMessage],
         reminderMessage: PromptMessage
     ) -> PromptRunContext {
-        switch api {
-        case .responses:
-            if let resumeToken {
-                return .resume(
-                    resumeToken: resumeToken,
-                    requestMessages: [reminderMessage]
-                )
-            }
-            var messages = chatMessages
-            messages.append(reminderMessage)
-            return .messages(messages)
-        case .chatCompletions:
-            var messages = chatMessages
-            messages.append(reminderMessage)
-            return .messages(messages)
-        }
+        resumeStrategy.followUpContext(
+            resumeToken: resumeToken,
+            chatMessages: chatMessages,
+            reminderMessage: reminderMessage
+        )
     }
 
     private func baseSystemPrompt() -> String {

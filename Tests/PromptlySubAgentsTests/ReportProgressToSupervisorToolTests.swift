@@ -5,18 +5,11 @@ import Testing
 
 struct ReportProgressToSupervisorToolTests {
     @Test
-    func logsProgressUpdatesAndPrefixesToolOutput() async throws {
-        let fileManager = InMemoryFileManager()
-        let logDirectoryURL = fileManager.currentDirectoryURL.appendingPathComponent("logs", isDirectory: true)
-        let transcriptLogger = try SubAgentTranscriptLogger(
-            logsDirectoryURL: logDirectoryURL,
-            fileManager: fileManager
-        )
+    func prefixesToolOutput() async throws {
         let outputRecorder = OutputRecorder()
         let tool = ReportProgressToSupervisorTool(
             agentName: "Progress Agent",
-            toolOutput: { outputRecorder.append($0) },
-            transcriptLogger: transcriptLogger
+            toolOutput: { outputRecorder.append($0) }
         )
 
         let arguments: JSONValue = .object([
@@ -25,27 +18,13 @@ struct ReportProgressToSupervisorToolTests {
         ])
 
         _ = try await tool.execute(arguments: arguments)
-        await transcriptLogger.finish(status: "completed", error: nil)
 
         let outputs = outputRecorder.snapshot()
         #expect(outputs.count == 1)
         #expect(outputs.first?.hasPrefix("[sub-agent:Progress Agent]") == true)
         #expect(outputs.first?.contains("Working") == true)
 
-        let logURL = URL(fileURLWithPath: transcriptLogger.logPath)
-        let entries = try fileManager.loadJSONLines(from: logURL)
-        let progressEntry = entries.first { entry in
-            guard let object = objectValue(entry) else { return false }
-            return stringValue(object["eventType"]) == "progress_update"
-        }
-
-        if let progressEntry,
-           let object = objectValue(progressEntry),
-           let dataObject = objectValue(object["data"]) {
-            #expect(stringValue(dataObject["status"]) == "Working")
-        } else {
-            Issue.record("Expected progress_update entry.")
-        }
+        #expect(outputs.first?.contains("Processing tasks") == true)
     }
 }
 

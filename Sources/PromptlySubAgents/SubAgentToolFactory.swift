@@ -302,20 +302,21 @@ Then call the same sub agent tool again with the resumeId, and include the user'
                     fileManager: localFileManager,
                     toolOutput: toolOutput
                 )
-                let tools = try toolBuilder.makeTools(
-                    transcriptLogger: nil
-                )
+                let tools = try toolBuilder.makeTools()
                 let modelRunner = try PromptRunCoordinatorModelRunner(
                     configuration: agentConfiguration.configuration,
                     tools: tools,
                     modelOverride: modelOverride,
                     apiOverride: apiOverride
                 )
+                let resumeStrategy = DetachedTaskResumeStrategyFactory.make(
+                    for: effectiveApi
+                )
                 let promptAssembler = DetachedTaskPromptAssembler(
                     agentSystemPrompt: agentConfiguration.definition.systemPrompt,
                     returnToolName: ReturnToSupervisorTool.toolName,
                     progressToolName: ReportProgressToSupervisorTool.toolName,
-                    api: effectiveApi
+                    resumeStrategy: resumeStrategy
                 )
                 let returnPayloadResolver = DetachedTaskReturnPayloadResolver(
                     returnToolName: ReturnToSupervisorTool.toolName

@@ -47,18 +47,11 @@ public struct DetachedTaskRunner: Sendable {
                 resumeEntry: resumeEntry
             )
 
-            let resumePrefixMessages: [PromptMessage]
-            if resumeEntry != nil,
-               promptAssembler.api == .chatCompletions {
-                resumePrefixMessages = try handoffPlan.resumePrefixProvider(
-                    DetachedTaskResumePrefixContext(
-                        request: request,
-                        resumeEntry: resumeEntry
-                    )
-                )
-            } else {
-                resumePrefixMessages = []
-            }
+            let resumePrefixMessages = try promptAssembler.resumePrefixMessages(
+                request: request,
+                resumeEntry: resumeEntry,
+                resumePrefixProvider: handoffPlan.resumePrefixProvider
+            )
 
             let context = try promptAssembler.initialContext(
                 handoffMessages: handoffPlan.handoffMessages,

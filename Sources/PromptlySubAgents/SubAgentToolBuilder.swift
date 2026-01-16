@@ -21,9 +21,7 @@ struct SubAgentToolBuilder: Sendable {
         self.toolOutput = toolOutput
     }
 
-    func makeTools(
-        transcriptLogger: SubAgentTranscriptLogger?
-    ) throws -> [any ExecutableTool] {
+    func makeTools() throws -> [any ExecutableTool] {
         let toolFactory = ToolFactory(
             fileManager: fileManager,
             toolsFileName: toolSettings.toolsFileName
@@ -46,8 +44,7 @@ struct SubAgentToolBuilder: Sendable {
         tools.append(
             ReportProgressToSupervisorTool(
                 agentName: configuration.definition.name,
-                toolOutput: toolOutput,
-                transcriptLogger: transcriptLogger
+                toolOutput: toolOutput
             )
         )
 
