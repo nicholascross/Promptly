@@ -1,6 +1,8 @@
 import Foundation
+import PromptlyConsole
 import PromptlyKit
 import PromptlyKitUtils
+import PromptlySubAgents
 import TerminalUI
 
 @MainActor
@@ -86,17 +88,54 @@ final class PromptlyTerminalUIController {
                 toolOutputArea.text = ""
                 conversation.append(PromptMessage(role: .user, content: .text(text)))
                 self.updateConversation(conversation)
-                _ = try await coordinator.prompt(
-                    context: .messages(conversation),
-                    onEvent: { [weak self] event in
-                        await self?.handle(event: event)
-                    }
-                )
+                do {
+                    let result = try await runSupervisorCycleWithResumeRecovery(
+                        coordinator: coordinator,
+                        conversation: conversation
+                    )
+                    conversation = result.updatedConversation
+                } catch {
+                    self.appendToolOutputText("Error: \(error.localizedDescription)\n")
+                }
             }
         }
 
         let loop = makeEventLoop()
         try await loop.run()
+    }
+
+    private func runSupervisorCycleWithResumeRecovery(
+        coordinator: PromptRunCoordinator,
+        conversation: [PromptMessage]
+    ) async throws -> SubAgentSupervisorRunCycle {
+        let supervisorRunner = SubAgentSupervisorRunner()
+        do {
+            return try await supervisorRunner.runMainActor(
+                conversation: conversation,
+                runCycle: { [self] cycleConversation in
+                    self.conversation = cycleConversation
+                    self.updateConversation(self.conversation)
+
+                    let result = try await coordinator.prompt(
+                        context: .messages(cycleConversation),
+                        onEvent: { [weak self] event in
+                            await self?.handle(event: event)
+                        }
+                    )
+                    return SubAgentSupervisorRunCycle(
+                        updatedConversation: self.conversation,
+                        conversationEntries: result.conversationEntries
+                    )
+                }
+            )
+        } catch let error as SubAgentSupervisorRunnerError {
+            switch error {
+            case let .unresolvedResumeRecovery(toolName):
+                throw PromptConsoleError.missingResumeIdForFollowUp(toolName)
+            }
+        } catch {
+            throw error
+        }
     }
 
     /// Creates an event loop for this UI, wiring layout to the terminal.

@@ -88,9 +88,12 @@ struct SubAgentSupervisorHintTests {
         let expected = """
         Available sub agents (call tools by name when helpful):
         Prefer a matching sub agent over a shell tool when both can handle the request.
+        Route to a sub agent when the request requires multi step execution, multi file changes, command execution, or specialized analysis.
+        For simple lookups, short explanations, greetings, or one command tasks, answer directly or use the matching shell tool instead.
         - SubAgent-review-agent: Use when you need a focused review of proposed changes.
 
         When a sub agent returns needsMoreInformation or needsSupervisorDecision, gather the requested input or decision from the user.
+        For new requests, omit resumeId. For continuation, copy the exact resumeId from tool output and do not invent one.
         Then call the same sub agent tool again with the resumeId, and include the user's answers in the task or context pack notes.
         """
 

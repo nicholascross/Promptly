@@ -1,6 +1,7 @@
 import Darwin
 import PromptlyKit
 import PromptlyKitUtils
+import PromptlySubAgents
 
 public struct PromptConsoleRunner {
     public let config: Config
@@ -41,7 +42,7 @@ public struct PromptConsoleRunner {
 
         var conversation = initialMessages
         if !conversation.isEmpty {
-            let updatedConversation = try await runOnce(
+            let updatedConversation = try await runOnceWithResumeRecovery(
                 coordinator: coordinator,
                 conversation: conversation
             )
@@ -67,7 +68,7 @@ public struct PromptConsoleRunner {
             guard let line = readLine() else { break }
             conversation.append(PromptMessage(role: .user, content: .text(line)))
 
-            let updatedConversation = try await runOnce(
+            let updatedConversation = try await runOnceWithResumeRecovery(
                 coordinator: coordinator,
                 conversation: conversation
             )
@@ -75,10 +76,45 @@ public struct PromptConsoleRunner {
         }
     }
 
-    private func runOnce(
+    private struct PromptRunCycleResult {
+        let updatedConversation: [PromptMessage]
+        let newConversationEntries: [PromptMessage]
+    }
+
+    private func runOnceWithResumeRecovery(
         coordinator: PromptRunCoordinator,
         conversation: [PromptMessage]
     ) async throws -> [PromptMessage] {
+        let supervisorRunner = SubAgentSupervisorRunner()
+        do {
+            let result = try await supervisorRunner.run(
+                conversation: conversation,
+                runCycle: { cycleConversation in
+                    let cycleResult = try await runOnce(
+                        coordinator: coordinator,
+                        conversation: cycleConversation
+                    )
+                    return SubAgentSupervisorRunCycle(
+                        updatedConversation: cycleResult.updatedConversation,
+                        conversationEntries: cycleResult.newConversationEntries
+                    )
+                }
+            )
+            return result.updatedConversation
+        } catch let error as SubAgentSupervisorRunnerError {
+            switch error {
+            case let .unresolvedResumeRecovery(toolName):
+                throw PromptConsoleError.missingResumeIdForFollowUp(toolName)
+            }
+        } catch {
+            throw error
+        }
+    }
+
+    private func runOnce(
+        coordinator: PromptRunCoordinator,
+        conversation: [PromptMessage]
+    ) async throws -> PromptRunCycleResult {
         let writeToStandardOutput: @Sendable (String) async -> Void = { text in
             fputs(text, stdout)
             fflush(stdout)
@@ -112,7 +148,10 @@ public struct PromptConsoleRunner {
             fflush(stdout)
         }
 
-        return updatedConversation
+        return PromptRunCycleResult(
+            updatedConversation: updatedConversation,
+            newConversationEntries: result.conversationEntries
+        )
     }
 
     static func appendConversationEntries(

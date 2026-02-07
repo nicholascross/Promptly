@@ -77,7 +77,8 @@ let package = Package(
             dependencies: [
                 "PromptlyAssets",
                 "PromptlyKit",
-                "PromptlyKitUtils"
+                "PromptlyKitUtils",
+                "PromptlySubAgents"
             ]
         ),
         .target(
@@ -147,6 +148,20 @@ let package = Package(
                 "PromptlyDetachedTask",
                 "PromptlyKit",
                 "PromptlyKitUtils"
+            ]
+        ),
+        .testTarget(
+            name: "PromptlyTests",
+            dependencies: [
+                "Promptly",
+                "PromptlySubAgents"
+            ]
+        ),
+        .testTarget(
+            name: "PromptlySelfTestTests",
+            dependencies: [
+                "PromptlySelfTest",
+                "PromptlyKit"
             ]
         ),
         .executableTarget(

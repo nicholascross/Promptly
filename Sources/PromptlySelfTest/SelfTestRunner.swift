@@ -5,6 +5,9 @@ import PromptlyKitUtils
 import PromptlySubAgents
 
 public struct SelfTestRunner: Sendable {
+    private static let selfTestRequestTimeoutSeconds: TimeInterval = 45
+    private static let selfTestResourceTimeoutSeconds: TimeInterval = 120
+
     public let configurationFileURL: URL
     public let toolsFileName: String
     public let apiOverride: Config.API?
@@ -252,7 +255,7 @@ public struct SelfTestRunner: Sendable {
         do {
             return try Config.loadConfig(
                 url: configurationFileURL,
-                credentialSource: SystemCredentialSource()
+                credentialSource: SelfTestCredentialSource()
             )
         } catch {
             throw SelfTestFailure("Configuration could not be loaded: \(error)")
@@ -262,7 +265,8 @@ public struct SelfTestRunner: Sendable {
     private func verifyBasicConversation(configuration: Config) async throws -> String {
         let coordinator = try PromptRunCoordinator(
             config: configuration,
-            apiOverride: apiOverride
+            apiOverride: apiOverride,
+            transport: selfTestTransport()
         )
         let messages = [
             PromptMessage(
@@ -367,7 +371,8 @@ public struct SelfTestRunner: Sendable {
             let coordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
-                tools: [listTool, dateTool]
+                tools: [listTool, dateTool],
+                transport: selfTestTransport()
             )
             let messages = [
                 PromptMessage(
@@ -447,9 +452,10 @@ public struct SelfTestRunner: Sendable {
 
             let toolFactory = SubAgentToolFactory(
                 fileManager: fileManager,
-                credentialSource: SystemCredentialSource()
+                credentialSource: SelfTestCredentialSource()
             )
 
+            emit("Supervisor tool invocation: loading sub agent tools.")
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
                 toolsFileName: toolsConfiguration.toolsFileName,
@@ -459,6 +465,7 @@ public struct SelfTestRunner: Sendable {
                 excludeTools: [],
                 toolOutput: { _ in }
             )
+            emit("Supervisor tool invocation: sub agent tools loaded.")
 
             let expectedToolName = "SubAgent-\(normalizedIdentifier(from: agentName))"
             guard let agentTool = tools.first(where: { $0.name == expectedToolName }) else {
@@ -468,7 +475,8 @@ public struct SelfTestRunner: Sendable {
             let coordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
-                tools: [agentTool]
+                tools: [agentTool],
+                transport: selfTestTransport()
             )
             let messages = [
                 PromptMessage(
@@ -495,9 +503,10 @@ public struct SelfTestRunner: Sendable {
                 )
             ]
 
-            let result = try await coordinator.prompt(
-                context: .messages(messages),
-                onEvent: { _ in }
+            emit("Supervisor tool invocation: running supervisor model conversation.")
+            let result = try await runSupervisorConversationWithResumeRecovery(
+                coordinator: coordinator,
+                conversation: messages
             )
             let toolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
@@ -515,6 +524,9 @@ public struct SelfTestRunner: Sendable {
                 forkedAssistantEntry: forkedAssistantEntry,
                 requiresForkedTranscript: resolvedHandoffStrategy == .forkedContext
             )
+            if continuationHandle(from: toolArguments) != nil {
+                throw SelfTestFailure("Supervisor tool arguments for initial sub agent invocation must omit resumeId.")
+            }
             guard let output = toolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
             }
@@ -574,9 +586,10 @@ public struct SelfTestRunner: Sendable {
 
             let toolFactory = SubAgentToolFactory(
                 fileManager: fileManager,
-                credentialSource: SystemCredentialSource()
+                credentialSource: SelfTestCredentialSource()
             )
 
+            emit("Supervisor incident setup: loading sub agent tools.")
             let tools = try toolFactory.makeTools(
                 configurationFileURL: temporaryConfigurationFileURL,
                 toolsFileName: toolsConfiguration.toolsFileName,
@@ -586,6 +599,7 @@ public struct SelfTestRunner: Sendable {
                 excludeTools: [],
                 toolOutput: { _ in }
             )
+            emit("Supervisor incident setup: sub agent tools loaded.")
 
             let expectedToolName = "SubAgent-\(normalizedIdentifier(from: agentName))"
             guard let agentTool = tools.first(where: { $0.name == expectedToolName }) else {
@@ -596,7 +610,8 @@ public struct SelfTestRunner: Sendable {
             let firstCoordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
-                tools: [agentTool]
+                tools: [agentTool],
+                transport: selfTestTransport()
             )
             let firstMessages = [
                 PromptMessage(
@@ -622,9 +637,9 @@ public struct SelfTestRunner: Sendable {
                     content: .text("Start the incident intake.")
                 )
             ]
-            let firstResult = try await firstCoordinator.prompt(
-                context: .messages(firstMessages),
-                onEvent: { _ in }
+            let firstResult = try await runSupervisorConversationWithResumeRecovery(
+                coordinator: firstCoordinator,
+                conversation: firstMessages
             )
             if let firstOutput = latestAssistantMessage(from: firstResult.conversationEntries) {
                 let trimmedOutput = firstOutput.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -648,6 +663,9 @@ public struct SelfTestRunner: Sendable {
                 forkedAssistantEntry: forkedAssistantEntry,
                 requiresForkedTranscript: resolvedHandoffStrategy == .forkedContext
             )
+            if continuationHandle(from: firstArguments) != nil {
+                throw SelfTestFailure("Supervisor incident step 1 tool arguments must omit resumeId.")
+            }
             guard let firstOutput = firstToolOutputs[expectedToolName]?.first else {
                 throw SelfTestFailure("Missing output for \(expectedToolName).")
             }
@@ -664,7 +682,8 @@ public struct SelfTestRunner: Sendable {
             let secondCoordinator = try PromptRunCoordinator(
                 config: configuration,
                 apiOverride: apiOverride,
-                tools: [agentTool]
+                tools: [agentTool],
+                transport: selfTestTransport()
             )
             let secondMessages = [
                 PromptMessage(
@@ -698,9 +717,9 @@ public struct SelfTestRunner: Sendable {
                     )
                 )
             ]
-            let secondResult = try await secondCoordinator.prompt(
-                context: .messages(secondMessages),
-                onEvent: { _ in }
+            let secondResult = try await runSupervisorConversationWithResumeRecovery(
+                coordinator: secondCoordinator,
+                conversation: secondMessages
             )
             let secondToolOutputs = try collectToolOutputs(
                 names: [expectedToolName],
@@ -752,6 +771,41 @@ public struct SelfTestRunner: Sendable {
 
             return (modelOutput: trimmedOutput, agentOutput: secondOutput)
         }
+    }
+
+    private func runSupervisorConversationWithResumeRecovery(
+        coordinator: PromptRunCoordinator,
+        conversation: [PromptMessage]
+    ) async throws -> SubAgentSupervisorRunCycle {
+        let supervisorRunner = SubAgentSupervisorRunner()
+        do {
+            return try await supervisorRunner.run(
+                conversation: conversation,
+                runCycle: { cycleConversation in
+                    let cycleResult = try await coordinator.prompt(
+                        context: .messages(cycleConversation),
+                        onEvent: { _ in }
+                    )
+                    return SubAgentSupervisorRunCycle(
+                        updatedConversation: cycleConversation + cycleResult.conversationEntries,
+                        conversationEntries: cycleResult.conversationEntries
+                    )
+                }
+            )
+        } catch let error as SubAgentSupervisorRunnerError {
+            throw SelfTestFailure(error.localizedDescription)
+        } catch {
+            throw error
+        }
+    }
+
+    private func selfTestTransport() -> any NetworkTransport {
+        let sessionConfiguration = URLSessionConfiguration.ephemeral
+        sessionConfiguration.waitsForConnectivity = false
+        sessionConfiguration.timeoutIntervalForRequest = Self.selfTestRequestTimeoutSeconds
+        sessionConfiguration.timeoutIntervalForResource = Self.selfTestResourceTimeoutSeconds
+        let session = URLSession(configuration: sessionConfiguration)
+        return URLSessionNetworkTransport(session: session)
     }
 
     private func createTemporaryAgentConfiguration(
@@ -872,10 +926,10 @@ public struct SelfTestRunner: Sendable {
         guard needsMoreInformation else {
             throw SelfTestFailure("Sub agent did not request more information.")
         }
-        guard case let .string(resumeIdentifier) = object["resumeId"],
-              !resumeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        guard case let .string(resumeIdentifierValue) = object["resumeId"],
+              let resumeIdentifier = normalizedResumeIdentifier(resumeIdentifierValue)
         else {
-            throw SelfTestFailure("Sub agent payload missing continuation handle.")
+            throw SelfTestFailure("Sub agent payload missing valid continuation handle.")
         }
         guard case let .array(requestedInformation) = object["requestedInformation"] else {
             throw SelfTestFailure("Sub agent payload missing requestedInformation.")
@@ -937,7 +991,10 @@ public struct SelfTestRunner: Sendable {
         guard case let .object(object) = arguments else {
             return nil
         }
-        return stringValue(object["resumeId"])
+        guard let resumeIdentifierValue = stringValue(object["resumeId"]) else {
+            return nil
+        }
+        return normalizedResumeIdentifier(resumeIdentifierValue)
     }
 
     private func handoffStrategy(from arguments: JSONValue) -> String? {
@@ -987,10 +1044,13 @@ public struct SelfTestRunner: Sendable {
                 lines.append(
                     "Provide only task, constraints, handoffStrategy, and the continuation handle field in the tool arguments."
                 )
+                lines.append("Set resumeId to the continuation handle value provided by the previous tool output.")
             } else {
                 lines.append(
                     "Provide only task, constraints, and handoffStrategy fields in the tool arguments."
                 )
+                lines.append("Do not include resumeId in this call.")
+                lines.append("Do not use placeholder values for resumeId such as omit, none, /dev/null, or <!omit>.")
             }
             lines.append("Set handoffStrategy to contextPack.")
         case .forkedContext:
@@ -998,10 +1058,13 @@ public struct SelfTestRunner: Sendable {
                 lines.append(
                     "Provide only task, constraints, handoffStrategy, forkedTranscript, and the continuation handle field in the tool arguments."
                 )
+                lines.append("Set resumeId to the continuation handle value provided by the previous tool output.")
             } else {
                 lines.append(
                     "Provide only task, constraints, handoffStrategy, and forkedTranscript fields in the tool arguments."
                 )
+                lines.append("Do not include resumeId in this call.")
+                lines.append("Do not use placeholder values for resumeId such as omit, none, /dev/null, or <!omit>.")
             }
             lines.append("Set handoffStrategy to forkedContext.")
             lines.append("Set forkedTranscript to:")
@@ -1069,6 +1132,17 @@ public struct SelfTestRunner: Sendable {
             return nil
         }
         return text
+    }
+
+    private func normalizedResumeIdentifier(_ value: String) -> String? {
+        let trimmedValue = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedValue.isEmpty else {
+            return nil
+        }
+        guard UUID(uuidString: trimmedValue) != nil else {
+            return nil
+        }
+        return trimmedValue.lowercased()
     }
 
     private func jsonValueContainsString(_ value: JSONValue, substring: String) -> Bool {

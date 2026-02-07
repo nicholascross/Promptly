@@ -85,11 +85,16 @@ public struct SubAgentToolFactory {
 
         let header = "Available sub agents (call tools by name when helpful):"
         let preferenceGuidance = "Prefer a matching sub agent over a shell tool when both can handle the request."
+        let routingReminder = """
+        \(SubAgentRoutingGuidance.subAgentHintDelegationReminder)
+        \(SubAgentRoutingGuidance.subAgentHintDirectHandlingReminder)
+        """
         let resumeGuidance = """
 When a sub agent returns needsMoreInformation or needsSupervisorDecision, gather the requested input or decision from the user.
+For new requests, omit resumeId. For continuation, copy the exact resumeId from tool output and do not invent one.
 Then call the same sub agent tool again with the resumeId, and include the user's answers in the task or context pack notes.
 """
-        return ([header, preferenceGuidance] + hintLines + ["", resumeGuidance]).joined(separator: "\n")
+        return ([header, preferenceGuidance, routingReminder] + hintLines + ["", resumeGuidance]).joined(separator: "\n")
     }
 
     public func makeTool(

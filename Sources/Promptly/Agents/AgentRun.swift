@@ -5,6 +5,11 @@ import PromptlyKit
 import PromptlyKitUtils
 import PromptlySubAgents
 
+enum AgentRunConfigurationSource {
+    case localFile
+    case bundled(data: Data, sourceURL: URL)
+}
+
 /// `promptly agent run <name>` - run a sub agent through a lightweight supervisor flow.
 struct AgentRun: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
@@ -85,8 +90,16 @@ struct AgentRun: AsyncParsableCommand {
             fputs(stream, stdout)
             fflush(stdout)
         }
+        let agentSource = try Self.resolveAgentConfigurationSource(
+            fileManager: fileManager,
+            agentConfigurationURL: agentConfigurationURL,
+            bundledAgentData: bundledAgentData,
+            bundledAgentURL: bundledAgentURL
+        )
+
         let agentTool: any ExecutableTool
-        if fileManager.fileExists(atPath: agentConfigurationURL.path) {
+        switch agentSource {
+        case .localFile:
             agentTool = try subAgentToolFactory.makeTool(
                 configurationFileURL: configurationFileURL,
                 agentConfigurationURL: agentConfigurationURL,
@@ -97,11 +110,11 @@ struct AgentRun: AsyncParsableCommand {
                 excludeTools: excludeTools,
                 toolOutput: toolOutput
             )
-        } else if let bundledAgentData, let bundledAgentURL {
+        case let .bundled(data, sourceURL):
             agentTool = try subAgentToolFactory.makeTool(
                 configurationFileURL: configurationFileURL,
-                agentConfigurationData: bundledAgentData,
-                agentSourceURL: bundledAgentURL,
+                agentConfigurationData: data,
+                agentSourceURL: sourceURL,
                 toolsFileName: toolsFileName,
                 modelOverride: modelOverride,
                 apiOverride: apiSelection?.configValue,
@@ -109,8 +122,6 @@ struct AgentRun: AsyncParsableCommand {
                 excludeTools: excludeTools,
                 toolOutput: toolOutput
             )
-        } else {
-            throw AgentRunError.agentConfigurationNotFound(agentConfigurationURL.path)
         }
 
         let coordinator = try PromptRunCoordinator(
@@ -128,12 +139,12 @@ struct AgentRun: AsyncParsableCommand {
         )
 
         var conversation: [PromptMessage] = [
-            PromptMessage(role: .system, content: .text(supervisorSystemPrompt(toolName: agentTool.name)))
+            PromptMessage(role: .system, content: .text(Self.supervisorSystemPrompt(toolName: agentTool.name)))
         ]
 
         if let combinedPrompt {
             conversation.append(PromptMessage(role: .user, content: .text(combinedPrompt)))
-            let result = try await runSupervisorOnce(
+            let result = try await runSupervisorWithResumeRecovery(
                 coordinator: coordinator,
                 conversation: conversation,
                 toolName: agentTool.name
@@ -142,6 +153,12 @@ struct AgentRun: AsyncParsableCommand {
             if let payload = result.toolPayload {
                 try printReturnPayload(payload)
                 return
+            }
+            if !interactive {
+                _ = try AgentRunResultPayloadValidator.requirePayload(
+                    result.toolPayload,
+                    toolName: agentTool.name
+                )
             }
         } else if !interactive {
             throw AgentRunError.missingSupervisorPrompt
@@ -155,7 +172,7 @@ struct AgentRun: AsyncParsableCommand {
                 guard let line = readLine() else { break }
                 conversation.append(PromptMessage(role: .user, content: .text(line)))
 
-                let result = try await runSupervisorOnce(
+                let result = try await runSupervisorWithResumeRecovery(
                     coordinator: coordinator,
                     conversation: conversation,
                     toolName: agentTool.name
@@ -174,21 +191,95 @@ struct AgentRun: AsyncParsableCommand {
 
 private struct SupervisorRunResult {
     let conversation: [PromptMessage]
+    let conversationEntries: [PromptMessage]
     let toolPayload: JSONValue?
 }
 
-private extension AgentRun {
-    func supervisorSystemPrompt(toolName: String) -> String {
+enum AgentRunResultPayloadValidator {
+    static func requirePayload(
+        _ payload: JSONValue?,
+        toolName: String
+    ) throws -> JSONValue {
+        guard let payload else {
+            throw AgentRunError.missingToolInvocation(toolName)
+        }
+        return payload
+    }
+}
+
+extension AgentRun {
+    static func supervisorSystemPrompt(toolName: String) -> String {
         """
         You are running a lightweight supervisor session for a sub agent.
         Use tool calling to assemble the request for the tool named \(toolName).
         If the required task is missing, ask the user for it instead of guessing.
         Do not fabricate goals, constraints, context pack content, or resume identifiers.
         If the user provides goals, constraints, a context pack, or a resume identifier, include them.
+        \(SubAgentRoutingGuidance.delegatedToolRoutingReminder(toolName: toolName))
+        For \(SubAgentRoutingGuidance.directHandlingCriteria) that do not require delegated work, respond directly without tool calling.
+        \(SubAgentRoutingGuidance.ambiguousRoutingReminder)
+        For a new sub agent task, omit resumeId entirely.
+        Include resumeId only when continuing a prior sub agent run, and copy the exact value from the prior tool output.
+        If a follow up response requests needsMoreInformation or needsSupervisorDecision without a valid resumeId, call the tool once more to recover the continuation handle before asking the user for new input.
         When the tool returns needsMoreInformation or needsSupervisorDecision, gather the requested input or decision and call the tool again with the resumeId.
-        When you have enough information, call the tool exactly once.
+        When delegation is appropriate and you have enough information, call the tool exactly once.
         After the tool completes, respond briefly based on the user prompt and the tool result.
         """
+    }
+
+    static func resolveAgentConfigurationSource(
+        fileManager: FileManagerProtocol,
+        agentConfigurationURL: URL,
+        bundledAgentData: Data?,
+        bundledAgentURL: URL?
+    ) throws -> AgentRunConfigurationSource {
+        if fileManager.fileExists(atPath: agentConfigurationURL.path) {
+            return .localFile
+        }
+        if let bundledAgentData, let bundledAgentURL {
+            return .bundled(data: bundledAgentData, sourceURL: bundledAgentURL)
+        }
+        throw AgentRunError.agentConfigurationNotFound(agentConfigurationURL.path)
+    }
+}
+
+private extension AgentRun {
+    func runSupervisorWithResumeRecovery(
+        coordinator: PromptRunCoordinator,
+        conversation: [PromptMessage],
+        toolName: String
+    ) async throws -> SupervisorRunResult {
+        let supervisorRunner = SubAgentSupervisorRunner()
+        var finalResult: SupervisorRunResult?
+        do {
+            _ = try await supervisorRunner.run(
+                conversation: conversation,
+                runCycle: { cycleConversation in
+                    let cycleResult = try await runSupervisorOnce(
+                        coordinator: coordinator,
+                        conversation: cycleConversation,
+                        toolName: toolName
+                    )
+                    finalResult = cycleResult
+                    return SubAgentSupervisorRunCycle(
+                        updatedConversation: cycleResult.conversation,
+                        conversationEntries: cycleResult.conversationEntries
+                    )
+                }
+            )
+        } catch let error as SubAgentSupervisorRunnerError {
+            switch error {
+            case let .unresolvedResumeRecovery(unresolvedToolName):
+                throw AgentRunError.missingResumeIdForFollowUp(unresolvedToolName)
+            }
+        } catch {
+            throw error
+        }
+
+        guard let finalResult else {
+            throw AgentRunError.missingToolInvocation(toolName)
+        }
+        return finalResult
     }
 
     func combinedSupervisorPrompt(argumentPrompt: String?, pipedPrompt: String?) -> String? {
@@ -241,7 +332,11 @@ private extension AgentRun {
             toolName: toolName,
             conversationEntries: result.conversationEntries
         )
-        return SupervisorRunResult(conversation: updatedConversation, toolPayload: toolPayload)
+        return SupervisorRunResult(
+            conversation: updatedConversation,
+            conversationEntries: result.conversationEntries,
+            toolPayload: toolPayload
+        )
     }
 
     func firstToolOutput(
@@ -306,6 +401,7 @@ private enum AgentRunError: Error, LocalizedError {
     case missingToolInvocation(String)
     case multipleToolInvocations(String)
     case missingToolOutput(String)
+    case missingResumeIdForFollowUp(String)
     case couldNotFormatReturnPayload
 
     var errorDescription: String? {
@@ -320,6 +416,8 @@ private enum AgentRunError: Error, LocalizedError {
             return "Supervisor called the \(toolName) tool more than once."
         case let .missingToolOutput(toolName):
             return "Supervisor called the \(toolName) tool, but no output was recorded."
+        case let .missingResumeIdForFollowUp(toolName):
+            return "Supervisor follow up for \(toolName) requires a valid resumeId, but recovery did not produce one."
         case .couldNotFormatReturnPayload:
             return "Could not format the return payload as JSON."
         }

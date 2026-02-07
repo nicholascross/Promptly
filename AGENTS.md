@@ -72,6 +72,7 @@ These notes capture the best practices learned while extending Promptly’s tool
 - Tools-level self tests should invoke a safe, read-only tool such as listing the current directory through the model tool call path.
 - Agents-level self tests should create, run, and remove a temporary agent configuration under a temporary directory to avoid mutating user content.
 - When generating temporary self test tool configurations, use absolute tools file paths so include filters resolve to available tools.
+- Self test supervisor resume checks should treat only valid UUID values as continuation handles; placeholder strings such as `omit`, `none`, or `/dev/null` are considered missing handles.
 
 ### 16. Testing Credentials
 - Prefer injecting a `CredentialSource` in tests instead of mutating process environment variables.
@@ -126,5 +127,16 @@ These notes capture the best practices learned while extending Promptly’s tool
 
 ### 25. Naming and Abbreviations
 - Avoid unnecessary abbreviations, but keep common terms like API and URL in their standard short form.
+
+### 26. Skill Packaging Dependencies
+- When PyYAML is unavailable in restricted environments, use a local Python shim on PYTHONPATH to satisfy quick_validate and package_skill scripts.
+
+### 27. Detached Task Logging
+- Use `DetachedTaskTranscriptLogSink` for sub agent transcript logging; do not keep a separate `SubAgentTranscriptLogger`.
+- Treat progress updates as tool call events in logs rather than introducing a dedicated `progress_update` event.
+
+### 28. Supervisor Resume Recovery Runner
+- Keep supervisor follow up resume recovery logic centralized in `PromptlySubAgents` through `SubAgentSupervisorRunner` and `SubAgentSupervisorRecovery`.
+- Route `prompt`, `ui`, `agent run`, and self test supervisor flows through the shared runner instead of duplicating per interface recovery checks or prompts.
 
 Following these conventions keeps Promptly’s automation surface predictable and safe for both human operators and LLM agents. Edit this file whenever fresh insights arise so future contributors inherit the full context.
