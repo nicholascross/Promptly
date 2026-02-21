@@ -8,5 +8,3 @@ DerivedData/
 
 # Local-only decision and deferred notes
 Docs/decisions.md
-Docs/chat-completions-multi-tool-call-limitation.md
-Docs/local-notes/

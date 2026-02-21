@@ -58,22 +58,11 @@ struct SubAgentToolRequest: Decodable, Sendable {
                 forKey: .forkedTranscript
             ) {
                 handoff = .forkedContext(forkedTranscript)
-            } else if Self.hasValidResumeIdentifier(resumeId) {
+            } else if SubAgentResumeIdentifier.isValid(resumeId) {
                 handoff = .forkedContext([])
             } else {
                 throw SubAgentToolError.missingForkedTranscript
             }
         }
-    }
-
-    private static func hasValidResumeIdentifier(_ resumeIdentifier: String?) -> Bool {
-        guard let resumeIdentifier else {
-            return false
-        }
-        let trimmedIdentifier = resumeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedIdentifier.isEmpty else {
-            return false
-        }
-        return UUID(uuidString: trimmedIdentifier) != nil
     }
 }

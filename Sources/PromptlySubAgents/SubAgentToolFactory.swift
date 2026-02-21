@@ -28,9 +28,8 @@ public struct SubAgentToolFactory {
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> [any ExecutableTool] {
-        let normalizedFileName = normalizedToolsFileName(toolsFileName)
-        let toolDefaults = SubAgentToolSettings(
-            toolsFileName: normalizedFileName,
+        let toolDefaults = defaultToolSettings(
+            toolsFileName: toolsFileName,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -44,7 +43,7 @@ public struct SubAgentToolFactory {
         tools.reserveCapacity(agentConfigurations.count)
 
         for agentConfiguration in agentConfigurations {
-            let tool = makeTool(
+            let tool = makeDetachedTaskTool(
                 agentConfiguration: agentConfiguration,
                 configurationFileURL: configurationFileURL,
                 toolDefaults: toolDefaults,
@@ -107,9 +106,8 @@ Then call the same sub agent tool again with the resumeId, and include the user'
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> any ExecutableTool {
-        let normalizedFileName = normalizedToolsFileName(toolsFileName)
-        let toolDefaults = SubAgentToolSettings(
-            toolsFileName: normalizedFileName,
+        let toolDefaults = defaultToolSettings(
+            toolsFileName: toolsFileName,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -118,7 +116,7 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             configFileURL: configurationFileURL,
             agentConfigurationURL: agentConfigurationURL
         )
-        return makeTool(
+        return makeDetachedTaskTool(
             agentConfiguration: agentConfiguration,
             configurationFileURL: configurationFileURL,
             toolDefaults: toolDefaults,
@@ -140,9 +138,8 @@ Then call the same sub agent tool again with the resumeId, and include the user'
         excludeTools: [String] = [],
         toolOutput: @Sendable @escaping (String) -> Void = { stream in fputs(stream, stdout); fflush(stdout) }
     ) throws -> any ExecutableTool {
-        let normalizedFileName = normalizedToolsFileName(toolsFileName)
-        let toolDefaults = SubAgentToolSettings(
-            toolsFileName: normalizedFileName,
+        let toolDefaults = defaultToolSettings(
+            toolsFileName: toolsFileName,
             includeTools: includeTools,
             excludeTools: excludeTools
         )
@@ -152,7 +149,7 @@ Then call the same sub agent tool again with the resumeId, and include the user'
             agentConfigurationData: agentConfigurationData,
             sourceURL: agentSourceURL
         )
-        return makeTool(
+        return makeDetachedTaskTool(
             agentConfiguration: agentConfiguration,
             configurationFileURL: configurationFileURL,
             toolDefaults: toolDefaults,
@@ -252,23 +249,16 @@ Then call the same sub agent tool again with the resumeId, and include the user'
         return "\(toolsFileName).json"
     }
 
-    private func makeTool(
-        agentConfiguration: SubAgentConfiguration,
-        configurationFileURL: URL,
-        toolDefaults: SubAgentToolSettings,
-        resumeStore: DetachedTaskResumeStore,
-        modelOverride: String?,
-        apiOverride: Config.API?,
-        toolOutput: @Sendable @escaping (String) -> Void
-    ) -> any ExecutableTool {
-        makeDetachedTaskTool(
-            agentConfiguration: agentConfiguration,
-            configurationFileURL: configurationFileURL,
-            toolDefaults: toolDefaults,
-            resumeStore: resumeStore,
-            modelOverride: modelOverride,
-            apiOverride: apiOverride,
-            toolOutput: toolOutput
+    private func defaultToolSettings(
+        toolsFileName: String,
+        includeTools: [String],
+        excludeTools: [String]
+    ) -> SubAgentToolSettings {
+        let normalizedFileName = normalizedToolsFileName(toolsFileName)
+        return SubAgentToolSettings(
+            toolsFileName: normalizedFileName,
+            includeTools: includeTools,
+            excludeTools: excludeTools
         )
     }
 

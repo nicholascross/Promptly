@@ -75,11 +75,7 @@ public enum SubAgentSupervisorRecovery {
         guard case let .string(resumeIdentifier)? = object["resumeId"] else {
             return false
         }
-        let trimmedIdentifier = resumeIdentifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedIdentifier.isEmpty else {
-            return false
-        }
-        return UUID(uuidString: trimmedIdentifier) != nil
+        return SubAgentResumeIdentifier.isValid(resumeIdentifier)
     }
 
     private static func boolValue(_ value: JSONValue?) -> Bool? {
