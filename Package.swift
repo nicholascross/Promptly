@@ -22,6 +22,14 @@ let package = Package(
             targets: ["PromptlyKitUtils"]
         ),
         .library(
+            name: "PromptlyKitCommunication",
+            targets: ["PromptlyKitCommunication"]
+        ),
+        .library(
+            name: "PromptlyOpenAIClient",
+            targets: ["PromptlyOpenAIClient"]
+        ),
+        .library(
             name: "PromptlyAssets",
             targets: ["PromptlyAssets"]
         ),
@@ -68,6 +76,8 @@ let package = Package(
             name: "PromptlyKit",
             dependencies: [
                 "PromptlyKitUtils",
+                "PromptlyKitCommunication",
+                "PromptlyOpenAIClient",
                 .product(name: "SwiftTokenizer", package: "SwiftTokenizer"),
                 .product(name: "PatchApplyKit", package: "PatchApplyKit")
             ]
@@ -95,6 +105,17 @@ let package = Package(
             dependencies: []
         ),
         .target(
+            name: "PromptlyKitCommunication",
+            dependencies: []
+        ),
+        .target(
+            name: "PromptlyOpenAIClient",
+            dependencies: [
+                "PromptlyKitCommunication",
+                "PromptlyKitUtils"
+            ]
+        ),
+        .target(
             name: "PromptlySubAgents",
             dependencies: [
                 "PromptlyAssets",
@@ -118,12 +139,17 @@ let package = Package(
                 "PromptlyKit",
                 "PromptlyKitTooling",
                 "PromptlyKitUtils",
+                "PromptlyKitCommunication",
                 "PromptlySubAgents"
             ]
         ),
         .testTarget(
             name: "PromptlyKitTests",
-            dependencies: ["PromptlyKit"]
+            dependencies: [
+                "PromptlyKit",
+                "PromptlyKitCommunication",
+                "PromptlyOpenAIClient"
+            ]
         ),
         .testTarget(
             name: "PromptlyConsoleTests",

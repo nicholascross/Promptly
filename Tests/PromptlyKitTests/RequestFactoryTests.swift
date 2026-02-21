@@ -1,12 +1,13 @@
 import Foundation
 @testable import PromptlyKit
+import PromptlyOpenAIClient
 import Testing
 import PromptlyKitUtils
 
 struct RequestFactoryTests {
     @Test
     func responsesRequestFactorySetsHeadersAndBody() throws {
-        let tools: [any ExecutableTool] = []
+        let tools: [OpenAIToolDefinition] = []
         let factory = ResponsesRequestFactory(
             responsesURL: URL(string: "https://example.com/v1/responses")!,
             model: "gpt-test",
@@ -34,7 +35,7 @@ struct RequestFactoryTests {
 
     @Test
     func chatCompletionsRequestFactorySetsHeadersAndBody() throws {
-        let tools: [any ExecutableTool] = []
+        let tools: [OpenAIToolDefinition] = []
         let factory = ChatCompletionsRequestFactory(
             chatCompletionURL: URL(string: "https://example.com/v1/chat/completions")!,
             model: "gpt-test",

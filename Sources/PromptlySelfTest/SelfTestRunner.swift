@@ -1,5 +1,6 @@
 import Foundation
 import PromptlyKit
+import PromptlyKitCommunication
 import PromptlyKitTooling
 import PromptlyKitUtils
 import PromptlySubAgents

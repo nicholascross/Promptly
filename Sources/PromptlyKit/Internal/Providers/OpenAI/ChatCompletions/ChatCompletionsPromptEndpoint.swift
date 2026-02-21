@@ -1,4 +1,6 @@
 import Foundation
+import PromptlyKitCommunication
+import PromptlyOpenAIClient
 import PromptlyKitUtils
 
 struct ChatCompletionsPromptEndpoint: PromptTurnEndpoint {
@@ -67,8 +69,8 @@ struct ChatCompletionsPromptEndpoint: PromptTurnEndpoint {
 
         let processor = ChatCompletionsResponseProcessor()
 
-        var toolCallRequest: ToolCallRequest?
-        var assistantToolCallMessage: ChatMessage?
+        var toolCallRequests: [ToolCallRequest] = []
+        var assistantToolCalls: [ChatFunctionCall] = []
 
         for try await line in lines {
             let events = try await processor.process(line: line)
@@ -78,19 +80,16 @@ struct ChatCompletionsPromptEndpoint: PromptTurnEndpoint {
                     await onEvent(.assistantTextDelta(text))
 
                 case let .toolCall(id, name, args):
-                    toolCallRequest = ToolCallRequest(id: id, name: name, arguments: args)
+                    toolCallRequests.append(
+                        ToolCallRequest(id: id, name: name, arguments: args)
+                    )
 
-                    assistantToolCallMessage = ChatMessage(
-                        role: .assistant,
-                        id: id,
-                        content: .empty,
-                        toolCalls: [
-                            ChatFunctionCall(
-                                id: id,
-                                function: try ChatFunction(name: name, arguments: args),
-                                type: "function"
-                            )
-                        ]
+                    assistantToolCalls.append(
+                        ChatFunctionCall(
+                            id: id,
+                            function: try ChatFunction(name: name, arguments: args),
+                            type: "function"
+                        )
                     )
 
                 case .stop:
@@ -103,10 +102,16 @@ struct ChatCompletionsPromptEndpoint: PromptTurnEndpoint {
             }
         }
 
-        if let toolCallRequest, let assistantToolCallMessage {
+        if !toolCallRequests.isEmpty {
+            let assistantToolCallMessage = ChatMessage(
+                role: .assistant,
+                content: .empty,
+                toolCalls: assistantToolCalls
+            )
+
             return PromptTurn(
                 context: .chatCompletions(messages: messages + [assistantToolCallMessage]),
-                toolCalls: [toolCallRequest],
+                toolCalls: toolCallRequests,
                 resumeToken: nil
             )
         }

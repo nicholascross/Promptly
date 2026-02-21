@@ -4,108 +4,147 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Homebrew](https://img.shields.io/badge/homebrew-promptly-informational?logo=homebrew)](https://github.com/nicholascross/homebrew-promptly)
 
-Promptly is a Swift-based command line tool that helps you work with large language models from the terminal. It supports OpenAI and compatible providers including local hosts (Ollama, llama.cpp). Promptly includes secure token storage, canned prompts, sub agents, and safe shell command integrations for automation.
+Promptly is a runtime for building software that an AI can operate.
+
+It provides an execution loop that sends messages to a model, executes model-requested tools, feeds tool outputs back to the model, and returns structured conversation entries. The project ships as a command line interface and as reusable Swift libraries.
 
 ## Project status
 
-This is a source available project. API and feature stability are not a goal, and breaking changes are expected as the project evolves.
+This is a source-available project under active change. Breaking changes are expected.
 
-## Highlights
+## What is Promptly?
 
-- Multi-provider support across hosted services and local hosts.
-- Secure token storage in the system Keychain.
-- One-off commands with piped input and an interactive session mode.
-- Canned prompts and configurable shell tools for repeatable workflows.
-- Sub agents for specialized workflows and tool isolation.
+Promptly is both:
 
-For more details on configuration, shell tools, canned prompts, and sub agents, see the documentation links in the Documentation section.
+- A runtime (`PromptlyKit`) for model-driven execution with tools
+- An execution environment (`PromptlyKitTooling`, `PromptlySubAgents`, `PromptlyDetachedTask`) for capabilities, delegation, and follow-up handling
+- A command line interface first workflow tool (`promptly`) for interactive terminal use, tool management, canned prompts, sub agents, and self tests
 
-## Quick start
+The runtime is provider-compatible through OpenAI-style APIs (Responses and Chat Completions), configured by provider URL and credentials.
+
+## How it works
+
+At runtime, Promptly follows this loop:
+
+1. Build a run context from messages (or a resume token for Responses).
+2. Send the request through a provider adapter (`PromptTurnEndpoint`).
+3. Stream events (`assistantTextDelta`, tool call requested, tool call completed).
+4. If the model requested tools, execute matching `ExecutableTool` implementations.
+5. Submit tool outputs back to the provider endpoint.
+6. Repeat until there are no more tool calls.
+7. Return `PromptRunResult` with `conversationEntries` and optional `resumeToken`.
+
+The loop is implemented in `PromptRunExecutor`, behind the public `PromptRunCoordinator` API.
+
+## Core concepts
+
+- `PromptRunCoordinator`: Public entry point to run a prompt session.
+- `PromptRunContext`: Either `.messages(...)` or `.resume(resumeToken:requestMessages:)`.
+- `PromptRunResult`: Returned entries (`PromptMessage`) plus optional resume token.
+- `ExecutableTool`: Capability contract (name, description, JSON schema, async execute).
+- `PromptStreamEvent`: Provider-neutral stream of assistant deltas and tool lifecycle events.
+- Shell tools: Loaded from `tools.json` definitions and exposed as `ExecutableTool` values.
+- Sub agents: Loaded as tools (`SubAgent-<name>`) and executed through detached task sessions.
+- Return contract for sub agents: `ReturnToSupervisor` payload with optional `resumeId` and `logPath`.
+
+## Architecture overview
+
+### Library-level modules
+
+- `PromptlyKit`: Core runtime, prompt coordination, provider adapters, stream events, session loop.
+- `PromptlyKitTooling`: Shell command tool loading and execution, argument templates, built-in `ApplyPatch`.
+- `PromptlySubAgents`: Sub agent configuration loading, tool factory, supervisor recovery logic.
+- `PromptlyDetachedTask`: Detached task orchestration, resume strategies, transcript logging.
+- `PromptlyConsole`: Console runner and interactive conversation loop.
+
+### Command line interface specific module
+
+- `Promptly` executable target:
+  - `prompt` (default): run one-shot or interactive sessions
+  - `ui`: terminal user interface mode
+  - `tool`: manage tool definitions
+  - `agent`: manage and run sub agents
+  - `canned`: manage canned prompts
+  - `token`: store or update provider token in Keychain
+  - `self-test`: run runtime, tool, and sub agent checks
+
+### Runtime boundary
+
+Promptly keeps a clear boundary between reasoning and execution:
+
+- Model reasoning happens through provider endpoints.
+- Execution happens only via explicit tool calls.
+- Tool outputs are serialized as JavaScript Object Notation and fed back into the loop.
+
+## Example flow
+
+A typical command line interface run with tools enabled:
+
+1. User starts `promptly` with messages and tool filters.
+2. Command line interface loads config, tools, and optional sub agent tools.
+3. `PromptRunCoordinator` sends the request to the selected API (`responses` or `chat`).
+4. Model emits text deltas and may request a tool.
+5. Promptly executes the tool and emits completion events.
+6. Tool output is returned to the model for continuation.
+7. Final assistant output and tool interactions are returned as `conversationEntries`.
+
+For sub agent follow-up cases (`needsMoreInformation` or `needsSupervisorDecision`), Promptly can recover a missing resume identifier by running one recovery cycle before asking the user for additional input.
+
+## Session and transcript behavior
+
+- Main prompt sessions: conversation state is held in memory by the runner.
+- Runtime resume token:
+  - Responses API: supported (`PromptRunResult.resumeToken`, `PromptRunContext.resume`).
+  - Chat Completions API: resume token is not supported; continuation requires full messages.
+- Sub agent continuation: uses `resumeId` managed by `DetachedTaskResumeStore` during the running process.
+- Sub agent transcripts: detached task runs can log JavaScript Object Notation Lines transcripts under the configuration directory in `agents/logs/<agent-name>/...` when log sink initialization succeeds.
+
+## Tool execution and safety model
+
+Promptly uses explicit tool definitions and filtering:
+
+- Tools are allow-listed from configuration files (`local`, `user`, `bundled`), plus built-in tools.
+- Include and exclude filters control which tools are loaded.
+- `optIn` tools are disabled by default unless explicitly included.
+- `{(path)}` argument template placeholders enforce workspace-relative path checks in shell tools.
+- Built-in `ApplyPatch` applies diffs through a sandboxed workspace file system root.
+
+Important: shell commands still execute as local processes. Safety depends on tool definitions, argument templates, and your include and exclude policy.
+
+## Streaming support
+
+Streaming is first-class in the runtime:
+
+- Responses API: server-sent events are parsed incrementally; assistant text deltas are emitted as they arrive.
+- Chat Completions API: streamed chunks are processed into content and tool call events.
+- Output handling is provider-neutral via `PromptStreamEvent`.
+
+## Command line interface usage
+
+### Install
 
 ```bash
 brew tap nicholascross/promptly
 brew install promptly
-
-promptly token setup
-
-echo "Summarize this change log." | promptly "Write a short release note summary."
 ```
 
-## Examples
-
-```bash
-# Generate a concise commit message from the staged diff and copy to clipboard
-git diff --staged | promptly --message "user:Write a concise commit message for the staged changes." | pbcopy
-```
-
-```bash
-# Use a canned prompt named "refactor" to improve Main.swift
-cat Sources/App/Main.swift | promptly --canned refactor
-```
-
-```bash
-# Display the project directory structure using the ShowFileTree tool
-promptly --include-tools ShowFileTree --message "user:Display the project directory structure."
-```
-
-## Requirements
-
-- macOS 14 or later
-- Swift 6.0 or later
-- Xcode or Swift Package Manager
-
-## Installation
-
-### Homebrew (recommended)
-
-```bash
-brew tap nicholascross/promptly
-brew install promptly
-```
-
-### Manual build
-
-1. Clone the repository:
-   ```bash
-   git clone https://github.com/nicholascross/Promptly.git
-   cd Promptly
-   ```
-
-2. Build using Swift Package Manager:
-   ```bash
-   swift build -c release
-   ```
-
-3. Copy the executable to your path:
-   ```bash
-   cp .build/release/Promptly ~/bin/promptly
-   ```
-
-Default agents and canned prompts ship in the PromptlyAssets resource bundle. When building manually, copy the resource bundle next to the executable or set `PROMPTLY_RESOURCE_BUNDLE` to the bundle path. Homebrew installs include the resource bundle alongside the executable.
-
-## Usage
-
-### Store your application programming interface token
+### Configure credentials
 
 ```bash
 promptly token setup
 ```
 
-For provider, model, and token configuration, see [Configuration](Docs/configuration.md).
-
-### Send input by pipe
+### One-shot run
 
 ```bash
-echo "some output to send" | promptly "Your context about what to do with the input"
+promptly --message "user:Summarize the latest changes in this repository."
 ```
 
-### Interactive session
+### Interactive run
 
 ```bash
-promptly --interactive --message "system:You are an bumbling assistant."
+promptly --interactive --message "system:Be concise and technical."
 ```
-
-Press Control-D or Control-C to exit the interactive session.
 
 ### Terminal user interface
 
@@ -113,57 +152,45 @@ Press Control-D or Control-C to exit the interactive session.
 promptly ui
 ```
 
-Terminal user interface mode requires an interactive terminal.
-
-### Canned prompts
-
-Promptly ships bundled canned prompts and loads them on demand. To override or add new prompts, create text files in `~/.config/promptly/canned/`.
-See [Canned prompts](Docs/canned.md) for bundled prompt content and examples.
+### Use a tool via natural language instructions
 
 ```bash
-promptly canned list
-
-echo "something" | promptly --canned example
+promptly --include-tools ShowFileTree --message "user:Show the project directory tree."
 ```
 
-### Messages with roles
-
-Use the `--message` option to send multiple role-prefixed messages (system, assistant, user).
-
-```bash
-promptly --message "system:Respond as a pirate." --message "assistant:Ahoy" --message "user:Can you tell me a story?"
-```
-
-### Shell tools
-
-Shell tools are allow listed and can be limited with include or exclude filters. Provide natural language instructions in your message body.
-See [Shell tools](Docs/shell-tools.md) for configuration details and [Shell tools reference](Docs/tools.json) for the default tool definitions.
-
-```bash
-promptly --include-tools ShowFileTree --message "user:Display the project directory structure."
-```
-
-### Sub agents
-
-Manage sub agents with the `promptly agent` commands. For a full list of options, run `promptly agent --help`.
-See [Sub agents](Docs/sub-agents.md) for configuration details and [Self tests](Docs/self-test.md) for the sub agent self test workflow.
+### Work with sub agents
 
 ```bash
 promptly agent list
+promptly agent view refactor
+promptly agent run refactor "Refactor the parser without changing behavior."
 ```
+
+### Run built-in self tests
+
+```bash
+promptly self-test basic
+promptly self-test tools
+promptly self-test agents
+```
+
+## Design principles
+
+- Runtime-first design: model output is not treated as final until tool actions complete.
+- Explicit capability contracts: tools are schema-described and invoked by name.
+- Provider-neutral runtime events: streaming and tool lifecycle use shared types.
+- Additive composition: command line interface and sub agent systems are built on the same core run loop.
+- Configured execution surface: capabilities come from merged tool and agent configuration, not hidden defaults.
+- Pragmatic observability: conversation entries are structured; detached sub agent runs can emit transcript logs.
 
 ## Documentation
 
-- Configuration guide: [Configuration](Docs/configuration.md)
-- Sub agents: [Sub agents](Docs/sub-agents.md)
-- Shell tools: [Shell tools](Docs/shell-tools.md)
-- Self tests: [Self tests](Docs/self-test.md)
-- Bundled canned prompts: [Canned prompts](Docs/canned.md)
+- [Configuration](Docs/configuration.md)
+- [Shell tools](Docs/shell-tools.md)
+- [Sub agents](Docs/sub-agents.md)
+- [Self tests](Docs/self-test.md)
+- [Canned prompts](Docs/canned.md)
 
 ## License
 
-Promptly is released under the MIT License. See the LICENSE file for more details.
-
-## Acknowledgements
-
-This project has utilized generative artificial intelligence tools in various aspects of its development, including coding assistance, testing, and documentation enhancement. The use of these tools has contributed to the efficiency and effectiveness of the development process.
+Promptly is released under the MIT License. See [LICENSE](LICENSE).

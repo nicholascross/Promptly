@@ -139,4 +139,8 @@ These notes capture the best practices learned while extending Promptly’s tool
 - Keep supervisor follow up resume recovery logic centralized in `PromptlySubAgents` through `SubAgentSupervisorRunner` and `SubAgentSupervisorRecovery`.
 - Route `prompt`, `ui`, `agent run`, and self test supervisor flows through the shared runner instead of duplicating per interface recovery checks or prompts.
 
+### 29. Chat Completions Tool Call Assembly
+- Parse streamed Chat Completions `tool_calls` using the call `index` field so argument fragments are assembled per call, not globally.
+- On `finish_reason: "tool_calls"`, emit every assembled call in order, and carry all of them into the endpoint turn context and `PromptTurn.toolCalls`.
+
 Following these conventions keeps Promptly’s automation surface predictable and safe for both human operators and LLM agents. Edit this file whenever fresh insights arise so future contributors inherit the full context.

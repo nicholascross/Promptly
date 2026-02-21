@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyOpenAIClient
 import PromptlyKitUtils
 
 struct ResponsesPromptEndpoint: PromptTurnEndpoint {
@@ -64,18 +65,27 @@ struct ResponsesPromptEndpoint: PromptTurnEndpoint {
         previousResponseId: String?,
         onEvent: @escaping @Sendable (PromptStreamEvent) async -> Void
     ) async throws -> PromptTurn {
-        var result = try await client.createResponse(
-            items: items,
-            previousResponseId: previousResponseId,
-            onTextStream: { fragment in
-                await onEvent(.assistantTextDelta(fragment))
-            }
-        )
+        var result: ResponseResult
+        do {
+            result = try await client.createResponse(
+                items: items,
+                previousResponseId: previousResponseId,
+                onTextStream: { fragment in
+                    await onEvent(.assistantTextDelta(fragment))
+                }
+            )
+        } catch let error as OpenAIClientError {
+            throw promptError(from: error)
+        }
 
         var response = result.response
         while response.status == .inProgress {
             try await Task.sleep(nanoseconds: 200_000_000) // 0.2s
-            response = try await client.retrieveResponse(id: response.id)
+            do {
+                response = try await client.retrieveResponse(id: response.id)
+            } catch let error as OpenAIClientError {
+                throw promptError(from: error)
+            }
             result = ResponseResult(response: response, streamedOutputs: result.streamedOutputs)
         }
 
@@ -143,5 +153,14 @@ struct ResponsesPromptEndpoint: PromptTurnEndpoint {
             throw PromptError.apiError("Failed to encode tool output.")
         }
         return text
+    }
+
+    private func promptError(from error: OpenAIClientError) -> PromptError {
+        switch error {
+        case let .invalidResponse(statusCode):
+            return .invalidResponse(statusCode: statusCode)
+        case let .apiError(message):
+            return .apiError(message)
+        }
     }
 }

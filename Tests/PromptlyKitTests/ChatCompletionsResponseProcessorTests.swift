@@ -1,5 +1,6 @@
 import Foundation
 @testable import PromptlyKit
+import PromptlyOpenAIClient
 import Testing
 
 struct ChatCompletionsResponseProcessorTests {
@@ -54,5 +55,46 @@ struct ChatCompletionsResponseProcessorTests {
         }
 
         expectInteger(dict["a"], equals: 1)
+    }
+
+    @Test
+    func emitsMultipleToolCallsFromSingleTurn() async throws {
+        let processor = ChatCompletionsResponseProcessor()
+
+        let chunk1 = #"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"FirstTool","arguments":"{\"a\":"}},{"index":1,"id":"call_2","function":{"name":"SecondTool","arguments":"{\"b\":"}}]},"finish_reason":null}]}"#
+        let chunk2 = #"data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"1}"}},{"index":1,"function":{"arguments":"2}"}}]},"finish_reason":"tool_calls"}]}"#
+
+        _ = try await processor.process(line: chunk1)
+        let events = try await processor.process(line: chunk2)
+
+        #expect(events.count == 2)
+
+        guard case let .toolCall(id1, name1, args1) = events[0] else {
+            Issue.record("Expected first event to be .toolCall")
+            return
+        }
+
+        #expect(id1 == "call_1")
+        #expect(name1 == "FirstTool")
+
+        guard case let .object(dict1) = args1 else {
+            Issue.record("Expected first tool call args to decode as an object")
+            return
+        }
+        expectInteger(dict1["a"], equals: 1)
+
+        guard case let .toolCall(id2, name2, args2) = events[1] else {
+            Issue.record("Expected second event to be .toolCall")
+            return
+        }
+
+        #expect(id2 == "call_2")
+        #expect(name2 == "SecondTool")
+
+        guard case let .object(dict2) = args2 else {
+            Issue.record("Expected second tool call args to decode as an object")
+            return
+        }
+        expectInteger(dict2["b"], equals: 2)
     }
 }

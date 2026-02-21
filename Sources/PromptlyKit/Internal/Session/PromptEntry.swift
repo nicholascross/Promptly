@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyOpenAIClient
 
 enum PromptEntry: Sendable {
     case initial(messages: [ChatMessage])

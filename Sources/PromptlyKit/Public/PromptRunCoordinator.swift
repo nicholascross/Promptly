@@ -1,4 +1,6 @@
 import Foundation
+import PromptlyKitCommunication
+import PromptlyOpenAIClient
 import PromptlyKitUtils
 
 /// Public entry point for coordinating prompt runs and stream events.
@@ -17,6 +19,13 @@ public struct PromptRunCoordinator: PromptEndpoint {
 
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
+        let toolDefinitions = tools.map { tool in
+            OpenAIToolDefinition(
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters
+            )
+        }
 
         let endpoint: any PromptTurnEndpoint
         switch api {
@@ -29,7 +38,7 @@ public struct PromptRunCoordinator: PromptEndpoint {
                 model: model,
                 token: config.token,
                 organizationId: config.organizationId,
-                tools: tools,
+                tools: toolDefinitions,
                 encoder: encoder
             )
             let client = ResponsesClient(factory: factory, decoder: decoder, transport: transport)
@@ -44,7 +53,7 @@ public struct PromptRunCoordinator: PromptEndpoint {
                 model: model,
                 token: config.token,
                 organizationId: config.organizationId,
-                tools: tools,
+                tools: toolDefinitions,
                 encoder: encoder
             )
             endpoint = ChatCompletionsPromptEndpoint(factory: factory, transport: transport, encoder: encoder)

@@ -1,4 +1,5 @@
 import Foundation
+import PromptlyOpenAIClient
 import PromptlyKitUtils
 
 extension PromptMessage {

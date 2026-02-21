@@ -1,5 +1,6 @@
 import Foundation
 @testable import PromptlyKit
+import PromptlyOpenAIClient
 import Testing
 import PromptlyKitUtils
 
