@@ -143,4 +143,9 @@ These notes capture the best practices learned while extending Promptly’s tool
 - Parse streamed Chat Completions `tool_calls` using the call `index` field so argument fragments are assembled per call, not globally.
 - On `finish_reason: "tool_calls"`, emit every assembled call in order, and carry all of them into the endpoint turn context and `PromptTurn.toolCalls`.
 
+### 30. Module Source Layout
+- For library targets under `Sources`, organize Swift files under `Public` and `Internal` directories.
+- Keep feature groupings (for example `Responses/Request`) nested under the visibility directory instead of at the module root.
+- Keep non-code directories such as `Resources` at the module root.
+
 Following these conventions keeps Promptly’s automation surface predictable and safe for both human operators and LLM agents. Edit this file whenever fresh insights arise so future contributors inherit the full context.
